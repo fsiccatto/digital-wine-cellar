@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+credentials.json
+.DS_Store
+PLAN_MI_CAVA_VIRTUAL.md
