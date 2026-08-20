@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import datetime
 
 from app.schemas.wine_schema import WineConsumeInput, WineCreateInput
 from app.services.sheets_service import (
@@ -18,7 +18,7 @@ def create_wine(payload: WineCreateInput):
     wine_id = str(uuid.uuid4())
     row = {
         "id": wine_id,
-        "fecha_ingreso": payload.fecha_ingreso,
+        "fecha_ingreso": payload.fecha_ingreso or datetime.now().isoformat(timespec="seconds"),
         "bodega": payload.bodega,
         "nombre_vino": payload.nombre_vino,
         "varietal": payload.varietal,
@@ -50,7 +50,7 @@ def consume_wine(wine_id: str, payload: WineConsumeInput):
     append_cata_record({
         "id_cata": str(uuid.uuid4()),
         "vino_id": wine_id,
-        "fecha_consumo": payload.fecha_consumo or date.today().isoformat(),
+        "fecha_consumo": payload.fecha_consumo or datetime.now().isoformat(timespec="seconds"),
         "puntuacion": payload.puntuacion,
         "notas_cata": payload.notas_cata,
         "maridaje": payload.maridaje,

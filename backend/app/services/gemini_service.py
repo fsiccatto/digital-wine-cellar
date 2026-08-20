@@ -4,7 +4,7 @@ import google.generativeai as genai
 
 from app.config import GEMINI_API_KEY
 
-MODEL_NAME = "gemini-1.5-flash"
+MODEL_NAME = "gemini-3.6-flash"
 
 PROMPT = """
 Extrae la información de la etiqueta del vino.

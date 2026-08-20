@@ -13,7 +13,7 @@ class WineScanResult(BaseModel):
 
 
 class WineCreateInput(BaseModel):
-    fecha_ingreso: str
+    fecha_ingreso: Optional[str] = None
     bodega: str
     nombre_vino: str
     varietal: str
