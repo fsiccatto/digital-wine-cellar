@@ -5,7 +5,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from app.services.sheets_service import ensure_required_tabs, get_spreadsheet
+from app.services.sheets_service import ensure_required_tabs, get_spreadsheet  # noqa: E402
 
 
 if __name__ == "__main__":
