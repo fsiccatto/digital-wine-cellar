@@ -1,8 +1,9 @@
 from fastapi import FastAPI
 
-app = FastAPI(title="Mi Cava Virtual API")
+from app.routes.health import router as health_router
+from app.routes.scan import router as scan_router
 
+app = FastAPI(title="Mi Cava Virtual API", version="0.1.0")
 
-@app.get("/health")
-def health_check():
-    return {"status": "ok"}
+app.include_router(health_router)
+app.include_router(scan_router)
