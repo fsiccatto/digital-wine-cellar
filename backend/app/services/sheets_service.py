@@ -18,7 +18,14 @@ INVENTORY_HEADERS = [
     "ubicacion",
     "precio_estimado",
     "foto_url",
+    "codigo_vino",
 ]
+
+LEGACY_INVENTORY_HEADERS = [header for header in INVENTORY_HEADERS if header != "codigo_vino"]
+
+
+def code_from_internal_id(wine_id: str) -> str:
+    return f"VINO-{wine_id[:8].upper()}"
 
 CATAS_HEADERS = [
     "id_cata",
@@ -61,10 +68,15 @@ def get_inventory_worksheet():
         worksheet.append_row(INVENTORY_HEADERS)
     else:
         headers = worksheet.row_values(1)
-        if headers != INVENTORY_HEADERS:
-            current = worksheet.get_all_values()
-            if not current or current[0] != INVENTORY_HEADERS:
-                worksheet.insert_row(INVENTORY_HEADERS, 1)
+        if headers == LEGACY_INVENTORY_HEADERS:
+            if worksheet.col_count < len(INVENTORY_HEADERS):
+                worksheet.add_cols(len(INVENTORY_HEADERS) - worksheet.col_count)
+            worksheet.update_cell(1, len(INVENTORY_HEADERS), "codigo_vino")
+            for row_index, row in enumerate(worksheet.get_all_values()[1:], start=2):
+                if row and row[0]:
+                    worksheet.update_cell(row_index, len(INVENTORY_HEADERS), code_from_internal_id(row[0]))
+        elif headers != INVENTORY_HEADERS:
+            worksheet.insert_row(INVENTORY_HEADERS, 1)
 
     return worksheet
 
@@ -116,10 +128,11 @@ def append_inventory_row(row: Dict[str, Any]):
         row.get("ubicacion", ""),
         row.get("precio_estimado", ""),
         row.get("foto_url", ""),
+        row.get("codigo_vino", ""),
     ])
 
 
-def update_inventory_quantity(wine_id: str, quantity: int):
+def update_inventory_quantity(codigo_vino: str, quantity: int):
     worksheet = get_inventory_worksheet()
     rows = worksheet.get_all_values()
     if len(rows) <= 1:
@@ -127,9 +140,10 @@ def update_inventory_quantity(wine_id: str, quantity: int):
 
     headers = rows[0]
     quantity_index = headers.index("cantidad") + 1
+    code_index = headers.index("codigo_vino")
 
     for row_index, row in enumerate(rows[1:], start=2):
-        if row and row[0] == wine_id:
+        if row and len(row) > code_index and row[code_index] == codigo_vino:
             worksheet.update_cell(row_index, quantity_index, quantity)
             return
 

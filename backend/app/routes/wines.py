@@ -29,10 +29,10 @@ def create_new_wine(payload: WineCreateInput):
         ) from exc
 
 
-@router.post("/wines/{wine_id}/consume")
-def consume_wine_route(wine_id: str, payload: WineConsumeInput):
+@router.post("/wines/{codigo_vino}/consume")
+def consume_wine_route(codigo_vino: str, payload: WineConsumeInput):
     try:
-        return consume_wine(wine_id, payload)
+        return consume_wine(codigo_vino, payload)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

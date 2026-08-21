@@ -58,3 +58,11 @@ def test_create_input_rejects_invalid_numeric_values(field, value):
 def test_consume_input_rejects_score_outside_range(score):
     with pytest.raises(ValidationError):
         WineConsumeInput(puntuacion=score)
+
+
+def test_client_cannot_set_system_dates():
+    with pytest.raises(ValidationError):
+        WineCreateInput(**{**valid_wine_data(), "fecha_ingreso": "2020-01-01"})
+
+    with pytest.raises(ValidationError):
+        WineConsumeInput(puntuacion=4, fecha_consumo="2020-01-01")

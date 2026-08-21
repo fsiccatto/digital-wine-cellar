@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 CURRENT_YEAR = datetime.now().year
 
@@ -37,7 +37,8 @@ class WineScanResult(BaseModel):
 
 
 class WineCreateInput(BaseModel):
-    fecha_ingreso: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+
     bodega: str
     nombre_vino: str
     varietal: str
@@ -55,7 +56,8 @@ class WineCreateInput(BaseModel):
 
 
 class WineConsumeInput(BaseModel):
-    fecha_consumo: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+
     puntuacion: int = Field(ge=1, le=5)
     notas_cata: Optional[str] = None
     maridaje: Optional[str] = None
@@ -63,6 +65,7 @@ class WineConsumeInput(BaseModel):
 
 class WineRecord(BaseModel):
     id: str
+    codigo_vino: str
     fecha_ingreso: str
     bodega: str
     nombre_vino: str
