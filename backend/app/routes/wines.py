@@ -20,8 +20,7 @@ def get_wines():
 @router.post("/wines", response_model=WineRecord)
 def create_new_wine(payload: WineCreateInput):
     try:
-        row = create_wine(payload)
-        return WineRecord(**row)
+        return create_wine(payload)
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -32,6 +32,12 @@ variable "container_port" {
   default     = 8000
 }
 
+variable "max_instances" {
+  description = "Upper bound on Cloud Run instances, caps worst-case cost"
+  type        = number
+  default     = 2
+}
+
 variable "environment_variables" {
   description = "Plain environment variables for Cloud Run"
   type        = map(string)

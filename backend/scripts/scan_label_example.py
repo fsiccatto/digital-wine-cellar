@@ -6,7 +6,7 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
-from app.services.gemini_service import extract_wine_data_from_image_bytes
+from app.services.gemini_service import extract_wine_data_from_image_bytes  # noqa: E402
 
 
 def main():

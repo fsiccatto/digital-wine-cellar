@@ -23,9 +23,11 @@ def test_create_wine_generates_code_and_system_date():
     ):
         result = wine_service.create_wine(wine_payload())
 
-    assert result["codigo_vino"] == "TRA-MAL-2020-0001"
-    datetime.fromisoformat(result["fecha_ingreso"])
-    append_row.assert_called_once_with(result)
+    assert result.codigo_vino == "TRA-MAL-2020-0001"
+    datetime.fromisoformat(result.fecha_ingreso)
+    persisted = append_row.call_args.args[0]
+    assert persisted["codigo_vino"] == "TRA-MAL-2020-0001"
+    assert persisted["precio_estimado"] == ""
 
 
 def test_consume_wine_uses_code_and_system_date():

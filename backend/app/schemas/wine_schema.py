@@ -63,6 +63,12 @@ class WineConsumeInput(BaseModel):
     maridaje: Optional[str] = None
 
 
+def empty_to_none(value):
+    if isinstance(value, str) and not value.strip():
+        return None
+    return value
+
+
 class WineRecord(BaseModel):
     id: str
     codigo_vino: str
@@ -77,3 +83,5 @@ class WineRecord(BaseModel):
     ubicacion: Optional[str] = None
     precio_estimado: Optional[float] = None
     foto_url: Optional[str] = None
+
+    _blank_to_none = field_validator("precio_estimado", mode="before")(empty_to_none)

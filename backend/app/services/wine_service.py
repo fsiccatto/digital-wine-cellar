@@ -1,7 +1,9 @@
 import uuid
 from datetime import datetime
 
-from app.schemas.wine_schema import WineConsumeInput, WineCreateInput
+from pydantic import ValidationError
+
+from app.schemas.wine_schema import WineConsumeInput, WineCreateInput, WineRecord
 from app.services.sheets_service import (
     append_cata_record,
     append_inventory_row,
@@ -11,37 +13,38 @@ from app.services.sheets_service import (
 from app.utils.wine_code import build_wine_code, next_sequence
 
 
-def list_wines():
-    return get_inventory_rows()
+def list_wines() -> list[WineRecord]:
+    wines = []
+    for row in get_inventory_rows():
+        try:
+            wines.append(WineRecord(**row))
+        except ValidationError:
+            # Filas editadas a mano en el Sheet no deben invalidar todo el inventario.
+            continue
+    return wines
 
 
-def create_wine(payload: WineCreateInput):
+def create_wine(payload: WineCreateInput) -> WineRecord:
     rows = get_inventory_rows()
-    wine_id = str(uuid.uuid4())
     sequence = next_sequence(rows, payload.bodega, payload.varietal, payload.anada)
-    wine_code = build_wine_code(
-        bodega=payload.bodega,
-        varietal=payload.varietal,
-        anada=payload.anada,
-        sequence=sequence,
+    record = WineRecord(
+        id=str(uuid.uuid4()),
+        codigo_vino=build_wine_code(
+            bodega=payload.bodega,
+            varietal=payload.varietal,
+            anada=payload.anada,
+            sequence=sequence,
+        ),
+        fecha_ingreso=datetime.now().isoformat(timespec="seconds"),
+        **payload.model_dump(),
     )
-    row = {
-        "id": wine_id,
-        "codigo_vino": wine_code,
-        "fecha_ingreso": datetime.now().isoformat(timespec="seconds"),
-        "bodega": payload.bodega,
-        "nombre_vino": payload.nombre_vino,
-        "varietal": payload.varietal,
-        "anada": payload.anada,
-        "region": payload.region,
-        "alcohol": payload.alcohol,
-        "cantidad": payload.cantidad,
-        "ubicacion": payload.ubicacion or "",
-        "precio_estimado": payload.precio_estimado if payload.precio_estimado is not None else "",
-        "foto_url": payload.foto_url or "",
-    }
-    append_inventory_row(row)
-    return row
+    append_inventory_row(
+        {
+            key: "" if value is None else value
+            for key, value in record.model_dump().items()
+        }
+    )
+    return record
 
 
 def consume_wine(codigo_vino: str, payload: WineConsumeInput):

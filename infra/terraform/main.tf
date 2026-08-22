@@ -21,6 +21,11 @@ resource "google_cloud_run_v2_service" "backend" {
   ingress = "INGRESS_TRAFFIC_ALL"
 
   template {
+    scaling {
+      min_instance_count = 0
+      max_instance_count = var.max_instances
+    }
+
     containers {
       image = var.container_image
 
