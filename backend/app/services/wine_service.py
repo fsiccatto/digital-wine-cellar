@@ -8,6 +8,7 @@ from app.services.sheets_service import (
     get_inventory_rows,
     update_inventory_quantity,
 )
+from app.utils.wine_code import build_wine_code
 
 
 def list_wines():
@@ -16,7 +17,13 @@ def list_wines():
 
 def create_wine(payload: WineCreateInput):
     wine_id = str(uuid.uuid4())
-    wine_code = f"VINO-{wine_id[:8].upper()}"
+    wine_code = build_wine_code(
+        bodega=payload.bodega,
+        nombre_vino=payload.nombre_vino,
+        varietal=payload.varietal,
+        anada=payload.anada,
+        unique_seed=wine_id,
+    )
     row = {
         "id": wine_id,
         "codigo_vino": wine_code,

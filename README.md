@@ -1,26 +1,99 @@
 # Mi Cava Virtual
 
-Proyecto para gestionar el inventario personal de vinos con extracción automática de etiquetas mediante Gemini y almacenamiento en Google Sheets.
+Backend para inventario personal de vinos con:
 
-## Objetivo
-- registrar vinos y stock;
-- extraer datos desde fotos de etiquetas;
-- guardar todo en Google Sheets;
-- registrar catas y consumo;
-- mantener la lógica en backend.
+- escaneo de etiqueta con Gemini;
+- persistencia en Google Sheets;
+- control de stock y registro de catas.
 
-## Stack propuesto
-- Python 3.11 LTS + FastAPI
-- Google Gemini 1.5 Flash
-- Google Sheets API
-- Service Account para acceso seguro
+## Stack actual
 
-## Requisito de entorno
-Este proyecto está configurado para trabajar con Python 3.11 porque es la versión más compatible con la stack de FastAPI + Pydantic + Google SDKs.
+- Python 3.11
+- FastAPI
+- Google Gemini (`gemini-3.6-flash`)
+- Google Sheets API (Service Account)
 
-No recomendamos usar Python 3.14 para esta etapa inicial, ya que la dependencia `pydantic-core` puede intentar compilar desde origen y fallar por falta de compatibilidad o herramientas del sistema.
+## Requisitos
 
-## Estado actual
-- plan técnico documentado
-- estructura base del repositorio inicializada
-- CI base configurada para validar backend en GitHub Actions
+- Python 3.11
+- Archivo `backend/.env`
+- Archivo `backend/credentials.json`
+
+Variables de entorno esperadas:
+
+```env
+GEMINI_API_KEY=tu_api_key
+GOOGLE_SHEETS_CREDENTIALS_FILE=credentials.json
+GOOGLE_SHEET_NAME=Mi_Cava_Virtual
+MAX_IMAGE_SIZE_BYTES=10485760
+```
+
+## Comandos utiles
+
+```bash
+# tests
+.venv/Scripts/python -m pytest backend/tests -q
+
+# lint
+.venv/Scripts/python -m ruff check backend/app backend/tests
+
+# run API
+cd backend
+..\.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+## Seguridad y robustez ya implementadas
+
+- upload de imagen con limite configurable (`MAX_IMAGE_SIZE_BYTES`);
+- validacion real de imagen con Pillow (no solo MIME);
+- fechas de ingreso/consumo generadas solo por el sistema;
+- validaciones de negocio con Pydantic:
+	- anada entre 1900 y anio actual;
+	- cantidad >= 0;
+	- puntuacion entre 1 y 5;
+	- campos obligatorios no vacios.
+
+## Codigo interno de vino
+
+Cada vino tiene dos identificadores:
+
+- `id`: UUID tecnico interno.
+- `codigo_vino`: codigo legible para operar consumo.
+
+Formato:
+
+```text
+VINO-<BOD>-<NOM>-<VAR>-<ANADA>-<SUF>
+```
+
+Ejemplo:
+
+```text
+VINO-TRA-FON-MAL-2020-AB12
+```
+
+Donde:
+
+- `BOD`: 3 caracteres de bodega.
+- `NOM`: 3 caracteres de nombre del vino.
+- `VAR`: 3 caracteres de varietal.
+- `ANADA`: anada del vino.
+- `SUF`: 4 caracteres de unicidad derivados del UUID.
+
+El endpoint de consumo usa `codigo_vino`:
+
+```http
+POST /api/wines/{codigo_vino}/consume
+```
+
+## Terraform (Cloud Run)
+
+Se agrega base Terraform en `infra/terraform` para desplegar el backend en Cloud Run.
+
+Flujo esperado:
+
+1. construir y publicar imagen del backend;
+2. configurar variables de Terraform;
+3. ejecutar `terraform init/plan/apply`.
+
+> Nota: Terraform provisiona infraestructura. La imagen del contenedor se debe publicar previamente.

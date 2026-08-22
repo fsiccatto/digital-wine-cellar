@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 import gspread
 
 from app.config import GOOGLE_SHEETS_CREDENTIALS_FILE, GOOGLE_SHEET_NAME
+from app.utils.wine_code import build_wine_code
 
 INVENTORY_HEADERS = [
     "id",
@@ -22,10 +23,6 @@ INVENTORY_HEADERS = [
 ]
 
 LEGACY_INVENTORY_HEADERS = [header for header in INVENTORY_HEADERS if header != "codigo_vino"]
-
-
-def code_from_internal_id(wine_id: str) -> str:
-    return f"VINO-{wine_id[:8].upper()}"
 
 CATAS_HEADERS = [
     "id_cata",
@@ -74,7 +71,19 @@ def get_inventory_worksheet():
             worksheet.update_cell(1, len(INVENTORY_HEADERS), "codigo_vino")
             for row_index, row in enumerate(worksheet.get_all_values()[1:], start=2):
                 if row and row[0]:
-                    worksheet.update_cell(row_index, len(INVENTORY_HEADERS), code_from_internal_id(row[0]))
+                    wine_id = row[0]
+                    bodega = row[2] if len(row) > 2 else ""
+                    nombre_vino = row[3] if len(row) > 3 else ""
+                    varietal = row[4] if len(row) > 4 else ""
+                    anada = row[5] if len(row) > 5 else ""
+                    code = build_wine_code(
+                        bodega=bodega,
+                        nombre_vino=nombre_vino,
+                        varietal=varietal,
+                        anada=anada,
+                        unique_seed=wine_id,
+                    )
+                    worksheet.update_cell(row_index, len(INVENTORY_HEADERS), code)
         elif headers != INVENTORY_HEADERS:
             worksheet.insert_row(INVENTORY_HEADERS, 1)
 

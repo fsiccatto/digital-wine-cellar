@@ -1,0 +1,11 @@
+project_id        = "your-gcp-project-id"
+region            = "us-central1"
+service_name      = "digital-wine-cellar-backend"
+container_image   = "us-central1-docker.pkg.dev/your-project/your-repo/digital-wine-cellar:latest"
+allow_unauthenticated = true
+
+environment_variables = {
+  GOOGLE_SHEET_NAME          = "Mi_Cava_Virtual"
+  GOOGLE_SHEETS_CREDENTIALS_FILE = "credentials.json"
+  MAX_IMAGE_SIZE_BYTES       = "10485760"
+}

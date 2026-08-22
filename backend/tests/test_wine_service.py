@@ -20,8 +20,8 @@ def test_create_wine_generates_code_and_system_date():
     with patch.object(wine_service, "append_inventory_row") as append_row:
         result = wine_service.create_wine(wine_payload())
 
-    assert result["codigo_vino"].startswith("VINO-")
-    assert len(result["codigo_vino"]) == 13
+    assert result["codigo_vino"].startswith("VINO-TRA-FON-MAL-2020-")
+    assert len(result["codigo_vino"]) == 26
     datetime.fromisoformat(result["fecha_ingreso"])
     append_row.assert_called_once_with(result)
 
