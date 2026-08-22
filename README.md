@@ -63,22 +63,21 @@ Cada vino tiene dos identificadores:
 Formato:
 
 ```text
-VINO-<BOD>-<NOM>-<VAR>-<ANADA>-<SUF>
+<BOD>-<VAR>-<ANADA>-<SECUENCIA>
 ```
 
 Ejemplo:
 
 ```text
-VINO-TRA-FON-MAL-2020-AB12
+TRA-MAL-2020-0001
 ```
 
 Donde:
 
 - `BOD`: 3 caracteres de bodega.
-- `NOM`: 3 caracteres de nombre del vino.
 - `VAR`: 3 caracteres de varietal.
 - `ANADA`: anada del vino.
-- `SUF`: 4 caracteres de unicidad derivados del UUID.
+- `SECUENCIA`: contador incremental para la combinacion BOD-VAR-ANADA.
 
 El endpoint de consumo usa `codigo_vino`:
 

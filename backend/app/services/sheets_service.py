@@ -4,7 +4,7 @@ from typing import Any, Dict, List
 import gspread
 
 from app.config import GOOGLE_SHEETS_CREDENTIALS_FILE, GOOGLE_SHEET_NAME
-from app.utils.wine_code import build_wine_code
+from app.utils.wine_code import build_wine_code, extract_sequence
 
 INVENTORY_HEADERS = [
     "id",
@@ -69,23 +69,11 @@ def get_inventory_worksheet():
             if worksheet.col_count < len(INVENTORY_HEADERS):
                 worksheet.add_cols(len(INVENTORY_HEADERS) - worksheet.col_count)
             worksheet.update_cell(1, len(INVENTORY_HEADERS), "codigo_vino")
-            for row_index, row in enumerate(worksheet.get_all_values()[1:], start=2):
-                if row and row[0]:
-                    wine_id = row[0]
-                    bodega = row[2] if len(row) > 2 else ""
-                    nombre_vino = row[3] if len(row) > 3 else ""
-                    varietal = row[4] if len(row) > 4 else ""
-                    anada = row[5] if len(row) > 5 else ""
-                    code = build_wine_code(
-                        bodega=bodega,
-                        nombre_vino=nombre_vino,
-                        varietal=varietal,
-                        anada=anada,
-                        unique_seed=wine_id,
-                    )
-                    worksheet.update_cell(row_index, len(INVENTORY_HEADERS), code)
+            _backfill_sequential_codes(worksheet)
         elif headers != INVENTORY_HEADERS:
             worksheet.insert_row(INVENTORY_HEADERS, 1)
+        else:
+            _migrate_old_code_format_if_needed(worksheet)
 
     return worksheet
 
@@ -169,3 +157,74 @@ def append_cata_record(row: Dict[str, Any]):
         row.get("notas_cata", ""),
         row.get("maridaje", ""),
     ])
+
+
+def _backfill_sequential_codes(worksheet):
+    counters: Dict[tuple[str, str, str], int] = {}
+    rows = worksheet.get_all_values()
+    code_column = len(INVENTORY_HEADERS)
+
+    for row_index, row in enumerate(rows[1:], start=2):
+        if not row:
+            continue
+
+        bodega = row[2] if len(row) > 2 else ""
+        varietal = row[4] if len(row) > 4 else ""
+        anada = row[5] if len(row) > 5 else ""
+
+        key = (bodega, varietal, str(anada))
+        counters[key] = counters.get(key, 0) + 1
+
+        code = build_wine_code(
+            bodega=bodega,
+            varietal=varietal,
+            anada=anada,
+            sequence=counters[key],
+        )
+        worksheet.update_cell(row_index, code_column, code)
+
+
+def _migrate_old_code_format_if_needed(worksheet):
+    rows = worksheet.get_all_values()
+    if len(rows) <= 1:
+        return
+
+    headers = rows[0]
+    code_index = headers.index("codigo_vino")
+
+    needs_migration = False
+    for row in rows[1:]:
+        if not row or len(row) <= code_index:
+            continue
+        code = row[code_index]
+        if code.startswith("VINO-"):
+            needs_migration = True
+            break
+
+    if not needs_migration:
+        return
+
+    counters: Dict[tuple[str, str, str], int] = {}
+    for row_index, row in enumerate(rows[1:], start=2):
+        if not row:
+            continue
+
+        bodega = row[2] if len(row) > 2 else ""
+        varietal = row[4] if len(row) > 4 else ""
+        anada = row[5] if len(row) > 5 else ""
+        current_code = row[code_index] if len(row) > code_index else ""
+
+        key = (bodega, varietal, str(anada))
+        parsed = extract_sequence(current_code, bodega=bodega, varietal=varietal, anada=anada)
+        if parsed is not None:
+            counters[key] = max(counters.get(key, 0), parsed)
+            continue
+
+        counters[key] = counters.get(key, 0) + 1
+        code = build_wine_code(
+            bodega=bodega,
+            varietal=varietal,
+            anada=anada,
+            sequence=counters[key],
+        )
+        worksheet.update_cell(row_index, code_index + 1, code)

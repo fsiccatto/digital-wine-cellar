@@ -17,11 +17,13 @@ def wine_payload():
 
 
 def test_create_wine_generates_code_and_system_date():
-    with patch.object(wine_service, "append_inventory_row") as append_row:
+    with (
+        patch.object(wine_service, "get_inventory_rows", return_value=[]),
+        patch.object(wine_service, "append_inventory_row") as append_row,
+    ):
         result = wine_service.create_wine(wine_payload())
 
-    assert result["codigo_vino"].startswith("VINO-TRA-FON-MAL-2020-")
-    assert len(result["codigo_vino"]) == 26
+    assert result["codigo_vino"] == "TRA-MAL-2020-0001"
     datetime.fromisoformat(result["fecha_ingreso"])
     append_row.assert_called_once_with(result)
 

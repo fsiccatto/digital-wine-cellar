@@ -8,7 +8,7 @@ from app.services.sheets_service import (
     get_inventory_rows,
     update_inventory_quantity,
 )
-from app.utils.wine_code import build_wine_code
+from app.utils.wine_code import build_wine_code, next_sequence
 
 
 def list_wines():
@@ -16,13 +16,14 @@ def list_wines():
 
 
 def create_wine(payload: WineCreateInput):
+    rows = get_inventory_rows()
     wine_id = str(uuid.uuid4())
+    sequence = next_sequence(rows, payload.bodega, payload.varietal, payload.anada)
     wine_code = build_wine_code(
         bodega=payload.bodega,
-        nombre_vino=payload.nombre_vino,
         varietal=payload.varietal,
         anada=payload.anada,
-        unique_seed=wine_id,
+        sequence=sequence,
     )
     row = {
         "id": wine_id,
