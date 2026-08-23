@@ -69,8 +69,15 @@ export function groupByShelf(wines: WineRecord[]): Shelf[] {
     }
   }
 
+  const bottlesIn = (group: WineRecord[]) =>
+    group.reduce((total, wine) => total + wine.cantidad, 0)
+
   return [...shelves.entries()]
-    .sort(([a], [b]) => {
+    .sort(([a, groupA], [b, groupB]) => {
+      // Un estante sin nada va al fondo, aunque su letra vaya antes.
+      const emptyA = bottlesIn(groupA) <= 0 ? 1 : 0
+      const emptyB = bottlesIn(groupB) <= 0 ? 1 : 0
+      if (emptyA !== emptyB) return emptyA - emptyB
       // El grupo sin ubicacion queda al final.
       if (a === '?') return 1
       if (b === '?') return -1
@@ -84,10 +91,14 @@ export function groupByShelf(wines: WineRecord[]): Shelf[] {
           : key.length === 1
             ? `Estante ${key}`
             : key, // texto libre: se muestra como vino, sin inventarle un estante
+      // Las agotadas van al fondo del estante: ocupan lugar pero no son la foto.
 
-      wines: [...group].sort((a, b) =>
-        (a.ubicacion ?? '').localeCompare(b.ubicacion ?? ''),
-      ),
+      wines: [...group].sort((a, b) => {
+        const emptyA = a.cantidad <= 0 ? 1 : 0
+        const emptyB = b.cantidad <= 0 ? 1 : 0
+        if (emptyA !== emptyB) return emptyA - emptyB
+        return (a.ubicacion ?? '').localeCompare(b.ubicacion ?? '')
+      }),
       bottles: group.reduce((total, wine) => total + wine.cantidad, 0),
     }))
 }

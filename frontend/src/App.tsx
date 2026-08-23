@@ -64,7 +64,7 @@ export default function App() {
 
       {/* La barra estorba en el escaneo, que tiene su propia acción abajo. */}
       {view.name !== 'scan' && (
-        <nav className="fixed inset-x-0 bottom-0 mx-auto flex max-w-[430px] items-center justify-between bg-gradient-to-t from-madera-950/97 to-transparent px-[30px] pt-[15px] pb-[30px] backdrop-blur-sm">
+        <nav className="fixed inset-x-0 bottom-0 mx-auto flex max-w-[430px] items-center justify-between border-t border-borde bg-madera-900/95 px-[30px] pt-[13px] pb-[26px] backdrop-blur-sm">
           <button
             type="button"
             onClick={() => setView({ name: 'cellar' })}
@@ -84,9 +84,9 @@ export default function App() {
             type="button"
             onClick={() => setView({ name: 'scan' })}
             aria-label="Escanear etiqueta"
-            className="-mt-[22px] flex h-[58px] w-[58px] items-center justify-center rounded-full bg-gradient-to-br from-borra-600 to-borra-800 text-crema shadow-[0_8px_22px_rgba(138,32,56,0.42),inset_0_1px_0_rgba(255,255,255,0.13)]"
+            className="-mt-[20px] flex h-[52px] w-[52px] items-center justify-center rounded-full bg-borra-600 text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.32)] transition-transform duration-150 active:scale-95"
           >
-            <CameraIcon />
+            <CameraIcon size={21} />
           </button>
 
           <button

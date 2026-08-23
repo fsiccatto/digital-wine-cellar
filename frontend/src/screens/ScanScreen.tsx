@@ -194,7 +194,7 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
       />
 
       {/* La foto que sacó el usuario */}
-      <div className="relative mx-[22px] mb-[18px] flex h-[210px] items-center justify-center overflow-hidden rounded-[13px] border border-borde bg-gradient-to-br from-madera-600 to-madera-800">
+      <div className="relative mx-5 mb-4 flex h-[190px] items-center justify-center overflow-hidden rounded-xl border border-borde bg-madera-950">
         {preview ? (
           <img src={preview} alt="Etiqueta capturada" className="h-full w-full object-cover" />
         ) : (
@@ -213,18 +213,20 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
         )}
 
         {stage === 'reading' && (
-          <div className="absolute inset-0 flex items-center justify-center gap-[10px] bg-madera-950/75">
+          <div className="absolute inset-0 flex items-center justify-center gap-[10px] bg-madera-900/85 backdrop-blur-[1px]">
             <SpinnerIcon className="animate-spin text-oro" />
             <span className="text-[12.5px] text-crema-300">Leyendo la etiqueta…</span>
           </div>
         )}
 
+        {/* Los chips de abajo flotan sobre la foto, que siempre es oscura: se
+            quedan en tinta clara aunque el tema sea pergamino. */}
         {preview && stage !== 'reading' && (
           <>
             {Object.values(read).some(Boolean) && (
-              <div className="absolute bottom-[11px] left-[11px] z-2 flex items-center gap-[7px] rounded-full border border-[#4a3a26] bg-madera-950/90 py-[6px] pr-3 pl-[9px]">
-                <CheckIcon size={12} className="text-vina" />
-                <span className="text-[9.5px] font-bold tracking-[0.1em] text-vina-claro uppercase">
+              <div className="absolute bottom-[10px] left-[10px] z-2 flex items-center gap-[6px] rounded-full bg-[#1a1512]/90 py-[5px] pr-[11px] pl-2">
+                <CheckIcon size={11} className="text-[#9dba7c]" />
+                <span className="text-[9px] font-bold tracking-[0.1em] text-[#cfe0b8] uppercase">
                   Etiqueta leída
                 </span>
               </div>
@@ -232,10 +234,10 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              className="absolute top-[11px] right-[11px] z-2 flex items-center gap-[7px] rounded-full border border-[#4a3a26] bg-madera-950/85 py-[6px] pr-3 pl-[9px] text-oro"
+              className="absolute top-[10px] right-[10px] z-2 flex items-center gap-[6px] rounded-full bg-[#1a1512]/85 py-[5px] pr-[11px] pl-2 text-[#e8c987]"
             >
-              <RetryIcon />
-              <span className="text-[9.5px] font-bold">Otra foto</span>
+              <RetryIcon size={12} />
+              <span className="text-[9px] font-bold">Otra foto</span>
             </button>
           </>
         )}
@@ -373,12 +375,12 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
       )}
 
       {(stage === 'form' || stage === 'saving') && (
-        <div className="fixed inset-x-0 bottom-0 mx-auto flex max-w-[430px] gap-[10px] bg-gradient-to-t from-madera-950/97 to-transparent px-[22px] pt-4 pb-[30px] backdrop-blur-sm">
+        <div className="fixed inset-x-0 bottom-0 mx-auto flex max-w-[430px] gap-[10px] border-t border-borde bg-madera-900/95 px-5 pt-3 pb-[26px] backdrop-blur-sm">
           <button
             type="button"
             onClick={handleSave}
             disabled={!complete || stage === 'saving'}
-            className="flex h-13 grow items-center justify-center gap-[10px] rounded-xl bg-gradient-to-br from-borra-600 to-borra-800 font-bold text-crema shadow-[0_7px_20px_rgba(138,32,56,0.34)] disabled:from-madera-700 disabled:to-madera-800 disabled:text-tenue-700 disabled:shadow-none"
+            className="flex h-12 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:bg-borde disabled:text-tenue-600 disabled:shadow-none"
           >
             {stage === 'saving' ? (
               <>

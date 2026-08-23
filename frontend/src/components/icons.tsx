@@ -23,6 +23,53 @@ export function VineLeafIcon({ size = 17, className }: IconProps) {
   )
 }
 
+/**
+ * Hoja de vid con su zarcillo, para el encabezado de la cava.
+ * La hoja se balancea sola; el zarcillo se dibuja al entrar (ver index.css).
+ */
+export function VineSprigIcon({ size = 34 }: { size?: number }) {
+  return (
+    <svg
+      viewBox="0 0 40 30"
+      width={size}
+      height={(size * 30) / 40}
+      fill="none"
+      aria-hidden="true"
+    >
+      {/* Sarmiento con su zarcillo enrulado: se dibuja solo al entrar. */}
+      <path
+        className="zarcillo"
+        style={{ ['--largo' as string]: '34' }}
+        d="M2 27c4.4-.5 7.4-1.9 9.4-4.2M11.4 22.8c1.5-1.2 3.4-.5 3.2 1.2-.2 1.5-2.2 1.6-2.5.1"
+        stroke="var(--color-vina)"
+        strokeWidth={1.2}
+        strokeLinecap="round"
+      />
+      {/* Hoja de vid: cinco lobulos con senos marcados, la silueta que la
+          hace reconocible. Un ovalo liso no se lee como vid. */}
+      <g className="hoja-vaiven">
+        <path
+          d="M20.4 26.8c-.9-1.5-1-2.9-.3-3.8-1.5.5-2.8.2-3.6-.8 1.2-.7 2.1-1.7 2.4-2.8-1.6-.2-2.8-1-3.2-2.3 1.4-.1 2.6-.6 3.4-1.4-1.4-.9-2.1-2.2-1.9-3.6 1.4.6 2.7.7 3.9.3-1-1.4-1.1-2.9-.2-4.1 1.1 1.2 2.3 1.9 3.5 2 -.1-1.7.6-3.1 2-3.8.6 1.5 1.4 2.6 2.5 3.1.6-1.6 1.9-2.5 3.5-2.5.1 1.6-.2 3-.9 3.9 1.6-.9 3.1-.7 4.2.4-1.1 1.2-1.7 2.5-1.7 3.7 1.6-.2 2.9.5 3.5 1.9-1.4.6-2.5 1.5-3 2.6z"
+          fill="var(--color-vina)"
+          fillOpacity={0.15}
+          stroke="var(--color-vina)"
+          strokeWidth={1.15}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+        {/* Nervadura central desde el peciolo, con dos ramas. */}
+        <path
+          d="M20.5 26.6c2.3-3.4 4.9-6.3 8-8.6M24.4 21.4c1.2.6 2.6.7 3.9.3M26.6 18.4c.5-1.1.7-2.3.6-3.5"
+          stroke="var(--color-vina)"
+          strokeWidth={1}
+          strokeLinecap="round"
+          opacity={0.7}
+        />
+      </g>
+    </svg>
+  )
+}
+
 export function SearchIcon({ size = 15, className }: IconProps) {
   return (
     <svg {...base} width={size} height={size} strokeWidth={1.9} className={className}>

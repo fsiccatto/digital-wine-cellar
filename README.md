@@ -165,9 +165,22 @@ En desarrollo el proxy de Vite manda `/api` y `/health` al backend en
 `localhost:8080`, asi que no hace falta CORS. Para apuntar a otro backend
 (Cloud Run), definir `VITE_API_BASE` al buildear.
 
-Los colores de bodega viven como tokens `@theme` en `src/index.css`, asi que se
-usan como utilidades de Tailwind (`text-oro`, `bg-madera-900`). Los tipos de
-`src/lib/types.ts` espejan los esquemas Pydantic del backend.
+La paleta es **pergamino**: fondo papel de etiqueta, el vino (`#7c2338`) como
+unico color saturado y el verde vid solo para acentos. Vive como tokens `@theme`
+en `src/index.css` y se usa via utilidades de Tailwind (`text-oro`,
+`bg-madera-900`).
+
+Los nombres de token vienen de la paleta oscura anterior y se conservaron a
+proposito: cambiar de tema es cambiar los valores en `@theme`, sin tocar las
+clases de las pantallas. `madera-*` es papel de mas hundido a mas elevado,
+`crema-*`/`tenue-*` es tinta de mas fuerte a mas tenue, y `oro` es tinta vino.
+
+El movimiento vive todo en `index.css` y se apaga entero con
+`prefers-reduced-motion`: los estantes entran escalonados (`.brota`), la hoja de
+vid del encabezado se balancea y su zarcillo se dibuja al entrar, y las tarjetas
+se hunden al tocarlas (`.tarjeta`).
+
+Los tipos de `src/lib/types.ts` espejan los esquemas Pydantic del backend.
 
 Dos detalles que ya mordieron una vez:
 

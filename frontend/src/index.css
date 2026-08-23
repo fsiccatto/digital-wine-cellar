@@ -1,38 +1,47 @@
 @import 'tailwindcss';
 
-/* Paleta de bodega en penumbra: madera, borra de vino, dorado, hoja de viña. */
+/* Paleta pergamino: papel de etiqueta, con el vino como unico color saturado.
+   Los nombres de token se conservan de la paleta anterior a proposito, para
+   que el cambio de tema no toque las clases de las pantallas. */
 @theme {
-  --color-madera-950: #0f0a08;
-  --color-madera-900: #17100e;
-  --color-madera-800: #1c1210;
-  --color-madera-700: #261712;
-  --color-madera-600: #2e1c15;
-  --color-borde: #3b2a22;
-  --color-borde-claro: #4a382d;
+  /* Papel: de mas hundido a mas elevado. */
+  --color-madera-950: #e6ddcd;
+  --color-madera-900: #f2ece1;
+  --color-madera-800: #f7f2e9;
+  --color-madera-700: #fbf7ef;
+  --color-madera-600: #fdfaf4;
+  --color-borde: #ddd2be;
+  --color-borde-claro: #cbbda6;
 
-  --color-borra-600: #8a2038;
-  --color-borra-700: #6d1428;
-  --color-borra-800: #5e1023;
-  --color-vidrio: #7d2236;
-  --color-vidrio-borde: #c25068;
+  /* Vino: el acento principal, ahora sobre fondo claro. */
+  --color-borra-600: #7c2338;
+  --color-borra-700: #8f2b40;
+  --color-borra-800: #641b2c;
+  --color-vidrio: #a63b50;
+  --color-vidrio-borde: #7c2338;
 
-  --color-oro: #c8a24a;
-  --color-oro-claro: #e0bc63;
-  --color-oro-oscuro: #b08c50;
+  /* El "oro" pasa a ser tinta vino: sobre papel, el dorado no contrasta. */
+  --color-oro: #7c2338;
+  --color-oro-claro: #9a3149;
+  --color-oro-oscuro: #8a5a2b;
 
-  --color-vina: #7f9463;
-  --color-vina-claro: #a8b98d;
+  --color-vina: #5c7048;
+  --color-vina-claro: #47603a;
 
-  --color-crema: #f7ecdd;
-  --color-crema-200: #f2e6d8;
-  --color-crema-300: #e0d3c2;
-  --color-tenue-400: #9c8873;
-  --color-tenue-500: #8d7a63;
-  --color-tenue-600: #7d6b57;
-  --color-tenue-700: #6d5c4b;
+  /* Tinta: de mas fuerte a mas tenue. */
+  --color-crema: #2b2119;
+  --color-crema-200: #33291f;
+  --color-crema-300: #4a3c2c;
+  --color-tenue-400: #6d5c47;
+  --color-tenue-500: #97836a;
+  --color-tenue-600: #a2907a;
+  --color-tenue-700: #b3a28c;
 
   --font-serif: 'Cormorant Garamond', Georgia, serif;
   --font-sans: 'Karla', system-ui, sans-serif;
+
+  /* Curva compartida por las transiciones de la app. */
+  --ease-suave: cubic-bezier(0.32, 0.72, 0.3, 1);
 }
 
 html,
@@ -56,21 +65,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Vetas de madera del fondo, compartidas por todas las pantallas. */
+/* Textura de papel: fibra tenue en lugar de las vetas de madera. */
 .vetas::before {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
-  opacity: 0.5;
+  opacity: 0.55;
   background:
     repeating-linear-gradient(
-      94deg,
-      transparent 0 26px,
-      rgba(92, 54, 32, 0.16) 26px 27px,
-      transparent 27px 61px
+      92deg,
+      transparent 0 34px,
+      rgba(139, 116, 82, 0.05) 34px 35px,
+      transparent 35px 79px
     ),
-    radial-gradient(120% 55% at 50% 0%, rgba(126, 74, 42, 0.22) 0%, transparent 70%);
+    radial-gradient(115% 50% at 50% 0%, rgba(124, 35, 56, 0.05) 0%, transparent 68%);
 }
 
 /* Los controles no heredan la tipografía por defecto. El color va en @layer
@@ -89,5 +98,95 @@ button {
   select,
   button {
     color: inherit;
+  }
+}
+
+/* --- Movimiento -------------------------------------------------------- */
+/* Todo lo de abajo se apaga si el sistema pide menos movimiento. */
+
+/* Los estantes entran escalonados al cargar la cava. */
+@keyframes brota {
+  from {
+    opacity: 0;
+    transform: translateY(9px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.brota {
+  animation: brota 0.5s var(--ease-suave) both;
+}
+
+/* La hoja de vid se balancea apenas, como si corriera aire. */
+@keyframes hoja-vaiven {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+
+.hoja-vaiven {
+  transform-origin: 50% 92%;
+  animation: hoja-vaiven 5.5s ease-in-out infinite;
+}
+
+/* El zarcillo se dibuja solo la primera vez. */
+@keyframes zarcillo-crece {
+  from {
+    stroke-dashoffset: var(--largo);
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.zarcillo {
+  stroke-dasharray: var(--largo);
+  animation: zarcillo-crece 1.5s var(--ease-suave) 0.25s both;
+}
+
+/* Al tocar una tarjeta se hunde apenas en el papel. */
+.tarjeta {
+  transition:
+    transform 0.16s var(--ease-suave),
+    border-color 0.16s var(--ease-suave),
+    background-color 0.16s var(--ease-suave);
+}
+
+.tarjeta:active {
+  transform: scale(0.985);
+}
+
+.hoja-cata {
+  animation: sube 0.3s var(--ease-suave) both;
+}
+
+@keyframes sube {
+  from {
+    transform: translateY(14px);
+  }
+  to {
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brota,
+  .hoja-vaiven,
+  .zarcillo,
+  .hoja-cata {
+    animation: none;
+  }
+  .tarjeta {
+    transition: none;
+  }
+  .tarjeta:active {
+    transform: none;
   }
 }

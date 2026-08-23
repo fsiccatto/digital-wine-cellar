@@ -2,30 +2,33 @@
   "artboards": [
     { "file": "Main.dc.html", "x": 0, "y": 0, "w": 390, "h": 900, "title": "Mi cava" },
     { "file": "Escanear.dc.html", "x": 510, "y": 0, "w": 390, "h": 900, "title": "Escanear etiqueta" },
-    { "file": "Ficha.dc.html", "x": 1020, "y": 0, "w": 390, "h": 900, "title": "Ficha del vino" }
+    { "file": "Ficha.dc.html", "x": 1020, "y": 0, "w": 390, "h": 900, "title": "Ficha del vino" },
+    { "file": "DirC.dc.html", "x": 1530, "y": 0, "w": 390, "h": 790, "title": "Pergamino · elegida" },
+    { "file": "DirA.dc.html", "x": 2040, "y": 0, "w": 390, "h": 790, "title": "A · descartada" },
+    { "file": "DirB.dc.html", "x": 2550, "y": 0, "w": 390, "h": 790, "title": "B · descartada" }
   ],
   "annotations": [
     {
-      "id": "paleta",
+      "id": "estado",
       "x": 0,
-      "y": -190,
-      "w": 340,
-      "text": "Bodega en penumbra\n\nMadera #17100E sobre vetas de roble\nBorra de vino #8A2038\nDorado tenue #C8A24A\nHoja de viña #7F9463\n\nCormorant Garamond para nombres de vino,\nKarla para datos y etiquetas."
+      "y": -230,
+      "w": 430,
+      "text": "Las tres primeras pantallas son la version penumbra original.\nLa app ya NO se ve asi: se implemento la direccion Pergamino (C),\ncon medidas compactas, hoja de vid animada y las botellas agotadas\nal final del estante.\n\nQuedan como referencia del layout; para ver el estado real de la app,\ncorrer el frontend."
     },
     {
-      "id": "nota-datos",
-      "x": 510,
-      "y": -190,
-      "w": 380,
-      "text": "Los campos son los que ya devuelve tu API:\nbodega, nombre_vino, varietal, anada, region,\nalcohol, cantidad, ubicacion.\n\nLo que Gemini no lee queda marcado \"Falta\"\nen lugar de inventarse un valor — el scan real\ndevolvió alcohol: null en la prueba de Trapiche."
+      "id": "elegida",
+      "x": 1530,
+      "y": -230,
+      "w": 400,
+      "text": "Pergamino — la elegida.\n\nFondo papel de etiqueta, el vino como unico color saturado, y el verde\nvid solo para acentos. Se lee de dia y las cifras se leen mejor que\nsobre madera oscura.\n\nEn la app se sumo: hoja de vid con zarcillo que se dibuja al entrar,\nestantes que aparecen escalonados, y las tarjetas que se hunden al\ntocarlas. Todo se apaga con prefers-reduced-motion."
     },
     {
-      "id": "nota-foto",
-      "x": 1020,
-      "y": -190,
-      "w": 360,
-      "text": "Acá la botella está dibujada, pero en la app\nreal iría la foto de la etiqueta que sacaste.\nEso sí necesita foto_url: guardar la imagen\nen un bucket (GCS tiene 5 GB gratis)."
+      "id": "descartadas",
+      "x": 2040,
+      "y": -230,
+      "w": 400,
+      "text": "A y B quedaron descartadas.\n\nA era la penumbra afinada: cambiaba poco.\nB era pizarra y cobre: resolvia el contraste pero perdia el caracter\nde bodega."
     }
   ],
-  "launch": { "view": "canvas" }
+  "launch": { "view": "focused", "file": "DirC.dc.html" }
 }

@@ -81,7 +81,7 @@ export function WineScreen({ codigoVino, onBack, onConsumed }: Props) {
         className="vetas relative px-[22px] pt-13 pb-[26px]"
         style={{
           background:
-            'radial-gradient(128% 82% at 50% 0%, rgba(109,20,40,0.42) 0%, rgba(23,16,14,0) 68%)',
+            'radial-gradient(120% 76% at 50% 0%, rgba(124,35,56,0.07) 0%, rgba(242,236,225,0) 70%)',
         }}
       >
         <div className="relative flex items-center justify-between pb-6">
@@ -96,7 +96,7 @@ export function WineScreen({ codigoVino, onBack, onConsumed }: Props) {
               <img
                 src={photo}
                 alt={`Etiqueta de ${wine.nombre_vino}`}
-                className="h-[132px] w-[92px] rounded-md border border-borde object-cover shadow-[0_9px_26px_rgba(0,0,0,0.6)]"
+                className="h-[132px] w-[92px] rounded-md border border-borde object-cover shadow-[0_6px_18px_rgba(70,52,30,0.22)]"
               />
             ) : (
               <BottleIcon glass={tint.glass} edge={tint.edge} width={52} height={132} />
@@ -164,10 +164,10 @@ export function WineScreen({ codigoVino, onBack, onConsumed }: Props) {
         <button
           type="button"
           onClick={() => setTasting(true)}
-          className="relative mx-[22px] mb-[26px] flex h-[54px] items-center justify-center gap-[11px] rounded-xl bg-gradient-to-br from-borra-600 to-borra-800 shadow-[0_8px_22px_rgba(138,32,56,0.36)]"
+          className="relative mx-5 mb-[22px] flex h-[48px] items-center justify-center gap-[10px] rounded-xl bg-borra-600 text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.28)] transition-transform duration-150 active:scale-[0.985]"
         >
-          <CorkscrewIcon className="text-crema" />
-          <span className="text-[15px] font-bold text-crema">Descorchar una</span>
+          <CorkscrewIcon size={17} />
+          <span className="text-[14px] font-bold">Descorchar una</span>
         </button>
       ) : (
         <p className="relative mx-[22px] mb-[26px] rounded-xl border border-dashed border-borde-claro py-4 text-center text-[12.5px] text-tenue-600">
@@ -271,8 +271,8 @@ function TastingSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex items-end justify-center bg-madera-950/70">
-      <div className="w-full max-w-[430px] rounded-t-2xl border-t border-borde bg-madera-800 px-[22px] pt-6 pb-[30px]">
+    <div className="fixed inset-0 z-10 flex items-end justify-center bg-crema/25 backdrop-blur-[2px]">
+      <div className="hoja-cata w-full max-w-[430px] rounded-t-2xl border-t border-borde bg-madera-600 px-5 pt-6 pb-[30px] shadow-[0_-8px_30px_rgba(70,52,30,0.18)]">
         <div className="mb-5 flex flex-col gap-1">
           <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
             Cata
@@ -348,7 +348,7 @@ function TastingSheet({
             type="button"
             onClick={submit}
             disabled={saving}
-            className="flex h-13 grow items-center justify-center gap-[10px] rounded-xl bg-gradient-to-br from-borra-600 to-borra-800 font-bold text-crema shadow-[0_7px_20px_rgba(138,32,56,0.34)] disabled:opacity-60"
+            className="flex h-12 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:opacity-60"
           >
             {saving ? (
               <>

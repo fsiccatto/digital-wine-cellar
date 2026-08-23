@@ -1,0 +1,113 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Karla:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Karla', system-ui, sans-serif; }
+    a { color: #c8a24a; } a:hover { color: #e0bc63; }
+    * { box-sizing: border-box; }
+    .cifra { font-variant-numeric: lining-nums tabular-nums; }
+  </style>
+</helmet>
+
+<!-- A: Penumbra afinada. Misma familia, mas contraste y menos marron sucio. -->
+<div style="width: 390px; min-height: 760px; background: #14100f; color: #ece3d6; display: flex; flex-direction: column; position: relative; overflow: hidden;">
+
+  <div style="position: absolute; inset: 0; pointer-events: none; background:
+      radial-gradient(115% 45% at 50% 0%, rgba(120,58,74,0.16) 0%, transparent 62%);"></div>
+
+  <div style="position: relative; padding: 30px 20px 12px; display: flex; align-items: flex-end; justify-content: space-between;">
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <span style="font-size: 8.5px; letter-spacing: 0.24em; text-transform: uppercase; color: #7e6f60; font-weight: 700;">Mi cava</span>
+      <h1 style="margin: 0; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 24px; font-weight: 600; color: #f4ece0; line-height: 1;">La Bodega</h1>
+    </div>
+    <div style="display: flex; align-items: baseline; gap: 4px;">
+      <span class="cifra" style="font-family: 'Cormorant Garamond', serif; font-size: 19px; font-weight: 600; color: #c9a24d;">14</span>
+      <span style="font-size: 8.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #7e6f60; font-weight: 600;">bot.</span>
+    </div>
+  </div>
+
+  <div style="position: relative; padding: 0 20px 10px; display: flex; gap: 7px;">
+    <div style="flex-grow: 1; display: flex; align-items: center; gap: 8px; background: #0d0a09; border: 1px solid #2f2521; border-radius: 8px; padding: 0 11px; height: 34px;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6f6155" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
+      <span style="font-size: 11.5px; color: #6f6155;">Buscar</span>
+    </div>
+    <div style="width: 34px; height: 34px; display: flex; align-items: center; justify-content: center; background: #0d0a09; border: 1px solid #2f2521; border-radius: 8px;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#c9a24d" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>
+    </div>
+  </div>
+
+  <div style="position: relative; padding: 0 20px 15px; display: flex; gap: 5px;">
+    <div style="padding: 4px 11px; border-radius: 999px; background: #7c2338; font-size: 10px; font-weight: 700; color: #f4ece0;">Todos</div>
+    <div style="padding: 4px 11px; border-radius: 999px; border: 1px solid #2f2521; font-size: 10px; font-weight: 500; color: #8b7c6d;">Malbec</div>
+    <div style="padding: 4px 11px; border-radius: 999px; border: 1px solid #2f2521; font-size: 10px; font-weight: 500; color: #8b7c6d;">Cabernet</div>
+  </div>
+
+  <div style="position: relative; padding: 0 20px; display: flex; flex-direction: column; gap: 16px;">
+    <sc-for list="{{shelves}}" as="shelf" hint-placeholder-count="2">
+      <div style="display: flex; flex-direction: column;">
+        <div style="display: flex; align-items: center; gap: 8px; padding-bottom: 7px;">
+          <span style="font-size: 8px; letter-spacing: 0.2em; text-transform: uppercase; color: #7e6f60; font-weight: 700;">{{shelf.zona}}</span>
+          <div style="flex-grow: 1; height: 1px; background: #241d1a;"></div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 5px;">
+          <sc-for list="{{shelf.wines}}" as="w" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 10px; background: {{w.fondo}}; border: 1px solid {{w.borde}}; border-left: 2px solid {{w.tinte}}; border-radius: 7px; padding: 8px 11px; opacity: {{w.opacidad}};">
+              <svg width="12" height="30" viewBox="0 0 14 34" fill="none" style="flex-shrink: 0;">
+                <path d="M5 1h4v6.6c0 1.1 2.4 2.4 2.4 5V31a1.4 1.4 0 0 1-1.4 1.4H4A1.4 1.4 0 0 1 2.6 31V12.6c0-2.6 2.4-3.9 2.4-5V1z" fill="{{w.vidrio}}" stroke="{{w.tinte}}" stroke-width="0.9"/>
+                <rect x="2.6" y="18" width="8.8" height="9" rx="1" fill="#e8dcc8" fill-opacity="{{w.papel}}"/>
+              </svg>
+              <div style="flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px;">
+                <div style="display: flex; align-items: baseline; gap: 5px;">
+                  <span style="font-size: 8px; letter-spacing: 0.12em; text-transform: uppercase; color: #7e6f60; font-weight: 700;">{{w.bodega}}</span>
+                  <span class="cifra" style="font-size: 8px; color: #6f6155;">{{w.anada}}</span>
+                </div>
+                <span style="font-family: 'Cormorant Garamond', serif; font-size: 15px; font-weight: 600; color: {{w.titulo}}; line-height: 1.15;">{{w.nombre}}</span>
+                <span style="font-size: 9.5px; color: #8b7c6d;">{{w.varietal}}</span>
+              </div>
+              <span class="cifra" style="font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 600; color: {{w.numero}};">{{w.cantidad}}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="height: 3px; margin-top: 7px; border-radius: 2px; background: linear-gradient(180deg, #4d3020 0%, #291a13 100%);"></div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() {
+    const full = (o) => ({
+      ...o, fondo: '#1c1614', borde: '#2f2521', opacidad: '1',
+      titulo: '#f4ece0', numero: '#c9a24d', papel: '0.9',
+    });
+    const empty = (o) => ({
+      ...o, fondo: '#161211', borde: '#241d1a', opacidad: '0.5',
+      titulo: '#8b7c6d', numero: '#5d5049', papel: '0.35',
+      tinte: '#4a3c38', vidrio: '#2a2220',
+    });
+    return {
+      shelves: [
+        { zona: 'Estante A', wines: [
+          full({ bodega: 'Catena', nombre: 'Adrianna', varietal: 'Malbec', anada: '2019', cantidad: '3', tinte: '#c25068', vidrio: '#7d2236' }),
+          full({ bodega: 'Zuccardi', nombre: 'Serie A', varietal: 'Blend', anada: '2021', cantidad: '4', tinte: '#d0873f', vidrio: '#8a4a1f' }),
+        ]},
+        { zona: 'Estante B', wines: [
+          full({ bodega: 'Rutini', nombre: 'Gran Cabernet', varietal: 'Cabernet', anada: '2018', cantidad: '2', tinte: '#c25068', vidrio: '#7d2236' }),
+          empty({ bodega: 'Norton', nombre: 'Privada', varietal: 'Blend', anada: '2020', cantidad: '0' }),
+        ]},
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
