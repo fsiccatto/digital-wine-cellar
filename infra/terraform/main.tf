@@ -7,12 +7,35 @@ resource "google_project_service" "required" {
   for_each = toset([
     "run.googleapis.com",
     "artifactregistry.googleapis.com",
-    "secretmanager.googleapis.com"
+    "secretmanager.googleapis.com",
+    "storage.googleapis.com"
   ])
 
   project            = var.project_id
   service            = each.value
   disable_on_destroy = false
+}
+
+# Fotos de etiqueta. Privado: se sirven con URLs firmadas, no por link publico.
+resource "google_storage_bucket" "labels" {
+  name     = var.labels_bucket_name
+  location = var.region
+
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  # Standard en una sola region y sin versionado: lo que entra en los 5 GB
+  # gratis del free tier.
+  storage_class = "STANDARD"
+
+  depends_on = [google_project_service.required]
+}
+
+# La SA del JSON de credenciales es la que firma las URLs y sube los objetos.
+resource "google_storage_bucket_iam_member" "labels_writer" {
+  bucket = google_storage_bucket.labels.name
+  role   = "roles/storage.objectAdmin"
+  member = "serviceAccount:${var.sheets_service_account_email}"
 }
 
 # Identidad propia del servicio. La SA default de Compute trae mas permisos
@@ -64,8 +87,7 @@ resource "google_cloud_run_v2_service" "backend" {
   name     = var.service_name
   location = var.region
 
-  ingress             = "INGRESS_TRAFFIC_ALL"
-  deletion_protection = false
+  ingress = "INGRESS_TRAFFIC_ALL"
 
   template {
     service_account = google_service_account.backend.email
@@ -106,6 +128,11 @@ resource "google_cloud_run_v2_service" "backend" {
       env {
         name  = "GOOGLE_SHEETS_CREDENTIALS_FILE"
         value = "${var.secrets_mount_path}/credentials.json"
+      }
+
+      env {
+        name  = "GCS_BUCKET_NAME"
+        value = google_storage_bucket.labels.name
       }
 
       env {

@@ -109,22 +109,40 @@ def append_inventory_row(row: Dict[str, Any]):
     worksheet.append_row([row.get(header, "") for header in INVENTORY_HEADERS])
 
 
-def update_inventory_quantity(codigo_vino: str, quantity: int):
+def _update_inventory_cell(codigo_vino: str, column: str, value: Any, missing: str):
     worksheet = get_inventory_worksheet()
     rows = worksheet.get_all_values()
     if len(rows) <= 1:
         raise ValueError("El inventario está vacío.")
 
     headers = rows[0]
-    quantity_column = headers.index("cantidad") + 1
+    target_column = headers.index(column) + 1
     code_index = headers.index("codigo_vino")
 
     for row_number, row in enumerate(rows[1:], start=2):
         if len(row) > code_index and row[code_index] == codigo_vino:
-            worksheet.update_cell(row_number, quantity_column, quantity)
+            worksheet.update_cell(row_number, target_column, value)
             return
 
-    raise ValueError("No se encontró el vino solicitado para actualizar el stock.")
+    raise ValueError(missing)
+
+
+def update_inventory_quantity(codigo_vino: str, quantity: int):
+    _update_inventory_cell(
+        codigo_vino,
+        "cantidad",
+        quantity,
+        "No se encontró el vino solicitado para actualizar el stock.",
+    )
+
+
+def update_inventory_photo(codigo_vino: str, object_name: str):
+    _update_inventory_cell(
+        codigo_vino,
+        "foto_url",
+        object_name,
+        "No se encontró el vino solicitado para guardar la foto.",
+    )
 
 
 def append_cata_record(row: Dict[str, Any]):

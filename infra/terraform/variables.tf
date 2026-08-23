@@ -50,6 +50,16 @@ variable "secrets_mount_path" {
   default     = "/secrets"
 }
 
+variable "labels_bucket_name" {
+  description = "Globally unique GCS bucket for label photos"
+  type        = string
+}
+
+variable "sheets_service_account_email" {
+  description = "client_email from credentials.json: signs photo URLs and reads the sheet"
+  type        = string
+}
+
 variable "max_instances" {
   description = "Upper bound on Cloud Run instances, caps worst-case cost"
   type        = number

@@ -1,0 +1,198 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Karla:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Karla', system-ui, sans-serif; }
+    a { color: #c8a24a; text-decoration: none; }
+    a:hover { color: #e0bc63; }
+    * { box-sizing: border-box; }
+  </style>
+</helmet>
+
+<div style="width: 390px; min-height: 844px; background: #17100e; color: #f2e6d8; display: flex; flex-direction: column; position: relative; overflow: hidden;">
+
+  <!-- Vetas de madera al fondo -->
+  <div style="position: absolute; inset: 0; opacity: 0.5; background:
+      repeating-linear-gradient(94deg, transparent 0 26px, rgba(92,54,32,0.16) 26px 27px, transparent 27px 61px),
+      radial-gradient(120% 55% at 50% 0%, rgba(126,74,42,0.22) 0%, transparent 70%);
+      pointer-events: none;"></div>
+
+  <!-- Encabezado -->
+  <div style="position: relative; padding: 52px 22px 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
+      <div style="display: flex; flex-direction: column; gap: 5px;">
+        <div style="display: flex; align-items: center; gap: 9px;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7f9463" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 21v-6"/>
+            <path d="M12 15c-4 0-7-2.6-7-6.4C5 5.5 8 3 12 3s7 2.5 7 5.6c0 3.8-3 6.4-7 6.4z"/>
+            <path d="M12 15V5.5M9.2 9.2 12 11m2.8-1.8L12 11"/>
+          </svg>
+          <span style="font-family: 'Karla', sans-serif; font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase; color: #8d7a63; font-weight: 600;">Mi Cava</span>
+        </div>
+        <h1 style="margin: 0; font-family: 'Cormorant Garamond', Georgia, serif; font-size: 33px; font-weight: 600; letter-spacing: -0.01em; color: #f7ecdd; line-height: 1.05;">La Bodega</h1>
+      </div>
+      <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 3px; padding-top: 6px;">
+        <span style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 30px; font-weight: 600; color: #c8a24a; line-height: 1;">18</span>
+        <span style="font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase; color: #7d6b57; font-weight: 600;">botellas</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Buscador -->
+  <div style="position: relative; padding: 0 22px 14px; display: flex; gap: 10px;">
+    <div style="flex-grow: 1; display: flex; align-items: center; gap: 10px; background: rgba(10,6,5,0.62); border: 1px solid #3b2a22; border-radius: 11px; padding: 0 13px; height: 46px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#7d6b57" stroke-width="1.9" stroke-linecap="round">
+        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>
+      </svg>
+      <span style="font-size: 13.5px; color: #6d5c4b;">Buscar bodega, varietal…</span>
+    </div>
+    <div style="width: 46px; height: 46px; display: flex; align-items: center; justify-content: center; background: rgba(10,6,5,0.62); border: 1px solid #3b2a22; border-radius: 11px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#c8a24a" stroke-width="1.9" stroke-linecap="round">
+        <path d="M4 6h16M7 12h10M10 18h4"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div style="position: relative; padding: 0 22px 22px; display: flex; gap: 7px;">
+    <div style="padding: 7px 14px; border-radius: 999px; background: #6d1428; border: 1px solid #8a2038; font-size: 11.5px; font-weight: 600; color: #f3dfc8; letter-spacing: 0.02em;">Todos</div>
+    <div style="padding: 7px 14px; border-radius: 999px; background: rgba(10,6,5,0.5); border: 1px solid #3b2a22; font-size: 11.5px; font-weight: 500; color: #9c8873;">Malbec</div>
+    <div style="padding: 7px 14px; border-radius: 999px; background: rgba(10,6,5,0.5); border: 1px solid #3b2a22; font-size: 11.5px; font-weight: 500; color: #9c8873;">Cabernet</div>
+    <div style="padding: 7px 14px; border-radius: 999px; background: rgba(10,6,5,0.5); border: 1px solid #3b2a22; font-size: 11.5px; font-weight: 500; color: #9c8873;">Blend</div>
+  </div>
+
+  <!-- Estantes -->
+  <div style="position: relative; flex-grow: 1; display: flex; flex-direction: column; gap: 26px; padding: 0 22px 108px;">
+
+    <sc-for list="{{shelves}}" as="shelf" hint-placeholder-count="2">
+      <div style="display: flex; flex-direction: column; gap: 0;">
+
+        <!-- Rótulo del estante -->
+        <div style="display: flex; align-items: center; gap: 11px; padding-bottom: 11px;">
+          <span style="font-size: 9.5px; letter-spacing: 0.2em; text-transform: uppercase; color: #8d7a63; font-weight: 700;">{{shelf.zona}}</span>
+          <div style="flex-grow: 1; height: 1px; background: linear-gradient(90deg, #3b2a22, transparent);"></div>
+          <span style="font-size: 9.5px; color: #6d5c4b; font-weight: 500;">{{shelf.total}}</span>
+        </div>
+
+        <!-- Botellas del estante -->
+        <div style="display: flex; flex-direction: column; gap: 9px;">
+          <sc-for list="{{shelf.wines}}" as="wine" hint-placeholder-count="3">
+            <div style="display: flex; align-items: stretch; gap: 13px; background: linear-gradient(100deg, rgba(38,23,18,0.92) 0%, rgba(26,16,13,0.92) 100%); border: 1px solid #3b2a22; border-left: 3px solid {{wine.tinte}}; border-radius: 10px; padding: 13px 14px;">
+
+              <!-- Silueta de botella -->
+              <div style="width: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <svg width="19" height="46" viewBox="0 0 20 48" fill="none">
+                  <!-- Vidrio: claro para despegarse de la madera -->
+                  <path d="M7.4 2h5.2v9.4c0 1.5 3.4 3.4 3.4 7.2V44a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V18.6c0-3.8 3.4-5.7 3.4-7.2V2z" fill="{{wine.vidrio}}" stroke="{{wine.borde}}" stroke-width="1.2"/>
+                  <!-- Etiqueta de papel -->
+                  <rect x="3.6" y="26" width="12.8" height="14" rx="1.4" fill="#efe2ce" fill-opacity="0.9"/>
+                  <path d="M6 30h8M6 33.5h5.5" stroke="{{wine.borde}}" stroke-width="0.9" stroke-linecap="round" opacity="0.55"/>
+                  <!-- Cápsula -->
+                  <path d="M7.4 2h5.2v3.4H7.4z" fill="{{wine.borde}}"/>
+                  <!-- Reflejo -->
+                  <path d="M6.2 20v22" stroke="#f7ecdd" stroke-width="1.1" stroke-linecap="round" opacity="0.3"/>
+                </svg>
+              </div>
+
+              <!-- Datos -->
+              <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+                <div style="display: flex; align-items: baseline; gap: 7px;">
+                  <span style="font-size: 9.5px; letter-spacing: 0.13em; text-transform: uppercase; color: #8d7a63; font-weight: 600;">{{wine.bodega}}</span>
+                  <span style="font-size: 9.5px; color: #5c4c3e;">·</span>
+                  <span style="font-size: 9.5px; color: #7d6b57; font-weight: 500;">{{wine.anada}}</span>
+                </div>
+                <span style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 19.5px; font-weight: 600; color: #f7ecdd; line-height: 1.12;">{{wine.nombre}}</span>
+                <div style="display: flex; align-items: center; gap: 8px; padding-top: 2px;">
+                  <span style="font-size: 11px; color: #9c8873; font-weight: 500;">{{wine.varietal}}</span>
+                  <div style="width: 3px; height: 3px; border-radius: 50%; background: #4a382d;"></div>
+                  <span style="font-size: 11px; color: #7d6b57;">{{wine.region}}</span>
+                </div>
+              </div>
+
+              <!-- Stock -->
+              <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; flex-shrink: 0;">
+                <div style="display: flex; align-items: baseline; gap: 2px;">
+                  <span style="font-family: 'Cormorant Garamond', Georgia, serif; font-size: 21px; font-weight: 600; color: #c8a24a; line-height: 1;">{{wine.cantidad}}</span>
+                </div>
+                <span style="font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #6d5c4b; font-weight: 600;">{{wine.ubicacion}}</span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- Tabla del estante -->
+        <div style="height: 5px; margin-top: 11px; border-radius: 2px; background: linear-gradient(180deg, #5c3620 0%, #3a2115 55%, #241410 100%); box-shadow: 0 3px 11px rgba(0,0,0,0.55);"></div>
+      </div>
+    </sc-for>
+
+  </div>
+
+  <!-- Barra inferior -->
+  <div style="position: absolute; bottom: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; padding: 15px 30px 30px; background: linear-gradient(180deg, rgba(23,16,14,0) 0%, rgba(15,10,8,0.97) 42%); backdrop-filter: blur(7px);">
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#c8a24a" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 21V8l9-5 9 5v13"/><path d="M3 13h18M3 17h18"/>
+      </svg>
+      <span style="font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #c8a24a; font-weight: 700;">Cava</span>
+    </div>
+
+    <div style="width: 58px; height: 58px; border-radius: 50%; background: linear-gradient(150deg, #8a2038 0%, #5e1023 100%); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 22px rgba(138,32,56,0.42), inset 0 1px 0 rgba(255,255,255,0.13); margin-top: -22px;">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f7ecdd" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14.5 4h-5L8 6.5H5a2 2 0 0 0-2 2V17a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2h-3L14.5 4z"/>
+        <circle cx="12" cy="12.5" r="3.4"/>
+      </svg>
+    </div>
+
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+      <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#7d6b57" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 3h8l-1 7.5a4 4 0 0 1-6 0L8 3z"/><path d="M12 14v6M8.5 20h7"/>
+      </svg>
+      <span style="font-size: 8.5px; letter-spacing: 0.1em; text-transform: uppercase; color: #7d6b57; font-weight: 600;">Catas</span>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() {
+    // El vidrio se aclara bien por encima de la madera (#17100E) para que la
+    // botella no se funda con el fondo; el borde da el tinte del vino.
+    const tinto  = { vidrio: '#7d2236', borde: '#c25068', tinte: '#c25068' };
+    const blend  = { vidrio: '#8a4a1f', borde: '#d0873f', tinte: '#d0873f' };
+    const blanco = { vidrio: '#6f7a3c', borde: '#a9bd6e', tinte: '#a9bd6e' };
+    return {
+      shelves: [
+        {
+          zona: 'Estante A · Mendoza',
+          total: '9 botellas',
+          wines: [
+            { bodega: 'Catena Zapata', nombre: 'Adrianna Vineyard', varietal: 'Malbec', region: 'Gualtallary', anada: '2019', cantidad: '3', ubicacion: 'A1', ...tinto },
+            { bodega: 'Trapiche', nombre: 'Fond de Cave', varietal: 'Malbec', region: 'Maipú', anada: '2020', cantidad: '2', ubicacion: 'A2', ...tinto },
+            { bodega: 'Zuccardi', nombre: 'Serie A Blend', varietal: 'Blend', region: 'Valle de Uco', anada: '2021', cantidad: '4', ubicacion: 'A3', ...blend }
+          ]
+        },
+        {
+          zona: 'Estante B · Reserva',
+          total: '5 botellas',
+          wines: [
+            { bodega: 'Rutini', nombre: 'Gran Cabernet', varietal: 'Cabernet Sauvignon', region: 'Tupungato', anada: '2018', cantidad: '2', ubicacion: 'B1', ...tinto },
+            { bodega: 'Norton', nombre: 'Privada', varietal: 'Blend', region: 'Luján de Cuyo', anada: '2020', cantidad: '1', ubicacion: 'B2', ...blend },
+            { bodega: 'Salentein', nombre: 'Numina Torrontés', varietal: 'Torrontés', region: 'Valle de Uco', anada: '2022', cantidad: '2', ubicacion: 'B3', ...blanco }
+          ]
+        }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 390, "h": 900, "title": "Mi cava" },
+    { "file": "Escanear.dc.html", "x": 510, "y": 0, "w": 390, "h": 900, "title": "Escanear etiqueta" },
+    { "file": "Ficha.dc.html", "x": 1020, "y": 0, "w": 390, "h": 900, "title": "Ficha del vino" }
+  ],
+  "annotations": [
+    {
+      "id": "paleta",
+      "x": 0,
+      "y": -190,
+      "w": 340,
+      "text": "Bodega en penumbra\n\nMadera #17100E sobre vetas de roble\nBorra de vino #8A2038\nDorado tenue #C8A24A\nHoja de viña #7F9463\n\nCormorant Garamond para nombres de vino,\nKarla para datos y etiquetas."
+    },
+    {
+      "id": "nota-datos",
+      "x": 510,
+      "y": -190,
+      "w": 380,
+      "text": "Los campos son los que ya devuelve tu API:\nbodega, nombre_vino, varietal, anada, region,\nalcohol, cantidad, ubicacion.\n\nLo que Gemini no lee queda marcado \"Falta\"\nen lugar de inventarse un valor — el scan real\ndevolvió alcohol: null en la prueba de Trapiche."
+    },
+    {
+      "id": "nota-foto",
+      "x": 1020,
+      "y": -190,
+      "w": 360,
+      "text": "Acá la botella está dibujada, pero en la app\nreal iría la foto de la etiqueta que sacaste.\nEso sí necesita foto_url: guardar la imagen\nen un bucket (GCS tiene 5 GB gratis)."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

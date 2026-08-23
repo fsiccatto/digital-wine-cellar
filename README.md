@@ -85,6 +85,35 @@ El endpoint de consumo usa `codigo_vino`:
 POST /api/wines/{codigo_vino}/consume
 ```
 
+## Fotos de etiqueta (Google Cloud Storage)
+
+La foto se sube **despues** de crear el vino, en su propio endpoint. Asi el POST
+de creacion sigue siendo JSON puro y no quedan fotos huerfanas de escaneos que
+el usuario abandona.
+
+```http
+POST /api/wines                      -> crea el vino, devuelve codigo_vino
+POST /api/wines/{codigo_vino}/foto   -> multipart, sube la etiqueta
+GET  /api/wines/{codigo_vino}        -> un vino con su foto_url ya firmada
+```
+
+El bucket es **privado** (`public-access-prevention` activo). En la columna
+`foto_url` del Sheet se guarda el nombre del objeto
+(`etiquetas/TRA-MAL-2020-0001.jpg`), no una URL: las URLs de lectura se firman
+on demand al listar o pedir un vino, y caducan segun
+`GCS_SIGNED_URL_TTL_SECONDS` (1 h por defecto). Quien firma es la Service
+Account de `credentials.json`, la misma que lee el Sheet.
+
+`foto_url` no se acepta en `POST /api/wines`: solo lo escribe el endpoint de
+foto, para que un cliente no pueda apuntar el campo a una URL arbitraria.
+
+Sin `GCS_BUCKET_NAME` la app funciona igual, sin fotos: el endpoint de foto
+responde 503 y el listado devuelve `foto_url` tal como este en el Sheet.
+
+> Pendiente de verificar de punta a punta: crear el bucket requiere una cuenta
+> de facturacion vinculada al proyecto (el free tier de 5 GB existe, pero GCS
+> la exige igual). Al 2026-08-23 `jovial-idiom-428114-a5` no la tiene.
+
 ## Docker
 
 La imagen corre uvicorn en `$PORT` (default `8080`, el que espera Cloud Run).

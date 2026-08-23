@@ -4,8 +4,14 @@ service_name          = "digital-wine-cellar-backend"
 container_image       = "us-central1-docker.pkg.dev/your-project/digital-wine-cellar/backend:latest"
 allow_unauthenticated = true
 
-# GEMINI_API_KEY y GOOGLE_SHEETS_CREDENTIALS_FILE los inyecta Terraform desde
-# Secret Manager: no van aca.
+# Nombre global unico para las fotos de etiqueta.
+labels_bucket_name = "your-project-wine-labels"
+
+# client_email de credentials.json: sube las fotos y firma sus URLs.
+sheets_service_account_email = "your-sa@your-project.iam.gserviceaccount.com"
+
+# GEMINI_API_KEY, GOOGLE_SHEETS_CREDENTIALS_FILE y GCS_BUCKET_NAME los inyecta
+# Terraform (los dos primeros desde Secret Manager): no van aca.
 environment_variables = {
   GOOGLE_SHEET_NAME    = "Mi_Cava_Virtual"
   MAX_IMAGE_SIZE_BYTES = "10485760"

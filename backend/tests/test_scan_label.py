@@ -22,7 +22,7 @@ def test_scan_label_rejects_non_image_content():
 
 
 def test_scan_label_rejects_oversized_image():
-    with patch("app.routes.scan.MAX_IMAGE_SIZE_BYTES", 3):
+    with patch("app.utils.image_upload.MAX_IMAGE_SIZE_BYTES", 3):
         response = client.post(
             "/api/scan-label",
             files={"file": ("label.jpg", b"1234", "image/jpeg")},

@@ -48,7 +48,8 @@ class WineCreateInput(BaseModel):
     cantidad: int = Field(default=1, ge=0)
     ubicacion: Optional[str] = None
     precio_estimado: Optional[float] = None
-    foto_url: Optional[str] = None
+    # foto_url no se acepta acá: la foto se sube a POST /wines/{codigo}/foto,
+    # que es quien escribe el nombre del objeto en el Sheet.
 
     _normalize_required = field_validator(
         "bodega", "nombre_vino", "varietal", "region", "alcohol", mode="before"
