@@ -29,7 +29,25 @@ variable "allow_unauthenticated" {
 variable "container_port" {
   description = "Container listening port"
   type        = number
-  default     = 8000
+  default     = 8080
+}
+
+variable "sheets_credentials_secret_id" {
+  description = "Secret Manager secret holding the Sheets Service Account JSON"
+  type        = string
+  default     = "sheets-credentials"
+}
+
+variable "gemini_api_key_secret_id" {
+  description = "Secret Manager secret holding the Gemini API key"
+  type        = string
+  default     = "gemini-api-key"
+}
+
+variable "secrets_mount_path" {
+  description = "Directory where secret files are mounted inside the container"
+  type        = string
+  default     = "/secrets"
 }
 
 variable "max_instances" {

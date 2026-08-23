@@ -1,0 +1,22 @@
+# Credenciales: nunca dentro de la imagen, se montan desde Secret Manager.
+.env
+.env.*
+credentials.json
+*.json.bak
+
+# Entornos y caches locales
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+
+# Tests, scripts y fixtures no hacen falta en runtime
+tests/
+scripts/
+test-label.jpg
+
+# Varios
+.DS_Store
+*.md
