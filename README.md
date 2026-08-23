@@ -148,6 +148,43 @@ que se hagan:
 2. **Regenerar `GEMINI_API_KEY`** si la actual salio de AI Studio atada al
    proyecto viejo.
 
+## Frontend
+
+Vite + React 19 + TypeScript + Tailwind 4, en `frontend/`. Tres pantallas
+mobile: cava (listado por estantes), escaneo (foto -> Gemini -> formulario) y
+ficha del vino (stock, descorchar, cata).
+
+```bash
+cd frontend
+npm install
+npm run dev     # http://localhost:5173
+npm run build   # dist/ estatico
+```
+
+En desarrollo el proxy de Vite manda `/api` y `/health` al backend en
+`localhost:8080`, asi que no hace falta CORS. Para apuntar a otro backend
+(Cloud Run), definir `VITE_API_BASE` al buildear.
+
+Los colores de bodega viven como tokens `@theme` en `src/index.css`, asi que se
+usan como utilidades de Tailwind (`text-oro`, `bg-madera-900`). Los tipos de
+`src/lib/types.ts` espejan los esquemas Pydantic del backend.
+
+Dos detalles que ya mordieron una vez:
+
+- El reset de `color: inherit` para botones va dentro de `@layer base`. Suelto en
+  la hoja le gana en especificidad a las utilidades de Tailwind y todos los
+  botones salen color crema, sin importar el `text-*` que tengan.
+- Cormorant Garamond usa numeros oldstyle: el `1` sale como una `I`. Las cifras
+  (stock, anada, precio, codigo) llevan la clase `.cifra`, que fuerza
+  `lining-nums`.
+
+El Sheet se edita a mano, asi que la UI no confia en sus valores: una fecha que
+no parsea o una anada menor a 1900 se omiten en vez de mostrarse crudas, y
+`foto_url` solo se renderiza como imagen si es una URL absoluta.
+
+El build es estatico: se hostea gratis en GitHub Pages, Netlify o Cloudflare
+Pages, sin necesidad de cuenta de facturacion.
+
 ## Docker
 
 La imagen corre uvicorn en `$PORT` (default `8080`, el que espera Cloud Run).

@@ -1,0 +1,93 @@
+@import 'tailwindcss';
+
+/* Paleta de bodega en penumbra: madera, borra de vino, dorado, hoja de viña. */
+@theme {
+  --color-madera-950: #0f0a08;
+  --color-madera-900: #17100e;
+  --color-madera-800: #1c1210;
+  --color-madera-700: #261712;
+  --color-madera-600: #2e1c15;
+  --color-borde: #3b2a22;
+  --color-borde-claro: #4a382d;
+
+  --color-borra-600: #8a2038;
+  --color-borra-700: #6d1428;
+  --color-borra-800: #5e1023;
+  --color-vidrio: #7d2236;
+  --color-vidrio-borde: #c25068;
+
+  --color-oro: #c8a24a;
+  --color-oro-claro: #e0bc63;
+  --color-oro-oscuro: #b08c50;
+
+  --color-vina: #7f9463;
+  --color-vina-claro: #a8b98d;
+
+  --color-crema: #f7ecdd;
+  --color-crema-200: #f2e6d8;
+  --color-crema-300: #e0d3c2;
+  --color-tenue-400: #9c8873;
+  --color-tenue-500: #8d7a63;
+  --color-tenue-600: #7d6b57;
+  --color-tenue-700: #6d5c4b;
+
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'Karla', system-ui, sans-serif;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+/* Cormorant trae numeros oldstyle: el 1 sale como una I y el 0 angosto.
+   Para cifras (stock, anada, precio) se fuerzan las versalitas alineadas. */
+.cifra {
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: 'lnum' 1, 'tnum' 1;
+}
+
+body {
+  margin: 0;
+  background: var(--color-madera-900);
+  color: var(--color-crema-200);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Vetas de madera del fondo, compartidas por todas las pantallas. */
+.vetas::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background:
+    repeating-linear-gradient(
+      94deg,
+      transparent 0 26px,
+      rgba(92, 54, 32, 0.16) 26px 27px,
+      transparent 27px 61px
+    ),
+    radial-gradient(120% 55% at 50% 0%, rgba(126, 74, 42, 0.22) 0%, transparent 70%);
+}
+
+/* Los controles no heredan la tipografía por defecto. El color va en @layer
+   base para que cualquier utilidad (text-oro, text-tenue-500) lo pise: suelto
+   en la hoja le ganaba a Tailwind y todos los botones salían color crema. */
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+@layer base {
+  input,
+  textarea,
+  select,
+  button {
+    color: inherit;
+  }
+}
