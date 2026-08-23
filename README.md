@@ -112,7 +112,41 @@ responde 503 y el listado devuelve `foto_url` tal como este en el Sheet.
 
 > Pendiente de verificar de punta a punta: crear el bucket requiere una cuenta
 > de facturacion vinculada al proyecto (el free tier de 5 GB existe, pero GCS
-> la exige igual). Al 2026-08-23 `jovial-idiom-428114-a5` no la tiene.
+> la exige igual). Ver "Proyecto GCP dedicado" abajo.
+
+## Proyecto GCP dedicado
+
+El backend no tiene el project ID en el codigo: sale de variables de entorno y
+de `terraform.tfvars`. Cambiar de proyecto no toca codigo.
+
+El project ID de GCP es **inmutable**: se puede cambiar el display name, no el
+ID. Para tener un proyecto dedicado hay que crear uno nuevo.
+
+```bash
+PROJECT=digital-wine-cellar-prod   # elegir un ID libre y definitivo
+gcloud projects create $PROJECT --name="Digital Wine Cellar"
+gcloud billing projects link $PROJECT --billing-account=TU-BILLING-ID
+gcloud config set project $PROJECT
+
+gcloud services enable sheets.googleapis.com storage.googleapis.com \
+  run.googleapis.com artifactregistry.googleapis.com \
+  secretmanager.googleapis.com cloudbuild.googleapis.com
+
+# Service Account propia del proyecto nuevo
+gcloud iam service-accounts create wine-cellar \
+  --display-name="Digital Wine Cellar"
+gcloud iam service-accounts keys create backend/credentials.json \
+  --iam-account=wine-cellar@$PROJECT.iam.gserviceaccount.com
+```
+
+Despues de eso quedan dos pasos manuales, y el backend no lee el Sheet hasta
+que se hagan:
+
+1. **Compartir la planilla** `Mi_Cava_Virtual` con el `client_email` del
+   `credentials.json` nuevo (ver la nota de Terraform sobre las dos
+   identidades).
+2. **Regenerar `GEMINI_API_KEY`** si la actual salio de AI Studio atada al
+   proyecto viejo.
 
 ## Docker
 
