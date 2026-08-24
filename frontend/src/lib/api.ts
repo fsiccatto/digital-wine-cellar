@@ -20,6 +20,34 @@ export class ApiError extends Error {
   }
 }
 
+// El token vive en el navegador de cada uno; el backend lo exige en cada pedido.
+const TOKEN_KEY = 'cava.token'
+
+export function getToken(): string {
+  try {
+    return localStorage.getItem(TOKEN_KEY) ?? ''
+  } catch {
+    // Modo privado o cookies bloqueadas: se sigue sin token.
+    return ''
+  }
+}
+
+export function setToken(token: string): void {
+  try {
+    localStorage.setItem(TOKEN_KEY, token.trim())
+  } catch {
+    // Sin storage la sesion no persiste, pero la app arranca igual.
+  }
+}
+
+export function clearToken(): void {
+  try {
+    localStorage.removeItem(TOKEN_KEY)
+  } catch {
+    // Nada que limpiar si el storage no esta disponible.
+  }
+}
+
 /** FastAPI devuelve el motivo en `detail`, como string o como lista de errores. */
 async function readErrorDetail(response: Response): Promise<string> {
   try {
@@ -39,13 +67,22 @@ async function readErrorDetail(response: Response): Promise<string> {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getToken()
+  const headers = new Headers(init?.headers)
+  if (token) headers.set('X-App-Token', token)
+
   let response: Response
   try {
-    response = await fetch(`${BASE}${path}`, init)
+    response = await fetch(`${BASE}${path}`, { ...init, headers })
   } catch {
     throw new ApiError('No se pudo contactar al servidor.', 0)
   }
 
+  if (response.status === 401) {
+    // Token vencido o equivocado: se descarta para volver a pedirlo.
+    clearToken()
+    throw new ApiError('La clave no es correcta.', 401)
+  }
   if (!response.ok) {
     throw new ApiError(await readErrorDetail(response), response.status)
   }

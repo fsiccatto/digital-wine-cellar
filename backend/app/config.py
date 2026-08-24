@@ -17,3 +17,7 @@ GCS_SIGNED_URL_TTL_SECONDS = int(os.getenv("GCS_SIGNED_URL_TTL_SECONDS", str(360
 # navegador bloquea cada llamada.
 _origins = os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:5173")
 CORS_ALLOW_ORIGINS = [o.strip() for o in _origins.split(",") if o.strip()]
+
+# Clave compartida para entrar a la app. Vacia: la API queda abierta, comodo
+# en local. En produccion se define y el frontend la manda en X-App-Token.
+APP_TOKEN = os.getenv("APP_TOKEN", "")

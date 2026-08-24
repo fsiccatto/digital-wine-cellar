@@ -185,6 +185,31 @@ cd frontend
 VITE_API_BASE="https://tu-backend.run.app" BASE_PATH=/digital-wine-cellar/ npm run build
 ```
 
+### Acceso
+
+La app publicada está protegida con una clave compartida. No hay cuentas: la
+app la pide al abrir, la guarda en el navegador y la manda en `X-App-Token`.
+
+```bash
+# generar una
+python -c "import secrets; print(secrets.token_urlsafe(24))"
+
+# guardarla y publicarla
+gcloud secrets create app-token --replication-policy=automatic
+printf '%s' "TU_TOKEN" | gcloud secrets versions add app-token --data-file=-
+gcloud run deploy digital-wine-cellar-backend \
+  --image=... --region=us-central1 \
+  --update-secrets="APP_TOKEN=app-token:latest"
+```
+
+Sin `APP_TOKEN` la API queda abierta, que es lo cómodo en local. `/health`
+siempre queda accesible, porque lo consulta la plataforma.
+
+El chequeo es un middleware, no una dependencia de router: como dependencia,
+FastAPI validaba el cuerpo primero y un POST mal formado sin clave devolvía 422
+en vez de 401, revelando la forma del esquema. Va por dentro de CORS para que
+hasta un 401 lleve sus cabeceras; si no, el navegador esconde la respuesta.
+
 ### CORS
 
 El frontend publicado vive en otro dominio que el backend, así que Cloud Run
@@ -226,6 +251,11 @@ límite de tamaño.
 **La planilla se edita a mano, así que nada confía en ella.** Una fila con datos
 inválidos se descarta sin tumbar el listado entero, y en la UI una fecha que no
 parsea o una añada menor a 1900 se omiten en vez de mostrarse crudas.
+
+**Los números vienen con el formato puesto.** Una celda con formato de moneda no
+llega como `32000` sino como `"$32.000"`, y eso hacía desaparecer el vino entero
+del listado. `parse_sheet_number` los normaliza, distinguiendo el punto de miles
+del decimal: en `"32.000"` el punto agrupa, en `"32.5"` separa decimales.
 
 ## La planilla
 

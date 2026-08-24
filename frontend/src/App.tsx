@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import { listWines } from './lib/api'
+import { ApiError, getToken, listWines } from './lib/api'
 import type { WineRecord } from './lib/types'
 import { CellarScreen } from './screens/CellarScreen'
 import { ScanScreen } from './screens/ScanScreen'
+import { UnlockScreen } from './screens/UnlockScreen'
 import { WineScreen } from './screens/WineScreen'
 import { CameraIcon, CellarIcon, GlassIcon } from './components/icons'
 
@@ -16,6 +17,8 @@ export default function App() {
   const [wines, setWines] = useState<WineRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Se asume desbloqueada si ya hay clave guardada; un 401 la vuelve a pedir.
+  const [unlocked, setUnlocked] = useState(() => getToken() !== '')
 
   const load = useCallback(() => {
     setLoading(true)
@@ -23,6 +26,10 @@ export default function App() {
     listWines()
       .then(setWines)
       .catch((cause: unknown) => {
+        if (cause instanceof ApiError && cause.status === 401) {
+          setUnlocked(false)
+          return
+        }
         setError(
           cause instanceof Error ? cause.message : 'No se pudo cargar el inventario.',
         )
@@ -30,7 +37,20 @@ export default function App() {
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(load, [load])
+  useEffect(() => {
+    if (unlocked) load()
+  }, [unlocked, load])
+
+  if (!unlocked) {
+    return (
+      <UnlockScreen
+        onUnlocked={() => {
+          setUnlocked(true)
+          setView({ name: 'cellar' })
+        }}
+      />
+    )
+  }
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-[430px] flex-col bg-madera-900">
