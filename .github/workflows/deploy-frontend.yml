@@ -1,0 +1,69 @@
+name: Deploy frontend
+
+# Publica el frontend en GitHub Pages en cada push que lo toque.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Un deploy a la vez; no cancela el que ya esta corriendo.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - name: Build
+        env:
+          # El sitio cuelga de /<repo>/, no de la raiz del dominio.
+          BASE_PATH: /${{ github.event.repository.name }}/
+          # URL del backend en Cloud Run; se define en Settings > Variables.
+          VITE_API_BASE: ${{ vars.VITE_API_BASE }}
+        run: |
+          if [ -z "$VITE_API_BASE" ]; then
+            echo "::error::Falta la variable VITE_API_BASE (Settings > Secrets and variables > Actions > Variables)."
+            exit 1
+          fi
+          npm run build
+
+      - name: SPA fallback
+        # Pages sirve 404.html en rutas desconocidas; con una copia del index
+        # la app resuelve la ruta del lado del cliente en vez de romperse.
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

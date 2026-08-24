@@ -11,3 +11,9 @@ MAX_IMAGE_SIZE_BYTES = int(os.getenv("MAX_IMAGE_SIZE_BYTES", str(10 * 1024 * 102
 # Fotos de etiqueta. Sin GCS_BUCKET_NAME la app funciona igual, sin fotos.
 GCS_BUCKET_NAME = os.getenv("GCS_BUCKET_NAME", "")
 GCS_SIGNED_URL_TTL_SECONDS = int(os.getenv("GCS_SIGNED_URL_TTL_SECONDS", str(3600)))
+
+# Origenes del frontend, separados por coma. En desarrollo el proxy de Vite
+# evita CORS, pero el frontend publicado vive en otro dominio y sin esto el
+# navegador bloquea cada llamada.
+_origins = os.getenv("CORS_ALLOW_ORIGINS", "http://localhost:5173")
+CORS_ALLOW_ORIGINS = [o.strip() for o in _origins.split(",") if o.strip()]
