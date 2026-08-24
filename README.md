@@ -161,13 +161,47 @@ mismo de forma declarativa.
 
 ### Frontend
 
-El build es estático, así que se hostea gratis en GitHub Pages, Netlify o
-Cloudflare Pages, sin cuenta de facturación:
+Se publica solo en **GitHub Pages** con `.github/workflows/deploy-frontend.yml`,
+en cada push que toque `frontend/`. El hosting es gratis y no necesita
+facturación.
+
+Dos cosas hay que configurar una vez en el repo:
+
+1. **Settings → Pages → Source: GitHub Actions**
+2. **Settings → Secrets and variables → Actions → Variables**: crear
+   `VITE_API_BASE` con la URL del backend en Cloud Run.
+
+Sin esa variable el build falla a propósito, en vez de publicar un sitio que
+no llama a ningún lado.
+
+El workflow fija `base` en `/<repo>/` porque el sitio cuelga de un
+subdirectorio, y copia `index.html` a `404.html` para que las rutas resuelvan
+del lado del cliente.
+
+Para buildear a mano:
 
 ```bash
 cd frontend
-VITE_API_BASE="https://tu-backend.run.app" npm run build   # queda en dist/
+VITE_API_BASE="https://tu-backend.run.app" BASE_PATH=/digital-wine-cellar/ npm run build
 ```
+
+### CORS
+
+El frontend publicado vive en otro dominio que el backend, así que Cloud Run
+tiene que permitirlo explícitamente. La lista sale de `CORS_ALLOW_ORIGINS`
+(separada por comas):
+
+```bash
+gcloud run deploy digital-wine-cellar-backend \
+  --image=... --region=us-central1 \
+  --update-env-vars="^|^CORS_ALLOW_ORIGINS=https://tu-usuario.github.io,http://localhost:5173"
+```
+
+El prefijo `^|^` cambia el separador de gcloud a `|`, porque si no la coma
+dentro del valor se interpreta como fin de la variable.
+
+En desarrollo no hace falta: el proxy de Vite hace que el navegador vea un solo
+origen.
 
 ## Decisiones que vale la pena conocer
 
