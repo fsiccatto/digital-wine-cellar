@@ -1,272 +1,234 @@
 # Mi Cava Virtual
 
-Backend para inventario personal de vinos con:
+Inventario personal de vinos que se carga sacándole una foto a la etiqueta.
+Gemini lee la etiqueta, los datos se corrigen en un formulario y todo queda
+guardado en una planilla de Google Sheets.
 
-- escaneo de etiqueta con Gemini;
-- persistencia en Google Sheets;
-- control de stock y registro de catas.
+Corre entero dentro del **free tier permanente** de Google Cloud: Cloud Run
+escala a cero, la planilla hace de base de datos y las fotos entran en los 5 GB
+gratis de Cloud Storage.
 
-## Stack actual
+<table>
+<tr>
+<td width="50%"><img src="docs/img/cava.png" alt="Listado de la cava agrupado por estantes"></td>
+<td width="50%"><img src="docs/img/ficha.png" alt="Ficha de un vino con su stock"></td>
+</tr>
+<tr>
+<td><b>Mi cava</b> — botellas por estante, con búsqueda y filtro por varietal. Las agotadas caen al final, atenuadas.</td>
+<td><b>Ficha</b> — stock, ubicación, código y el botón para descorchar, que registra la cata.</td>
+</tr>
+</table>
 
-- Python 3.11
-- FastAPI
-- Google Gemini (`gemini-3.6-flash`)
-- Google Sheets API (Service Account)
+## Cómo funciona
 
-## Requisitos
+```
+Celular  ──foto──>  FastAPI  ──imagen──>  Gemini
+                       │                    │
+                       │  <──── JSON ───────┘
+                       │
+                       ├──filas──>  Google Sheets   (inventario y catas)
+                       └──jpg────>  Cloud Storage   (fotos, bucket privado)
+```
 
-- Python 3.11
-- Archivo `backend/.env`
-- Archivo `backend/credentials.json`
+Una botella se carga en dos pasos: primero se crea el vino (JSON) y después se
+le sube la foto. Así el escaneo que alguien abandona no deja fotos huérfanas.
 
-Variables de entorno esperadas:
+## Stack
+
+| Capa | Tecnología |
+|---|---|
+| Backend | Python 3.11, FastAPI, Pydantic |
+| Frontend | React 19, TypeScript, Vite, Tailwind 4 |
+| IA | Google Gemini (`gemini-3.6-flash`) |
+| Datos | Google Sheets vía `gspread` |
+| Fotos | Cloud Storage, bucket privado con URLs firmadas |
+| Infra | Cloud Run, Secret Manager, Artifact Registry |
+
+## API
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `GET` | `/health` | Chequeo de vida |
+| `POST` | `/api/scan-label` | Sube una imagen y devuelve lo que Gemini pudo leer |
+| `GET` | `/api/wines` | Lista el inventario |
+| `GET` | `/api/wines/{codigo}` | Un vino, con su `foto_url` ya firmada |
+| `POST` | `/api/wines` | Crea un vino y le asigna código |
+| `POST` | `/api/wines/{codigo}/foto` | Sube la etiqueta al bucket |
+| `POST` | `/api/wines/{codigo}/consume` | Descuenta una botella y registra la cata |
+
+### Código de vino
+
+Cada botella tiene un UUID técnico (`id`) y un código legible que es el que se
+usa en la API:
+
+```
+TRA-MAL-2020-0001
+ │   │    │    └── contador dentro de la combinación
+ │   │    └─────── añada
+ │   └──────────── 3 letras del varietal
+ └──────────────── 3 letras de la bodega
+```
+
+## Entornos
+
+Hay dos planillas y el entorno se elige por variable, sin tocar código:
+
+| | Planilla | Fotos |
+|---|---|---|
+| **Local / DEV** | `Mi_Cava_Virtual_DEV` | sin bucket |
+| **Producción** | `Mi_Cava_Virtual` | bucket privado en GCS |
+
+En DEV `GCS_BUCKET_NAME` va vacío: el endpoint de foto responde 503 y todo lo
+demás anda igual. Así probar en local no ensucia el bucket real ni el
+inventario. Ambas planillas se comparten con la misma Service Account.
+
+## Correrlo localmente
+
+Hace falta `backend/.env` y `backend/credentials.json` (el JSON de una Service
+Account de Google). Ninguno de los dos se versiona.
 
 ```env
 GEMINI_API_KEY=tu_api_key
 GOOGLE_SHEETS_CREDENTIALS_FILE=credentials.json
-GOOGLE_SHEET_NAME=Mi_Cava_Virtual
+GOOGLE_SHEET_NAME=Mi_Cava_Virtual_DEV
 MAX_IMAGE_SIZE_BYTES=10485760
+GCS_BUCKET_NAME=            # vacío en DEV: la app anda igual, sin fotos
+GCS_SIGNED_URL_TTL_SECONDS=3600
 ```
 
-## Comandos utiles
-
 ```bash
-# tests
-.venv/Scripts/python -m pytest backend/tests -q
-
-# lint
-.venv/Scripts/python -m ruff check backend/app backend/tests
-
-# run API
+# backend
 cd backend
-..\.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
-```
+../.venv/Scripts/python -m uvicorn app.main:app --port 8080
 
-## Seguridad y robustez ya implementadas
-
-- upload de imagen con limite configurable (`MAX_IMAGE_SIZE_BYTES`);
-- validacion real de imagen con Pillow (no solo MIME);
-- fechas de ingreso/consumo generadas solo por el sistema;
-- validaciones de negocio con Pydantic:
-	- anada entre 1900 y anio actual;
-	- cantidad >= 0;
-	- puntuacion entre 1 y 5;
-	- campos obligatorios no vacios.
-
-## Codigo interno de vino
-
-Cada vino tiene dos identificadores:
-
-- `id`: UUID tecnico interno.
-- `codigo_vino`: codigo legible para operar consumo.
-
-Formato:
-
-```text
-<BOD>-<VAR>-<ANADA>-<SECUENCIA>
-```
-
-Ejemplo:
-
-```text
-TRA-MAL-2020-0001
-```
-
-Donde:
-
-- `BOD`: 3 caracteres de bodega.
-- `VAR`: 3 caracteres de varietal.
-- `ANADA`: anada del vino.
-- `SECUENCIA`: contador incremental para la combinacion BOD-VAR-ANADA.
-
-El endpoint de consumo usa `codigo_vino`:
-
-```http
-POST /api/wines/{codigo_vino}/consume
-```
-
-## Fotos de etiqueta (Google Cloud Storage)
-
-La foto se sube **despues** de crear el vino, en su propio endpoint. Asi el POST
-de creacion sigue siendo JSON puro y no quedan fotos huerfanas de escaneos que
-el usuario abandona.
-
-```http
-POST /api/wines                      -> crea el vino, devuelve codigo_vino
-POST /api/wines/{codigo_vino}/foto   -> multipart, sube la etiqueta
-GET  /api/wines/{codigo_vino}        -> un vino con su foto_url ya firmada
-```
-
-El bucket es **privado** (`public-access-prevention` activo). En la columna
-`foto_url` del Sheet se guarda el nombre del objeto
-(`etiquetas/TRA-MAL-2020-0001.jpg`), no una URL: las URLs de lectura se firman
-on demand al listar o pedir un vino, y caducan segun
-`GCS_SIGNED_URL_TTL_SECONDS` (1 h por defecto). Quien firma es la Service
-Account de `credentials.json`, la misma que lee el Sheet.
-
-`foto_url` no se acepta en `POST /api/wines`: solo lo escribe el endpoint de
-foto, para que un cliente no pueda apuntar el campo a una URL arbitraria.
-
-Sin `GCS_BUCKET_NAME` la app funciona igual, sin fotos: el endpoint de foto
-responde 503 y el listado devuelve `foto_url` tal como este en el Sheet.
-
-> Pendiente de verificar de punta a punta: crear el bucket requiere una cuenta
-> de facturacion vinculada al proyecto (el free tier de 5 GB existe, pero GCS
-> la exige igual). Ver "Proyecto GCP dedicado" abajo.
-
-## Proyecto GCP dedicado
-
-El backend no tiene el project ID en el codigo: sale de variables de entorno y
-de `terraform.tfvars`. Cambiar de proyecto no toca codigo.
-
-El project ID de GCP es **inmutable**: se puede cambiar el display name, no el
-ID. Para tener un proyecto dedicado hay que crear uno nuevo.
-
-```bash
-PROJECT=digital-wine-cellar-prod   # elegir un ID libre y definitivo
-gcloud projects create $PROJECT --name="Digital Wine Cellar"
-gcloud billing projects link $PROJECT --billing-account=TU-BILLING-ID
-gcloud config set project $PROJECT
-
-gcloud services enable sheets.googleapis.com storage.googleapis.com \
-  run.googleapis.com artifactregistry.googleapis.com \
-  secretmanager.googleapis.com cloudbuild.googleapis.com
-
-# Service Account propia del proyecto nuevo
-gcloud iam service-accounts create wine-cellar \
-  --display-name="Digital Wine Cellar"
-gcloud iam service-accounts keys create backend/credentials.json \
-  --iam-account=wine-cellar@$PROJECT.iam.gserviceaccount.com
-```
-
-Despues de eso quedan dos pasos manuales, y el backend no lee el Sheet hasta
-que se hagan:
-
-1. **Compartir la planilla** `Mi_Cava_Virtual` con el `client_email` del
-   `credentials.json` nuevo (ver la nota de Terraform sobre las dos
-   identidades).
-2. **Regenerar `GEMINI_API_KEY`** si la actual salio de AI Studio atada al
-   proyecto viejo.
-
-## Frontend
-
-Vite + React 19 + TypeScript + Tailwind 4, en `frontend/`. Tres pantallas
-mobile: cava (listado por estantes), escaneo (foto -> Gemini -> formulario) y
-ficha del vino (stock, descorchar, cata).
-
-```bash
+# frontend (proxea /api al backend, sin CORS)
 cd frontend
-npm install
-npm run dev     # http://localhost:5173
-npm run build   # dist/ estatico
+npm install && npm run dev        # http://localhost:5173
+
+# tests y lint
+.venv/Scripts/python -m pytest backend/tests -q
+.venv/Scripts/python -m ruff check backend/app backend/tests
 ```
 
-En desarrollo el proxy de Vite manda `/api` y `/health` al backend en
-`localhost:8080`, asi que no hace falta CORS. Para apuntar a otro backend
-(Cloud Run), definir `VITE_API_BASE` al buildear.
-
-La paleta es **pergamino**: fondo papel de etiqueta, el vino (`#7c2338`) como
-unico color saturado y el verde vid solo para acentos. Vive como tokens `@theme`
-en `src/index.css` y se usa via utilidades de Tailwind (`text-oro`,
-`bg-madera-900`).
-
-Los nombres de token vienen de la paleta oscura anterior y se conservaron a
-proposito: cambiar de tema es cambiar los valores en `@theme`, sin tocar las
-clases de las pantallas. `madera-*` es papel de mas hundido a mas elevado,
-`crema-*`/`tenue-*` es tinta de mas fuerte a mas tenue, y `oro` es tinta vino.
-
-El movimiento vive todo en `index.css` y se apaga entero con
-`prefers-reduced-motion`: los estantes entran escalonados (`.brota`), la hoja de
-vid del encabezado se balancea y su zarcillo se dibuja al entrar, y las tarjetas
-se hunden al tocarlas (`.tarjeta`).
-
-Los tipos de `src/lib/types.ts` espejan los esquemas Pydantic del backend.
-
-Dos detalles que ya mordieron una vez:
-
-- El reset de `color: inherit` para botones va dentro de `@layer base`. Suelto en
-  la hoja le gana en especificidad a las utilidades de Tailwind y todos los
-  botones salen color crema, sin importar el `text-*` que tengan.
-- Cormorant Garamond usa numeros oldstyle: el `1` sale como una `I`. Las cifras
-  (stock, anada, precio, codigo) llevan la clase `.cifra`, que fuerza
-  `lining-nums`.
-
-El Sheet se edita a mano, asi que la UI no confia en sus valores: una fecha que
-no parsea o una anada menor a 1900 se omiten en vez de mostrarse crudas, y
-`foto_url` solo se renderiza como imagen si es una URL absoluta.
-
-El build es estatico: se hostea gratis en GitHub Pages, Netlify o Cloudflare
-Pages, sin necesidad de cuenta de facturacion.
-
-## Docker
-
-La imagen corre uvicorn en `$PORT` (default `8080`, el que espera Cloud Run).
-`.dockerignore` excluye `.env`, `credentials.json`, `tests/` y `scripts/`: las
-credenciales nunca entran en la imagen, se inyectan en runtime.
+Con Docker, montando las credenciales como lo hace Cloud Run:
 
 ```powershell
 cd backend
 docker build -t digital-wine-cellar:test .
-
-# credentials.json se monta como volumen, igual que hace Secret Manager en Cloud Run
-$key = (Get-Content .env | Select-String -Pattern "^GEMINI_API_KEY=").ToString() -replace '^GEMINI_API_KEY=',''
-docker run -d --name dwc-test -p 8080:8080 `
+$key = (Get-Content .env | Select-String "^GEMINI_API_KEY=").ToString() -replace '^GEMINI_API_KEY=',''
+docker run -d --name dwc -p 8080:8080 `
   -v "${PWD}\credentials.json:/secrets/credentials.json:ro" `
   -e GOOGLE_SHEETS_CREDENTIALS_FILE=/secrets/credentials.json `
-  -e GEMINI_API_KEY="$key" `
-  -e GOOGLE_SHEET_NAME=Mi_Cava_Virtual `
+  -e GEMINI_API_KEY="$key" -e GOOGLE_SHEET_NAME=Mi_Cava_Virtual_DEV `
   digital-wine-cellar:test
-
-curl http://localhost:8080/health
-docker logs dwc-test
-docker rm -f dwc-test
 ```
 
-## Terraform (Cloud Run)
+## Desplegarlo
 
-`infra/terraform` despliega el backend en Cloud Run. Lo que provisiona:
-
-- servicio Cloud Run con `min_instance_count = 0` y `cpu_idle`, para que sin
-  trafico no haya instancias facturables;
-- Service Account propia para el runtime (la default de Compute tiene mas
-  permisos de los necesarios);
-- dos secretos en Secret Manager: `sheets-credentials` (montado como archivo en
-  `/secrets/credentials.json`) y `gemini-api-key` (inyectado como env var), con
-  el IAM `secretAccessor` correspondiente.
-
-`GEMINI_API_KEY` y `GOOGLE_SHEETS_CREDENTIALS_FILE` los inyecta Terraform desde
-Secret Manager: no van en `environment_variables` del tfvars.
-
-Flujo de deploy:
+`infra/deploy.sh` hace todo el camino: crea el proyecto, vincula facturación,
+habilita APIs, arma la Service Account y los secretos, crea el bucket, construye
+la imagen con Cloud Build y despliega en Cloud Run.
 
 ```bash
-PROJECT=$(gcloud config get-value project)
-REGION=us-central1
-
-gcloud services enable run.googleapis.com artifactregistry.googleapis.com \
-  secretmanager.googleapis.com cloudbuild.googleapis.com
-
-gcloud artifacts repositories create digital-wine-cellar \
-  --repository-format=docker --location=$REGION
-
-# build en la nube: no necesita Docker local
-gcloud builds submit backend \
-  --tag $REGION-docker.pkg.dev/$PROJECT/digital-wine-cellar/backend:latest
-
-# los valores de los secretos se cargan fuera de Terraform para que no queden en el state
-gcloud secrets create sheets-credentials --replication-policy=automatic
-gcloud secrets versions add sheets-credentials --data-file=backend/credentials.json
-gcloud secrets create gemini-api-key --replication-policy=automatic
-printf '%s' "$GEMINI_API_KEY" | gcloud secrets versions add gemini-api-key --data-file=-
-
-cd infra/terraform
-cp terraform.tfvars.example terraform.tfvars   # completar project_id y container_image
-terraform init && terraform plan && terraform apply
+PROJECT_ID=tu-proyecto bash infra/deploy.sh
 ```
 
-> El Sheet lo lee el `client_email` que esta dentro de `credentials.json`, no la
-> Service Account que crea Terraform. La planilla se comparte con ese primero.
->
-> Terraform no esta instalado en el entorno de desarrollo actual
-> (`winget install Hashicorp.Terraform`). El deploy queda pendiente hasta que el
-> desarrollo del backend este cerrado.
+Queda **un paso manual** sin el cual el backend no lee la planilla: compartir el
+Sheet con el `client_email` del `credentials.json`, con permiso de Editor.
+
+> Son dos identidades distintas y es fácil confundirlas. El Sheet lo lee la
+> Service Account del JSON; Cloud Run *corre* con esa misma cuenta, pero
+> compartir la planilla con cualquier otra no sirve.
+
+La facturación hay que vincularla aunque todo entre en el free tier: sin una
+cuenta asociada, Cloud Storage y Cloud Run devuelven 403 y no se habilitan.
+Conviene poner un presupuesto de aviso:
+
+```bash
+gcloud billing budgets create \
+  --billing-account=TU-BILLING-ID \
+  --display-name="Cava - alerta 1 USD" \
+  --budget-amount=1USD \
+  --threshold-rule=percent=0.5 --threshold-rule=percent=1.0 \
+  --filter-projects="projects/$(gcloud projects describe $PROJECT_ID --format='value(projectNumber)')"
+```
+
+El aviso llega por mail a los administradores de facturación. Notar que
+**avisa, no corta**: si se dispara, el servicio sigue andando.
+
+También hay una versión en Terraform en `infra/terraform` que provisiona lo
+mismo de forma declarativa.
+
+### Frontend
+
+El build es estático, así que se hostea gratis en GitHub Pages, Netlify o
+Cloudflare Pages, sin cuenta de facturación:
+
+```bash
+cd frontend
+VITE_API_BASE="https://tu-backend.run.app" npm run build   # queda en dist/
+```
+
+## Decisiones que vale la pena conocer
+
+**Las fotos nunca se sirven públicamente.** El bucket tiene
+`public-access-prevention` activo. En la columna `foto_url` del Sheet se guarda
+el nombre del objeto, no una URL, y las URLs de lectura se firman on demand y
+caducan a la hora. `foto_url` tampoco se acepta en `POST /api/wines`: solo lo
+escribe el endpoint de foto, para que un cliente no pueda apuntarlo a una URL
+arbitraria.
+
+**Las credenciales no viajan en la imagen.** `.dockerignore` deja afuera `.env`
+y `credentials.json`; en Cloud Run se inyectan desde Secret Manager, el JSON
+montado como archivo y la API key como variable de entorno.
+
+**Las fechas las pone el servidor.** `fecha_ingreso` y `fecha_consumo` se
+generan server-side, nunca se aceptan del cliente.
+
+**Las imágenes se validan de verdad.** No alcanza con el `content_type`
+declarado: se abre con Pillow para confirmar que sea una imagen, además del
+límite de tamaño.
+
+**La planilla se edita a mano, así que nada confía en ella.** Una fila con datos
+inválidos se descarta sin tumbar el listado entero, y en la UI una fecha que no
+parsea o una añada menor a 1900 se omiten en vez de mostrarse crudas.
+
+## La planilla
+
+`backend/scripts/format_sheet.py` le da formato: encabezado fijo en color vino,
+filtros, franjas alternadas, desplegables de varietal y puntuación, formato de
+moneda en el precio, y reglas que apagan las filas sin stock y resaltan la
+última botella. Es idempotente, se puede correr las veces que haga falta.
+
+```bash
+cd backend
+../.venv/Scripts/python scripts/format_sheet.py                  # la de DEV
+../.venv/Scripts/python scripts/format_sheet.py Mi_Cava_Virtual  # la de producción
+```
+
+| Pestaña | Contenido |
+|---|---|
+| `Inventario` | Una fila por vino: bodega, nombre, varietal, añada, región, alcohol, stock, ubicación, precio y código |
+| `Historico_Catas` | Una fila por botella consumida: puntuación 1–5, notas y maridaje |
+
+## Estructura
+
+```
+backend/
+  app/
+    routes/      health, scan, wines
+    services/    gemini, sheets, storage, wine
+    schemas/     validaciones Pydantic
+    utils/       código de vino, validación de imágenes
+  scripts/       formato de la planilla, utilidades
+  tests/
+frontend/
+  src/
+    screens/     CellarScreen, ScanScreen, WineScreen
+    lib/         api, types, helpers de dominio
+    components/  íconos SVG
+infra/
+  deploy.sh      deploy completo
+  terraform/     la misma infra, declarativa
+design/          artboards del diseño
+```
