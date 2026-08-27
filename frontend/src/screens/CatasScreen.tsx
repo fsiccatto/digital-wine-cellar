@@ -1,0 +1,156 @@
+import { useMemo, useState } from 'react'
+import type { CataRecord } from '../lib/types'
+import { formatDate, groupByMonth } from '../lib/wine'
+import { CataRow } from '../components/CataRow'
+import { Sheet } from '../components/Sheet'
+import { RatingGlassIcon, SpinnerIcon, VineSprigIcon } from '../components/icons'
+
+interface Props {
+  catas: CataRecord[]
+  loading: boolean
+  error: string | null
+  onRetry: () => void
+  onSelect: (codigoVino: string) => void
+}
+
+/**
+ * El historico de catas. Se agrupa por mes y no por vino: es una bitacora, y la
+ * pregunta natural es "que tomamos ultimamente". De paso reusa el rotulo con
+ * linea y contador del estante, asi que se lee como hermana de la cava.
+ */
+export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props) {
+  const [notes, setNotes] = useState<CataRecord | null>(null)
+
+  const months = useMemo(() => groupByMonth(catas), [catas])
+
+  return (
+    <div className="vetas relative flex min-h-full flex-col">
+      <header className="relative px-5 pt-8 pb-3">
+        <div className="flex items-end justify-between gap-4">
+          <div className="flex items-end gap-[7px]">
+            <div className="flex flex-col gap-[2px]">
+              <span className="text-[8.5px] font-bold tracking-[0.24em] text-tenue-500 uppercase">
+                Mi Cava
+              </span>
+              <h1 className="font-serif text-[24px] leading-none font-semibold text-crema">
+                Las Catas
+              </h1>
+            </div>
+            <span className="mb-[1px] shrink-0">
+              <VineSprigIcon />
+            </span>
+          </div>
+          <div className="flex shrink-0 items-baseline gap-[4px]">
+            <span className="cifra font-serif text-[19px] leading-none font-semibold text-oro">
+              {catas.length}
+            </span>
+            <span className="text-[8.5px] font-semibold tracking-[0.14em] text-tenue-500 uppercase">
+              {catas.length === 1 ? 'cata' : 'catas'}
+            </span>
+          </div>
+        </div>
+      </header>
+
+      <div className="relative flex grow flex-col gap-4 px-5 pt-2 pb-27">
+        {loading && (
+          <div className="flex items-center justify-center gap-[10px] py-16 text-tenue-500">
+            <SpinnerIcon className="animate-spin" />
+            <span className="text-[13px]">Abriendo el libro…</span>
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="flex flex-col items-start gap-3 rounded-[11px] border border-borra-600/40 bg-borra-800/20 p-4">
+            <p className="text-[13px] leading-relaxed text-crema-300">{error}</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="rounded-lg border border-borde-claro px-3 py-[7px] text-[12px] font-semibold text-oro"
+            >
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {!loading && !error && catas.length === 0 && (
+          <p className="py-16 text-center text-[13px] leading-relaxed text-tenue-600">
+            Todavía no descorchaste ninguna botella. Cuando lo hagas, la cata queda
+            registrada acá.
+          </p>
+        )}
+
+        {months.map((month, index) => (
+          <section
+            key={month.key}
+            className="brota flex flex-col"
+            style={{ animationDelay: `${Math.min(index, 6) * 70}ms` }}
+          >
+            <div className="flex items-center gap-2 pb-[7px]">
+              <span className="text-[8px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+                {month.label}
+              </span>
+              <div className="h-px grow bg-borde" />
+              <span className="text-[8px] font-medium text-tenue-600">
+                {month.catas.length} {month.catas.length === 1 ? 'cata' : 'catas'}
+              </span>
+            </div>
+
+            <ul className="flex flex-col gap-[5px]">
+              {month.catas.map((cata) => (
+                <li key={cata.id_cata}>
+                  <CataRow cata={cata} onSelect={onSelect} onNotes={setNotes} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+
+      {notes && <NotesSheet cata={notes} onClose={() => setNotes(null)} />}
+    </div>
+  )
+}
+
+/** Las notas no entran en la fila; se leen acá, sin editar. */
+function NotesSheet({ cata, onClose }: { cata: CataRecord; onClose: () => void }) {
+  const date = formatDate(cata.fecha_consumo)
+
+  return (
+    <Sheet onClose={onClose}>
+      <div className="mb-5 flex flex-col gap-1">
+        <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+          Notas de cata
+        </span>
+        <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
+          {cata.vino_existe ? cata.nombre_vino : cata.vino_id}
+        </h2>
+        {date && <span className="cifra text-[11px] text-tenue-500">{date}</span>}
+      </div>
+
+      {cata.puntuacion !== null && (
+        <div className="mb-5 flex gap-2">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <RatingGlassIcon
+              key={value}
+              size={26}
+              filled={value <= cata.puntuacion!}
+              className={value <= cata.puntuacion! ? 'text-oro' : 'text-borde-claro'}
+            />
+          ))}
+        </div>
+      )}
+
+      <p className="mb-5 text-[14px] leading-relaxed whitespace-pre-wrap text-crema-300">
+        {cata.notas_cata}
+      </p>
+
+      <button
+        type="button"
+        onClick={onClose}
+        className="h-12 w-full rounded-xl border border-borde-claro text-[14px] font-semibold text-tenue-400"
+      >
+        Cerrar
+      </button>
+    </Sheet>
+  )
+}
