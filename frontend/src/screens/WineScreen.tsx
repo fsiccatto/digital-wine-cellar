@@ -11,6 +11,7 @@ import {
   RatingGlassIcon,
   SpinnerIcon,
 } from '../components/icons'
+import { Sheet } from '../components/Sheet'
 
 interface Props {
   codigoVino: string
@@ -271,8 +272,7 @@ function TastingSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex items-end justify-center bg-crema/25 backdrop-blur-[2px]">
-      <div className="hoja-cata w-full max-w-[430px] rounded-t-2xl border-t border-borde bg-madera-600 px-5 pt-6 pb-[30px] shadow-[0_-8px_30px_rgba(70,52,30,0.18)]">
+    <Sheet onClose={onClose}>
         <div className="mb-5 flex flex-col gap-1">
           <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
             Cata
@@ -363,7 +363,6 @@ function TastingSheet({
             )}
           </button>
         </div>
-      </div>
-    </div>
+    </Sheet>
   )
 }
