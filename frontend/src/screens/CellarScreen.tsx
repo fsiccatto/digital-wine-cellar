@@ -91,7 +91,7 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
       </div>
 
       {options.length > 0 && (
-        <div className="relative flex gap-[5px] overflow-x-auto px-5 pb-[15px]">
+        <div className="sin-barra relative flex gap-[5px] overflow-x-auto pb-[15px] pl-5 pr-0">
           <Chip active={varietal === null} onClick={() => setVarietal(null)}>
             Todos
           </Chip>
@@ -104,6 +104,9 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
               {option}
             </Chip>
           ))}
+          {/* Chrome no respeta el padding-right del contenedor al final del
+              scroll, asi que el margen final es un hijo mas. */}
+          <div aria-hidden className="w-5 shrink-0" />
         </div>
       )}
 
@@ -186,13 +189,19 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={
-        active
-          ? 'shrink-0 rounded-full bg-borra-600 px-[11px] py-1 text-[10px] font-bold text-madera-700'
-          : 'shrink-0 rounded-full border border-borde bg-madera-700 px-[11px] py-1 text-[10px] font-medium text-tenue-400'
-      }
+      // El area tactil llega a 44px con padding vertical y margen negativo que
+      // lo compensa: el dedo tiene donde caer y el layout no se entera.
+      className="-my-[12px] shrink-0 py-[12px]"
     >
-      {children}
+      <span
+        className={
+          active
+            ? 'block rounded-full bg-borra-600 px-[10px] py-[3px] text-[9px] font-bold text-madera-700'
+            : 'block rounded-full border border-borde bg-madera-700 px-[10px] py-[3px] text-[9px] font-medium text-tenue-400'
+        }
+      >
+        {children}
+      </span>
     </button>
   )
 }

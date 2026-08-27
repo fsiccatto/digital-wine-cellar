@@ -57,6 +57,16 @@ body,
   font-feature-settings: 'lnum' 1, 'tnum' 1;
 }
 
+/* Scroll horizontal sin la barra a la vista: el gesto tactil se conserva, lo
+   que se va es el riel gris que en desktop parte el diseño al medio. */
+.sin-barra {
+  scrollbar-width: none;
+}
+
+.sin-barra::-webkit-scrollbar {
+  display: none;
+}
+
 body {
   margin: 0;
   background: var(--color-madera-900);

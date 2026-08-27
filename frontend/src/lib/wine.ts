@@ -1,4 +1,4 @@
-import type { WineRecord } from './types'
+import type { CataRecord, WineRecord } from './types'
 
 /** Tinte del vidrio segun el tipo de vino, para distinguirlos en el estante. */
 export interface GlassTint {
@@ -144,4 +144,58 @@ export function formatDate(iso: string): string | null {
 /** El backend acepta anada >= 1900, pero una fila vieja del Sheet puede traer 0. */
 export function formatYear(anada: number): string | null {
   return anada >= 1900 ? String(anada) : null
+}
+
+/** Dia y mes, para la fila de una cata: el año ya lo dice el rotulo del grupo. */
+export function formatDayMonth(iso: string): string | null {
+  const parsed = new Date(iso)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+}
+
+export interface CataMonth {
+  key: string
+  label: string
+  catas: CataRecord[]
+}
+
+/**
+ * El historico es una bitacora: la pregunta natural es "que tomamos ultimamente".
+ * Las fechas ilegibles caen en un grupo al final, mismo criterio defensivo que
+ * `groupByShelf` con las ubicaciones raras.
+ */
+export function groupByMonth(catas: CataRecord[]): CataMonth[] {
+  const UNDATED = '?'
+  const months = new Map<string, CataRecord[]>()
+
+  for (const cata of catas) {
+    const parsed = new Date(cata.fecha_consumo)
+    const key = Number.isNaN(parsed.getTime())
+      ? UNDATED
+      : `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`
+    const existing = months.get(key)
+    if (existing) {
+      existing.push(cata)
+    } else {
+      months.set(key, [cata])
+    }
+  }
+
+  return [...months.entries()]
+    .sort(([a], [b]) => {
+      if (a === UNDATED) return 1
+      if (b === UNDATED) return -1
+      return b.localeCompare(a) // mas reciente primero
+    })
+    .map(([key, group]) => {
+      if (key === UNDATED) {
+        return { key, label: 'Sin fecha', catas: group }
+      }
+      const [year, month] = key.split('-').map(Number)
+      const label = new Date(year, month - 1, 1).toLocaleDateString('es-AR', {
+        month: 'long',
+        year: 'numeric',
+      })
+      return { key, label, catas: group }
+    })
 }

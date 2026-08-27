@@ -1,9 +1,12 @@
 import type {
+  CataRecord,
   ConsumeResult,
+  DeleteResult,
   WineConsumeInput,
   WineCreateInput,
   WineRecord,
   WineScanResult,
+  WineUpdateInput,
 } from './types'
 
 // En desarrollo el proxy de Vite redirige /api al backend; en produccion se
@@ -132,4 +135,38 @@ export function consumeWine(
       body: JSON.stringify(payload),
     },
   )
+}
+
+export function updateWine(
+  codigoVino: string,
+  payload: WineUpdateInput,
+): Promise<WineRecord> {
+  return request<WineRecord>(`/api/wines/${encodeURIComponent(codigoVino)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteWine(codigoVino: string): Promise<DeleteResult> {
+  return request<DeleteResult>(`/api/wines/${encodeURIComponent(codigoVino)}`, {
+    method: 'DELETE',
+  })
+}
+
+/** `delta` es relativo: un absoluto pisaria un cambio hecho desde otro lado. */
+export function adjustStock(codigoVino: string, delta: number): Promise<WineRecord> {
+  return request<WineRecord>(`/api/wines/${encodeURIComponent(codigoVino)}/stock`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ delta }),
+  })
+}
+
+export function listCatas(): Promise<CataRecord[]> {
+  return request<CataRecord[]>('/api/catas')
+}
+
+export function listWineCatas(codigoVino: string): Promise<CataRecord[]> {
+  return request<CataRecord[]>(`/api/wines/${encodeURIComponent(codigoVino)}/catas`)
 }
