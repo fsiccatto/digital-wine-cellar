@@ -129,6 +129,14 @@ export default function App() {
             load()
             invalidateCatas()
           }}
+          onChanged={() => {
+            load()
+            invalidateCatas()
+          }}
+          onDeleted={() => {
+            load()
+            invalidateCatas()
+          }}
         />
       )}
 
