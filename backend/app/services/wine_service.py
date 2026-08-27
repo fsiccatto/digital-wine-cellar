@@ -1,18 +1,30 @@
+import logging
 import uuid
 from datetime import datetime
 
 from pydantic import ValidationError
 
-from app.schemas.wine_schema import WineConsumeInput, WineCreateInput, WineRecord
+from app.schemas.wine_schema import (
+    CataRecord,
+    WineConsumeInput,
+    WineCreateInput,
+    WineRecord,
+    WineUpdateInput,
+)
 from app.services import storage_service
 from app.services.sheets_service import (
     append_cata_record,
     append_inventory_row,
+    delete_inventory_row,
+    get_catas_rows,
     get_inventory_rows,
     update_inventory_photo,
     update_inventory_quantity,
+    update_inventory_row,
 )
 from app.utils.wine_code import build_wine_code, next_sequence
+
+logger = logging.getLogger(__name__)
 
 
 def _with_photo_url(record: WineRecord) -> WineRecord:
@@ -120,3 +132,101 @@ def consume_wine(codigo_vino: str, payload: WineConsumeInput):
     })
 
     return {"status": "ok", "stock_restante": updated_quantity}
+
+
+def list_catas(codigo_vino: str | None = None) -> list[CataRecord]:
+    """Histórico de catas, opcionalmente filtrado por vino, más nuevas primero.
+
+    El join usa `get_inventory_rows()` crudo y no `list_wines()`: solo hacen
+    falta tres campos de texto, y `list_wines` firma una URL de GCS por cada
+    foto — trabajo tirado acá.
+    """
+    rows = get_catas_rows()
+    if codigo_vino is not None:
+        rows = [row for row in rows if row.get("vino_id") == codigo_vino]
+    if not rows:
+        return []
+
+    index = {
+        row.get("codigo_vino"): row
+        for row in get_inventory_rows()
+        if row.get("codigo_vino")
+    }
+
+    catas = []
+    for row in rows:
+        wine = index.get(row.get("vino_id"))
+        try:
+            catas.append(
+                CataRecord(
+                    **row,
+                    vino_existe=wine is not None,
+                    bodega=wine.get("bodega") if wine else None,
+                    nombre_vino=wine.get("nombre_vino") if wine else None,
+                    anada=wine.get("anada") if wine else None,
+                )
+            )
+        except ValidationError:
+            # Filas editadas a mano en el Sheet no deben invalidar el histórico.
+            continue
+
+    catas.sort(key=lambda cata: cata.fecha_consumo, reverse=True)
+    return catas
+
+
+def update_wine(codigo_vino: str, payload: WineUpdateInput) -> WineRecord:
+    """Edita los datos del vino. El código NO se regenera: es inmutable."""
+    wine = get_wine(codigo_vino)
+    changes = payload.model_dump()
+    update_inventory_row(
+        codigo_vino,
+        {key: "" if value is None else value for key, value in changes.items()},
+    )
+    # Se reconstruye en memoria en vez de releer el Sheet: ya sabemos qué cambió.
+    return wine.model_copy(update=changes)
+
+
+def delete_wine(codigo_vino: str) -> dict:
+    """Borra el vino del inventario. Las catas se conservan a propósito.
+
+    El orden es deliberado: primero la fila, después la foto. Si GCS falla queda
+    un blob huérfano (barato e invisible); al revés quedaría una fila apuntando a
+    una foto inexistente.
+    """
+    row = next(
+        (item for item in get_inventory_rows() if item.get("codigo_vino") == codigo_vino),
+        None,
+    )
+    if row is None:
+        raise ValueError("No se encontró el vino solicitado.")
+
+    # El nombre del objeto, crudo: get_wine devuelve la URL firmada.
+    object_name = row.get("foto_url") or None
+
+    delete_inventory_row(codigo_vino)
+
+    if object_name and storage_service.is_configured():
+        try:
+            storage_service.delete_label_photo(object_name)
+        except Exception:
+            logger.warning(
+                "El vino %s se borró pero su foto %s quedó en el bucket.",
+                codigo_vino,
+                object_name,
+                exc_info=True,
+            )
+
+    return {"status": "ok", "codigo_vino": codigo_vino}
+
+
+def adjust_stock(codigo_vino: str, delta: int) -> WineRecord:
+    """Corrige el inventario sin registrar una cata: esa es la diferencia con
+    `consume_wine`."""
+    wine = get_wine(codigo_vino)
+
+    updated_quantity = wine.cantidad + delta
+    if updated_quantity < 0:
+        raise ValueError("El stock no puede quedar negativo.")
+
+    update_inventory_quantity(codigo_vino, updated_quantity)
+    return wine.model_copy(update={"cantidad": updated_quantity})

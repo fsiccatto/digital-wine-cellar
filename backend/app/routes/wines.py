@@ -1,13 +1,24 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
-from app.schemas.wine_schema import WineConsumeInput, WineCreateInput, WineRecord
+from app.schemas.wine_schema import (
+    CataRecord,
+    WineConsumeInput,
+    WineCreateInput,
+    WineRecord,
+    WineStockInput,
+    WineUpdateInput,
+)
 from app.services.storage_service import StorageNotConfigured
 from app.services.wine_service import (
+    adjust_stock,
     attach_label_photo,
     consume_wine,
     create_wine,
+    delete_wine,
     get_wine,
+    list_catas,
     list_wines,
+    update_wine,
 )
 from app.utils.image_upload import read_validated_image
 
@@ -88,6 +99,76 @@ def consume_wine_route(codigo_vino: str, payload: WineConsumeInput):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+@router.put("/wines/{codigo_vino}", response_model=WineRecord)
+def update_wine_route(codigo_vino: str, payload: WineUpdateInput):
+    try:
+        return update_wine(codigo_vino, payload)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+@router.delete("/wines/{codigo_vino}")
+def delete_wine_route(codigo_vino: str):
+    try:
+        return delete_wine(codigo_vino)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+@router.patch("/wines/{codigo_vino}/stock", response_model=WineRecord)
+def adjust_stock_route(codigo_vino: str, payload: WineStockInput):
+    try:
+        return adjust_stock(codigo_vino, payload.delta)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get("/catas", response_model=list[CataRecord])
+def get_catas():
+    try:
+        return list_catas()
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+@router.get("/wines/{codigo_vino}/catas", response_model=list[CataRecord])
+def get_wine_catas(codigo_vino: str):
+    try:
+        return list_catas(codigo_vino)
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

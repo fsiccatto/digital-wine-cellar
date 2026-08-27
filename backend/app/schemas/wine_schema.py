@@ -56,6 +56,45 @@ class WineCreateInput(BaseModel):
     )(normalize_required_text)
 
 
+class WineUpdateInput(BaseModel):
+    """Igual a WineCreateInput pero sin `cantidad`: el stock se mueve aparte.
+
+    `extra="forbid"` corta que el cliente mande `codigo_vino` esperando que se
+    regenere: el código es inmutable.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    bodega: str
+    nombre_vino: str
+    varietal: str
+    anada: int = Field(ge=1900, le=CURRENT_YEAR)
+    region: str
+    alcohol: str
+    ubicacion: Optional[str] = None
+    precio_estimado: Optional[float] = None
+
+    _normalize_required = field_validator(
+        "bodega", "nombre_vino", "varietal", "region", "alcohol", mode="before"
+    )(normalize_required_text)
+
+
+class WineStockInput(BaseModel):
+    """Ajuste relativo, no absoluto: el frontend son botones +/- y un absoluto
+    pisaría un cambio concurrente."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    delta: int
+
+    @field_validator("delta")
+    @classmethod
+    def _reject_zero(cls, value: int) -> int:
+        if value == 0:
+            raise ValueError("El ajuste de stock no puede ser cero.")
+        return value
+
+
 class WineConsumeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -135,5 +174,32 @@ class WineRecord(BaseModel):
     # El Sheet devuelve las celdas con formato como texto ("$32.000").
     _parse_precio = field_validator("precio_estimado", mode="before")(parse_sheet_number)
     _parse_cantidad = field_validator("cantidad", "anada", mode="before")(
+        parse_sheet_number
+    )
+
+
+class CataRecord(BaseModel):
+    id_cata: str
+    vino_id: str
+    fecha_consumo: str
+    # Opcional a propósito: una fila cargada a mano sin nota no debe invalidar
+    # el registro entero.
+    puntuacion: Optional[int] = None
+    notas_cata: Optional[str] = None
+    maridaje: Optional[str] = None
+
+    # Datos del join contra el inventario.
+    bodega: Optional[str] = None
+    nombre_vino: Optional[str] = None
+    anada: Optional[int] = None
+    vino_existe: bool = False
+
+    _normalize_text = field_validator(
+        "notas_cata", "maridaje", mode="before"
+    )(normalize_optional_text)
+
+    # Las celdas con formato vuelven como texto; es el bug que ya nos hizo
+    # desaparecer un vino del inventario.
+    _parse_numbers = field_validator("puntuacion", "anada", mode="before")(
         parse_sheet_number
     )

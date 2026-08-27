@@ -18,7 +18,7 @@ app.middleware("http")(token_middleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ALLOW_ORIGINS,
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
     allow_headers=["Content-Type", "X-App-Token"],
 )
 

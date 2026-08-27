@@ -34,3 +34,23 @@ def test_preflight_allows_posting_json():
 
     assert response.status_code == 200
     assert "POST" in response.headers["access-control-allow-methods"]
+
+
+def test_preflight_allows_the_editing_methods():
+    """Sin esto el navegador bloquea editar, borrar y ajustar stock.
+
+    TestClient no hace preflight, así que el resto de los tests pasarían igual
+    con la config vieja.
+    """
+    for method in ("PUT", "PATCH", "DELETE"):
+        response = client.options(
+            "/api/wines/TRA-MAL-2020-0001",
+            headers={
+                "Origin": CORS_ALLOW_ORIGINS[0],
+                "Access-Control-Request-Method": method,
+                "Access-Control-Request-Headers": "content-type",
+            },
+        )
+
+        assert response.status_code == 200
+        assert method in response.headers["access-control-allow-methods"]
