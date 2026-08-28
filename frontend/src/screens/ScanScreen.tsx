@@ -293,11 +293,13 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
               read={read.region}
               onChange={(region) => setForm({ ...form, region })}
             />
+            {/* Coma o punto: el backend lo guarda con punto igual. */}
             <Field
               label="Alcohol"
               value={form.alcohol}
               read={read.alcohol}
-              placeholder="14%"
+              placeholder="13,5"
+              inputMode="decimal"
               onChange={(alcohol) => setForm({ ...form, alcohol })}
             />
           </div>

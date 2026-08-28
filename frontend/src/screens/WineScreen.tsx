@@ -8,7 +8,7 @@ import {
   updateWine,
 } from '../lib/api'
 import type { CataRecord, WineRecord, WineUpdateInput } from '../lib/types'
-import { formatDate, formatYear, glassTint } from '../lib/wine'
+import { formatAlcohol, formatDate, formatYear, glassTint } from '../lib/wine'
 import {
   BottleIcon,
   CheckIcon,
@@ -191,7 +191,9 @@ export function WineScreen({
                 </>
               )}
               <Dot />
-              <span className="text-[12.5px] text-tenue-400">{wine.alcohol}</span>
+              <span className="cifra text-[12.5px] text-tenue-400">
+                {formatAlcohol(wine.alcohol)}
+              </span>
             </div>
             <span className="pt-[1px] text-[11.5px] text-tenue-600">{wine.region}</span>
           </div>
@@ -604,7 +606,14 @@ function EditSheet({
           hint={`Entre 1900 y ${yearNow}`}
         />
         <Field label="Región" value={form.region} onChange={set('region')} />
-        <Field label="Alcohol" value={form.alcohol} onChange={set('alcohol')} />
+        {/* Coma o punto: el backend lo guarda con punto igual. */}
+        <Field
+          label="Alcohol"
+          value={form.alcohol}
+          onChange={set('alcohol')}
+          inputMode="decimal"
+          placeholder="13,5"
+        />
         {/* `read` marca los opcionales: vacíos no piden completarse. */}
         <Field
           label="Estante"

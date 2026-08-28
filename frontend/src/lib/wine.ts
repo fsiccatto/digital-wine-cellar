@@ -230,3 +230,18 @@ export function groupByMonth(catas: CataRecord[]): CataMonth[] {
       return { key, label, catas: group }
     })
 }
+
+/**
+ * La graduacion se guarda como numero con punto ("13.5") y se lee con coma y
+ * simbolo, como se escribe en es-AR: "13,5%".
+ *
+ * Una celda vieja del Sheet puede traer texto libre; en ese caso se muestra tal
+ * cual, sin inventarle un porcentaje.
+ */
+export function formatAlcohol(alcohol: string): string {
+  const value = alcohol.trim()
+  if (value === '') return ''
+  const number = Number(value)
+  if (Number.isNaN(number)) return value
+  return `${number.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`
+}
