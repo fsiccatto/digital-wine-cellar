@@ -39,17 +39,19 @@ export function VineSprigIcon({ size = 34 }: { size?: number }) {
       {/* Sarmiento con su zarcillo enrulado: se dibuja solo al entrar. */}
       <path
         className="zarcillo"
-        style={{ ['--largo' as string]: '34' }}
-        d="M2 27c4.4-.5 7.4-1.9 9.4-4.2M11.4 22.8c1.5-1.2 3.4-.5 3.2 1.2-.2 1.5-2.2 1.6-2.5.1"
+        style={{ ['--largo' as string]: '27' }}
+        d="M1.6 21.2C6.4 21.6 10.6 22.8 14.2 24.6C16.4 25.7 18.2 25.6 20 25.6M6.8 22.2c-1 1.5-.6 3.2.9 3.4 1.3.2 1.9-1.3 1-2"
         stroke="var(--color-vina)"
         strokeWidth={1.2}
         strokeLinecap="round"
       />
-      {/* Hoja de vid: cinco lobulos con senos marcados, la silueta que la
-          hace reconocible. Un ovalo liso no se lee como vid. */}
+      {/* Hoja de vid: cinco lobulos (uno terminal, dos laterales, dos
+          basales) separados por senos, simetrica respecto del peciolo.
+          El contorno se genero por geometria, no a mano: media hoja en
+          polares y espejada, por eso los dos lados coinciden exactos. */}
       <g className="hoja-vaiven">
         <path
-          d="M20.4 26.8c-.9-1.5-1-2.9-.3-3.8-1.5.5-2.8.2-3.6-.8 1.2-.7 2.1-1.7 2.4-2.8-1.6-.2-2.8-1-3.2-2.3 1.4-.1 2.6-.6 3.4-1.4-1.4-.9-2.1-2.2-1.9-3.6 1.4.6 2.7.7 3.9.3-1-1.4-1.1-2.9-.2-4.1 1.1 1.2 2.3 1.9 3.5 2 -.1-1.7.6-3.1 2-3.8.6 1.5 1.4 2.6 2.5 3.1.6-1.6 1.9-2.5 3.5-2.5.1 1.6-.2 3-.9 3.9 1.6-.9 3.1-.7 4.2.4-1.1 1.2-1.7 2.5-1.7 3.7 1.6-.2 2.9.5 3.5 1.9-1.4.6-2.5 1.5-3 2.6z"
+          d="M20 25.6C19.9 25.9 19.6 27.1 19.2 27.6C18.7 28.2 18.1 28.5 17.2 28.7C16.3 29 15 29.2 13.9 29.1C12.9 29 11.5 28.5 10.9 27.9C10.3 27.3 10.2 26.4 10.2 25.6C10.2 24.8 11.1 24.2 10.9 23.3C10.6 22.4 9.2 21.5 8.6 20.3C8 19 7 17 7.2 16C7.4 14.9 8.7 14.3 9.9 14C11.1 13.7 13.2 15 14.1 14.1C15.1 13.2 14.8 9.8 15.8 8.7C16.8 7.7 18.6 7.8 20 7.8C21.4 7.8 23.2 7.7 24.2 8.7C25.2 9.8 24.9 13.2 25.9 14.1C26.8 15 28.9 13.7 30.1 14C31.3 14.3 32.6 14.9 32.8 16C33 17 32 19 31.4 20.3C30.8 21.5 29.4 22.4 29.1 23.3C28.9 24.2 29.8 24.8 29.8 25.6C29.8 26.4 29.7 27.3 29.1 27.9C28.5 28.5 27.1 29 26.1 29.1C25 29.2 23.7 29 22.8 28.7C21.9 28.5 21.3 28.2 20.8 27.6C20.4 27.1 20.1 25.9 20 25.6Z"
           fill="var(--color-vina)"
           fillOpacity={0.15}
           stroke="var(--color-vina)"
@@ -57,13 +59,14 @@ export function VineSprigIcon({ size = 34 }: { size?: number }) {
           strokeLinejoin="round"
           strokeLinecap="round"
         />
-        {/* Nervadura central desde el peciolo, con dos ramas. */}
+        {/* Un nervio por lobulo, saliendo todos del peciolo. */}
         <path
-          d="M20.5 26.6c2.3-3.4 4.9-6.3 8-8.6M24.4 21.4c1.2.6 2.6.7 3.9.3M26.6 18.4c.5-1.1.7-2.3.6-3.5"
+          d="M20 25.6Q20 17.4 20 10.6M20 25.6Q25.2 20.3 30.7 17.5M20 25.6Q14.8 20.3 9.3 17.5M20 25.6Q24.2 25.4 27.4 27.4M20 25.6Q15.8 25.4 12.6 27.4"
           stroke="var(--color-vina)"
-          strokeWidth={1}
+          strokeWidth={0.9}
           strokeLinecap="round"
-          opacity={0.7}
+          fill="none"
+          opacity={0.65}
         />
       </g>
     </svg>
