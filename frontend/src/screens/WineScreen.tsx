@@ -8,12 +8,20 @@ import {
   updateWine,
 } from '../lib/api'
 import type { CataRecord, WineRecord, WineUpdateInput } from '../lib/types'
-import { formatAlcohol, formatDate, formatYear, glassTint } from '../lib/wine'
+import type { Guarda } from '../lib/wine'
+import {
+  formatAlcohol,
+  formatDate,
+  formatYear,
+  glassTint,
+  guardaDe,
+} from '../lib/wine'
 import {
   BottleIcon,
   CheckIcon,
   ChevronLeftIcon,
   CorkscrewIcon,
+  GlassIcon,
   MinusIcon,
   PairingIcon,
   PlusIcon,
@@ -107,6 +115,7 @@ export function WineScreen({
     setSheet(next)
   }
 
+  const guarda = guardaDe(wine)
   const tint = glassTint(wine.varietal)
   const year = formatYear(wine.anada)
   const entered = formatDate(wine.fecha_ingreso)
@@ -233,6 +242,8 @@ export function WineScreen({
           <Row label="Código" value={wine.codigo_vino} mono />
         </dl>
       </div>
+
+      {guarda && <GuardaBand guarda={guarda} />}
 
       {wine.cantidad > 0 ? (
         <button
@@ -361,6 +372,34 @@ function Frame({
 
 function Dot() {
   return <div className="h-[3px] w-[3px] rounded-full bg-borde-claro" />
+}
+
+/**
+ * Cuando conviene tomarla. Es una estimacion por uva, no un dato de la botella,
+ * asi que se dice: una fecha con aire de dato duro seria mentir.
+ */
+function GuardaBand({ guarda }: { guarda: Guarda }) {
+  const tono = {
+    pasado: 'border-borra-600/40 bg-borra-800/15 text-borra-600',
+    pasando: 'border-oro/35 bg-oro/8 text-oro',
+    listo: 'border-borde bg-madera-700/60 text-vina',
+    joven: 'border-borde bg-madera-700/60 text-tenue-500',
+  }[guarda.estado]
+
+  return (
+    <div
+      className={`relative mx-[22px] mb-5 flex items-center gap-[10px] rounded-xl border px-[16px] py-[11px] ${tono}`}
+    >
+      <GlassIcon size={15} className="shrink-0" />
+      <div className="flex min-w-0 grow flex-col gap-[1px]">
+        <span className="text-[12.5px] font-semibold">{guarda.detalle}</span>
+        <span className="text-[9.5px] text-tenue-600">
+          Estimado por varietal · <span className="cifra">{guarda.ventana.desde}</span>–
+          <span className="cifra">{guarda.ventana.hasta}</span> años de guarda
+        </span>
+      </div>
+    </div>
+  )
 }
 
 function Row({
