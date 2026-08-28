@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { WineRecord } from '../lib/types'
 import {
+  cellarValue,
+  formatMoney,
   formatYear,
   glassTint,
+  guardaDe,
   groupByShelf,
   hasVarietal,
   matchesSearch,
@@ -43,6 +46,7 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
   )
 
   const shelves = useMemo(() => groupByShelf(visible), [visible])
+  const valor = useMemo(() => cellarValue(visible), [visible])
 
   return (
     <div className="vetas relative flex min-h-full flex-col">
@@ -61,13 +65,21 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
               <VineSprigIcon />
             </span>
           </div>
-          <div className="flex shrink-0 items-baseline gap-[4px]">
-            <span className="cifra font-serif text-[19px] leading-none font-semibold text-oro">
-              {totalBottles(visible)}
-            </span>
-            <span className="text-[8.5px] font-semibold tracking-[0.14em] text-tenue-500 uppercase">
-              bot.
-            </span>
+          <div className="flex shrink-0 flex-col items-end gap-[1px]">
+            <div className="flex items-baseline gap-[4px]">
+              <span className="cifra font-serif text-[19px] leading-none font-semibold text-oro">
+                {totalBottles(visible)}
+              </span>
+              <span className="text-[8.5px] font-semibold tracking-[0.14em] text-tenue-500 uppercase">
+                bot.
+              </span>
+            </div>
+            {/* Solo si hay precios cargados: un "$ 0" no dice nada. */}
+            {valor > 0 && (
+              <span className="cifra text-[9px] font-medium text-tenue-600">
+                {formatMoney(valor)}
+              </span>
+            )}
           </div>
         </div>
       </header>
@@ -217,6 +229,9 @@ function WineRow({
 }) {
   const year = formatYear(wine.anada)
   const empty = wine.cantidad <= 0
+  const guarda = guardaDe(wine)
+  // Una botella agotada ya no se toma: avisar seria ruido.
+  const urge = !empty && (guarda?.estado === 'pasando' || guarda?.estado === 'pasado')
   // La agotada pierde el tinte del vino: queda como vidrio vacio.
   const tint = empty
     ? { glass: '#ded3c0', edge: '#cbbda6' }
@@ -244,6 +259,16 @@ function WineRow({
           </span>
           {year && (
             <span className="cifra text-[8px] font-medium text-tenue-600">{year}</span>
+          )}
+          {/* Solo lo que urge lleva marca: si todo avisa, nada avisa. */}
+          {urge && (
+            <span
+              className="text-[8px] font-bold text-oro"
+              title={guarda?.detalle}
+              aria-label={guarda?.detalle}
+            >
+              ●
+            </span>
           )}
         </div>
         <span

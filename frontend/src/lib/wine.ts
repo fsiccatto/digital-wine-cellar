@@ -123,6 +123,141 @@ export function groupByShelf(wines: WineRecord[]): Shelf[] {
     }))
 }
 
+/**
+ * Ventana de guarda estimada, en años desde la añada.
+ *
+ * Es una ESTIMACION a partir de la uva, no un dato de la botella: la etiqueta
+ * no dice hasta cuando aguanta. Sirve para ordenar la cava y para avisar que
+ * algo se esta pasando, no como veredicto.
+ */
+interface Ventana {
+  desde: number
+  hasta: number
+}
+
+// Los blancos y rosados se toman jovenes; un tinto de uva tanica aguanta anos.
+const GUARDA_BLANCO: Ventana = { desde: 1, hasta: 4 }
+const GUARDA_LIVIANO: Ventana = { desde: 1, hasta: 5 }
+const GUARDA_MEDIO: Ventana = { desde: 2, hasta: 8 }
+const GUARDA_LARGO: Ventana = { desde: 3, hasta: 15 }
+
+/** Uvas de guarda larga: taninos y estructura para aguantar en botella. */
+const TANICOS = [
+  'cabernet sauvignon',
+  'cabernet franc',
+  'petit verdot',
+  'tannat',
+  'nebbiolo',
+  'syrah',
+  'shiraz',
+  'bonarda',
+  'petit syrah',
+  'tempranillo',
+]
+
+/** Uvas que se disfrutan jovenes aunque sean tintas. */
+const LIVIANOS = ['pinot noir', 'merlot', 'gamay', 'criolla', 'cinsault']
+
+function ventanaDeUva(uva: string): Ventana {
+  const u = normalize(uva)
+  if (BLANCOS.some((blanco) => u.includes(blanco)) || u.includes('rose')) {
+    return GUARDA_BLANCO
+  }
+  if (TANICOS.some((tanico) => u.includes(tanico))) return GUARDA_LARGO
+  if (LIVIANOS.some((liviano) => u.includes(liviano))) return GUARDA_LIVIANO
+  // Malbec y cualquier tinto que no reconozcamos: el termino medio.
+  return GUARDA_MEDIO
+}
+
+/**
+ * Un "Reserva" pasa mas tiempo en barrica y esta pensado para guardar, asi que
+ * la misma uva aguanta mas. Sale del nombre porque es donde la bodega lo dice.
+ */
+function esReserva(nombre: string): boolean {
+  return /\breservas?\b/i.test(normalize(nombre))
+}
+
+export function ventanaDeGuarda(wine: WineRecord): Ventana {
+  // De un corte manda la uva mas tanica: es la que sostiene la estructura.
+  const ventanas = splitVarietals(wine.varietal).map(ventanaDeUva)
+  const base = ventanas.reduce(
+    (mayor, actual) => (actual.hasta > mayor.hasta ? actual : mayor),
+    ventanas[0] ?? GUARDA_MEDIO,
+  )
+  // Un "Reserva" estira el final de la ventana, no su comienzo. Pero no en un
+  // blanco: ahi la palabra habla de la barrica, y guardarlo igual lo arruina.
+  const estirable = base !== GUARDA_BLANCO
+  if (!estirable || !esReserva(wine.nombre_vino)) return base
+  return { desde: base.desde, hasta: Math.round(base.hasta * 1.5) }
+}
+
+export type EstadoGuarda = 'joven' | 'listo' | 'pasando' | 'pasado'
+
+export interface Guarda {
+  estado: EstadoGuarda
+  edad: number
+  ventana: Ventana
+  /** Texto corto para la ficha, ya redactado. */
+  detalle: string
+}
+
+/**
+ * En que momento de su vida esta la botella. Se cuenta desde la AÑADA y no
+ * desde que se compro: un 2018 comprado ayer ya tiene los anos encima.
+ */
+export function guardaDe(wine: WineRecord, hoy = new Date()): Guarda | null {
+  // Una añada invalida (0, o una fila vieja del Sheet) no se estima.
+  if (!wine.anada || wine.anada < 1900) return null
+
+  const ventana = ventanaDeGuarda(wine)
+  const edad = hoy.getFullYear() - wine.anada
+  if (edad < 0) return null
+
+  const faltan = ventana.desde - edad
+  const restan = ventana.hasta - edad
+
+  if (faltan > 0) {
+    return {
+      estado: 'joven',
+      edad,
+      ventana,
+      detalle: faltan === 1 ? 'Mejor el año que viene' : `Mejor en ${faltan} años`,
+    }
+  }
+  if (restan < 0) {
+    return { estado: 'pasado', edad, ventana, detalle: 'Pasó su ventana' }
+  }
+  if (restan <= 1) {
+    return { estado: 'pasando', edad, ventana, detalle: 'Tomalo este año' }
+  }
+  // Un blanco no se "guarda" aunque le quede ventana: se toma. Decirle cuantos
+  // anos le faltan invita justo a lo contrario.
+  const esBlanco = ventana.hasta <= GUARDA_BLANCO.hasta
+  return {
+    estado: 'listo',
+    edad,
+    ventana,
+    detalle: esBlanco ? 'Fresco, para tomar' : `En su punto, ${restan} años por delante`,
+  }
+}
+
+/** Valor del stock: precio por botella, por las botellas que quedan. */
+export function cellarValue(wines: WineRecord[]): number {
+  return wines.reduce(
+    (total, wine) => total + (wine.precio_estimado ?? 0) * Math.max(wine.cantidad, 0),
+    0,
+  )
+}
+
+/** Pesos sin centavos: el precio del Sheet ya es una estimacion. */
+export function formatMoney(amount: number): string {
+  return amount.toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  })
+}
+
 export function totalBottles(wines: WineRecord[]): number {
   return wines.reduce((total, wine) => total + wine.cantidad, 0)
 }
