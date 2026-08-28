@@ -1,4 +1,4 @@
-import type { WineRecord } from './types'
+import type { CataRecord, WineRecord } from './types'
 
 /** Tinte del vidrio segun el tipo de vino, para distinguirlos en el estante. */
 export interface GlassTint {
@@ -31,10 +31,30 @@ function normalize(value: string): string {
     .trim()
 }
 
+/**
+ * Un corte trae varias uvas en una celda: "Malbec & Cabernet Franc".
+ *
+ * Se parte por los separadores y NUNCA por el espacio: "Cabernet Sauvignon" es
+ * una uva sola, y partirla la confundiria con "Cabernet Franc". Tambien se
+ * descartan los conectores sueltos que quedan al separar ("y", "con").
+ */
+const SEPARADORES = /\s*(?:&|\+|\/|,|;|\by\b|\bcon\b)\s*/i
+
+const CONECTORES = ['y', 'con', 'e']
+
+export function splitVarietals(varietal: string): string[] {
+  return varietal
+    .split(SEPARADORES)
+    .map((part) => part.trim())
+    .filter((part) => part !== '' && !CONECTORES.includes(normalize(part)))
+}
+
 export function glassTint(varietal: string): GlassTint {
   const v = normalize(varietal)
-  if (BLANCOS.some((blanco) => v.includes(blanco))) return BLANCO
   if (v.includes('blend') || v.includes('corte') || v.includes('rose')) return BLEND
+  // Un corte de varias uvas es un corte aunque no diga "blend" en la etiqueta.
+  if (splitVarietals(varietal).length > 1) return BLEND
+  if (BLANCOS.some((blanco) => v.includes(blanco))) return BLANCO
   return TINTO
 }
 
@@ -107,14 +127,25 @@ export function totalBottles(wines: WineRecord[]): number {
   return wines.reduce((total, wine) => total + wine.cantidad, 0)
 }
 
-/** Varietales presentes, para los chips de filtro. */
+/**
+ * Varietales presentes, para los chips de filtro. Un corte aporta cada una de
+ * sus uvas, asi que el chip "Malbec" tambien encuentra los blends con Malbec.
+ */
 export function varietals(wines: WineRecord[]): string[] {
   const seen = new Map<string, string>()
   for (const wine of wines) {
-    const key = normalize(wine.varietal)
-    if (key && !seen.has(key)) seen.set(key, wine.varietal)
+    for (const varietal of splitVarietals(wine.varietal)) {
+      const key = normalize(varietal)
+      if (key && !seen.has(key)) seen.set(key, varietal)
+    }
   }
   return [...seen.values()].sort((a, b) => a.localeCompare(b))
+}
+
+/** Si el vino lleva esa uva, sea sola o dentro de un corte. */
+export function hasVarietal(wine: WineRecord, varietal: string): boolean {
+  const target = normalize(varietal)
+  return splitVarietals(wine.varietal).some((part) => normalize(part) === target)
 }
 
 export function matchesSearch(wine: WineRecord, term: string): boolean {
@@ -144,4 +175,73 @@ export function formatDate(iso: string): string | null {
 /** El backend acepta anada >= 1900, pero una fila vieja del Sheet puede traer 0. */
 export function formatYear(anada: number): string | null {
   return anada >= 1900 ? String(anada) : null
+}
+
+/** Dia y mes, para la fila de una cata: el año ya lo dice el rotulo del grupo. */
+export function formatDayMonth(iso: string): string | null {
+  const parsed = new Date(iso)
+  if (Number.isNaN(parsed.getTime())) return null
+  return parsed.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+}
+
+export interface CataMonth {
+  key: string
+  label: string
+  catas: CataRecord[]
+}
+
+/**
+ * El historico es una bitacora: la pregunta natural es "que tomamos ultimamente".
+ * Las fechas ilegibles caen en un grupo al final, mismo criterio defensivo que
+ * `groupByShelf` con las ubicaciones raras.
+ */
+export function groupByMonth(catas: CataRecord[]): CataMonth[] {
+  const UNDATED = '?'
+  const months = new Map<string, CataRecord[]>()
+
+  for (const cata of catas) {
+    const parsed = new Date(cata.fecha_consumo)
+    const key = Number.isNaN(parsed.getTime())
+      ? UNDATED
+      : `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`
+    const existing = months.get(key)
+    if (existing) {
+      existing.push(cata)
+    } else {
+      months.set(key, [cata])
+    }
+  }
+
+  return [...months.entries()]
+    .sort(([a], [b]) => {
+      if (a === UNDATED) return 1
+      if (b === UNDATED) return -1
+      return b.localeCompare(a) // mas reciente primero
+    })
+    .map(([key, group]) => {
+      if (key === UNDATED) {
+        return { key, label: 'Sin fecha', catas: group }
+      }
+      const [year, month] = key.split('-').map(Number)
+      const label = new Date(year, month - 1, 1).toLocaleDateString('es-AR', {
+        month: 'long',
+        year: 'numeric',
+      })
+      return { key, label, catas: group }
+    })
+}
+
+/**
+ * La graduacion se guarda como numero con punto ("13.5") y se lee con coma y
+ * simbolo, como se escribe en es-AR: "13,5%".
+ *
+ * Una celda vieja del Sheet puede traer texto libre; en ese caso se muestra tal
+ * cual, sin inventarle un porcentaje.
+ */
+export function formatAlcohol(alcohol: string): string {
+  const value = alcohol.trim()
+  if (value === '') return ''
+  const number = Number(value)
+  if (Number.isNaN(number)) return value
+  return `${number.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`
 }

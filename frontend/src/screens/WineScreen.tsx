@@ -1,37 +1,71 @@
 import { useEffect, useState } from 'react'
-import { consumeWine, getWine } from '../lib/api'
-import type { WineRecord } from '../lib/types'
-import { formatDate, formatYear, glassTint } from '../lib/wine'
+import {
+  adjustStock,
+  consumeWine,
+  deleteWine,
+  getWine,
+  listWineCatas,
+  updateWine,
+} from '../lib/api'
+import type { CataRecord, WineRecord, WineUpdateInput } from '../lib/types'
+import { formatAlcohol, formatDate, formatYear, glassTint } from '../lib/wine'
 import {
   BottleIcon,
   CheckIcon,
   ChevronLeftIcon,
   CorkscrewIcon,
+  MinusIcon,
   PairingIcon,
+  PlusIcon,
   RatingGlassIcon,
   SpinnerIcon,
+  TrashIcon,
 } from '../components/icons'
+import { CataRow } from '../components/CataRow'
+import { Field, Stepper } from '../components/Field'
+import { Sheet } from '../components/Sheet'
 
 interface Props {
   codigoVino: string
   onBack: () => void
   onConsumed: () => void
+  onChanged: () => void
+  onDeleted: () => void
 }
 
-export function WineScreen({ codigoVino, onBack, onConsumed }: Props) {
+/** Un solo estado: dos hojas abiertas a la vez es un bug esperando. */
+type OpenSheet = null | 'tasting' | 'edit' | 'stock' | 'delete'
+
+export function WineScreen({
+  codigoVino,
+  onBack,
+  onConsumed,
+  onChanged,
+  onDeleted,
+}: Props) {
   const [wine, setWine] = useState<WineRecord | null>(null)
+  const [catas, setCatas] = useState<CataRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [tasting, setTasting] = useState(false)
+  const [sheet, setSheet] = useState<OpenSheet>(null)
+  const [menu, setMenu] = useState(false)
 
   useEffect(() => {
     let active = true
     setLoading(true)
     setError(null)
 
-    getWine(codigoVino)
-      .then((result) => {
-        if (active) setWine(result)
+    // Las catas van en paralelo y no rompen la ficha si fallan: el vino es lo
+    // que se vino a ver.
+    Promise.all([
+      getWine(codigoVino),
+      listWineCatas(codigoVino).catch(() => [] as CataRecord[]),
+    ])
+      .then(([result, history]) => {
+        if (active) {
+          setWine(result)
+          setCatas(history)
+        }
       })
       .catch((cause: unknown) => {
         if (active) {
@@ -68,6 +102,11 @@ export function WineScreen({ codigoVino, onBack, onConsumed }: Props) {
     )
   }
 
+  function openSheet(next: OpenSheet) {
+    setMenu(false)
+    setSheet(next)
+  }
+
   const tint = glassTint(wine.varietal)
   const year = formatYear(wine.anada)
   const entered = formatDate(wine.fecha_ingreso)
@@ -88,6 +127,39 @@ export function WineScreen({ codigoVino, onBack, onConsumed }: Props) {
           <button type="button" onClick={onBack} className="text-tenue-400" aria-label="Volver">
             <ChevronLeftIcon />
           </button>
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setMenu((open) => !open)}
+              aria-label="Más acciones"
+              aria-expanded={menu}
+              className="flex h-9 w-9 items-center justify-center text-[19px] leading-none text-tenue-400"
+            >
+              ⋯
+            </button>
+
+            {menu && (
+              <>
+                {/* Velo invisible: tocar afuera cierra el menú. */}
+                <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />
+                <div className="absolute right-0 z-20 mt-1 flex w-[168px] flex-col rounded-xl border border-borde bg-madera-600 py-1 shadow-[0_8px_24px_rgba(70,52,30,0.2)]">
+                  <MenuItem onClick={() => openSheet('edit')}>Editar datos</MenuItem>
+                  <MenuItem onClick={() => openSheet('stock')}>Ajustar stock</MenuItem>
+
+                  {/* Apartado del resto: el rojo se reserva para el botón de
+                      confirmación dentro de la hoja, no para el que la abre. */}
+                  <div className="my-1 h-px bg-borde" />
+                  <MenuItem onClick={() => openSheet('delete')}>
+                    <span className="flex items-center gap-2">
+                      <TrashIcon size={13} />
+                      Eliminar vino
+                    </span>
+                  </MenuItem>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="relative flex items-start gap-[18px]">
@@ -119,7 +191,9 @@ export function WineScreen({ codigoVino, onBack, onConsumed }: Props) {
                 </>
               )}
               <Dot />
-              <span className="text-[12.5px] text-tenue-400">{wine.alcohol}</span>
+              <span className="cifra text-[12.5px] text-tenue-400">
+                {formatAlcohol(wine.alcohol)}
+              </span>
             </div>
             <span className="pt-[1px] text-[11.5px] text-tenue-600">{wine.region}</span>
           </div>
@@ -163,7 +237,7 @@ export function WineScreen({ codigoVino, onBack, onConsumed }: Props) {
       {wine.cantidad > 0 ? (
         <button
           type="button"
-          onClick={() => setTasting(true)}
+          onClick={() => setSheet('tasting')}
           className="relative mx-5 mb-[22px] flex h-[48px] items-center justify-center gap-[10px] rounded-xl bg-borra-600 text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.28)] transition-transform duration-150 active:scale-[0.985]"
         >
           <CorkscrewIcon size={17} />
@@ -175,18 +249,94 @@ export function WineScreen({ codigoVino, onBack, onConsumed }: Props) {
         </p>
       )}
 
-      {tasting && (
+      {catas.length > 0 && (
+        <section className="relative mx-[22px] mb-8 flex flex-col">
+          <div className="flex items-center gap-2 pb-[9px]">
+            <span className="text-[9px] font-bold tracking-[0.16em] text-tenue-500 uppercase">
+              Catas anteriores
+            </span>
+            <div className="h-px grow bg-borde" />
+            <span className="cifra text-[9px] font-medium text-tenue-600">
+              {catas.length}
+            </span>
+          </div>
+          <ul className="flex flex-col gap-[5px]">
+            {catas.map((cata) => (
+              <li key={cata.id_cata}>
+                {/* Ya estamos en la ficha de este vino: la fila no navega. */}
+                <CataRow cata={cata} onSelect={() => {}} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {sheet === 'tasting' && (
         <TastingSheet
           wine={wine}
-          onClose={() => setTasting(false)}
+          onClose={() => setSheet(null)}
           onDone={(remaining) => {
             setWine({ ...wine, cantidad: remaining })
-            setTasting(false)
+            setSheet(null)
             onConsumed()
           }}
         />
       )}
+
+      {sheet === 'edit' && (
+        <EditSheet
+          wine={wine}
+          onClose={() => setSheet(null)}
+          onSaved={(updated) => {
+            setWine(updated)
+            setSheet(null)
+            onChanged()
+          }}
+        />
+      )}
+
+      {sheet === 'stock' && (
+        <StockSheet
+          wine={wine}
+          onClose={() => setSheet(null)}
+          onSaved={(updated) => {
+            setWine(updated)
+            setSheet(null)
+            onChanged()
+          }}
+        />
+      )}
+
+      {sheet === 'delete' && (
+        <DeleteSheet
+          wine={wine}
+          catas={catas.length}
+          onClose={() => setSheet(null)}
+          onDeleted={() => {
+            onDeleted()
+            onBack()
+          }}
+        />
+      )}
     </div>
+  )
+}
+
+function MenuItem({
+  onClick,
+  children,
+}: {
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="px-4 py-[10px] text-left text-[13px] font-medium text-crema-300"
+    >
+      {children}
+    </button>
   )
 }
 
@@ -271,8 +421,7 @@ function TastingSheet({
   }
 
   return (
-    <div className="fixed inset-0 z-10 flex items-end justify-center bg-crema/25 backdrop-blur-[2px]">
-      <div className="hoja-cata w-full max-w-[430px] rounded-t-2xl border-t border-borde bg-madera-600 px-5 pt-6 pb-[30px] shadow-[0_-8px_30px_rgba(70,52,30,0.18)]">
+    <Sheet onClose={onClose}>
         <div className="mb-5 flex flex-col gap-1">
           <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
             Cata
@@ -363,7 +512,367 @@ function TastingSheet({
             )}
           </button>
         </div>
+    </Sheet>
+  )
+}
+
+/**
+ * Ocho campos conocidos, sin cámara ni pasos: alcanza una hoja. Una pantalla
+ * exigiría una entrada en `View`, manejar el back y recargar al volver.
+ */
+function EditSheet({
+  wine,
+  onClose,
+  onSaved,
+}: {
+  wine: WineRecord
+  onClose: () => void
+  onSaved: (wine: WineRecord) => void
+}) {
+  const [form, setForm] = useState({
+    bodega: wine.bodega,
+    nombre_vino: wine.nombre_vino,
+    varietal: wine.varietal,
+    anada: String(wine.anada),
+    region: wine.region,
+    alcohol: wine.alcohol,
+    ubicacion: wine.ubicacion ?? '',
+    precio_estimado: wine.precio_estimado == null ? '' : String(wine.precio_estimado),
+  })
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const set = (key: keyof typeof form) => (value: string) =>
+    setForm((current) => ({ ...current, [key]: value }))
+
+  const yearNow = new Date().getFullYear()
+  const year = Number(form.anada)
+  const yearInvalid = !Number.isInteger(year) || year < 1900 || year > yearNow
+
+  const price = form.precio_estimado.trim()
+  const priceInvalid = price !== '' && Number.isNaN(Number(price))
+
+  const incomplete = [
+    form.bodega,
+    form.nombre_vino,
+    form.varietal,
+    form.region,
+    form.alcohol,
+  ].some((value) => value.trim() === '')
+
+  async function submit() {
+    setSaving(true)
+    setError(null)
+    const payload: WineUpdateInput = {
+      bodega: form.bodega.trim(),
+      nombre_vino: form.nombre_vino.trim(),
+      varietal: form.varietal.trim(),
+      anada: year,
+      region: form.region.trim(),
+      alcohol: form.alcohol.trim(),
+      ubicacion: form.ubicacion.trim() || null,
+      precio_estimado: price === '' ? null : Number(price),
+    }
+    try {
+      onSaved(await updateWine(wine.codigo_vino, payload))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo guardar el vino.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    // Ocho campos pasan la altura de pantalla, así que la hoja scrollea.
+    <Sheet onClose={onClose} className="sin-barra max-h-[85dvh] overflow-y-auto">
+      <div className="mb-5 flex flex-col gap-1">
+        <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+          Editar
+        </span>
+        <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
+          {wine.nombre_vino}
+        </h2>
       </div>
-    </div>
+
+      <div className="mb-5 flex flex-col gap-[14px]">
+        <Field label="Bodega" value={form.bodega} onChange={set('bodega')} />
+        <Field label="Vino" value={form.nombre_vino} onChange={set('nombre_vino')} />
+        <Field label="Varietal" value={form.varietal} onChange={set('varietal')} />
+        <Field
+          label="Añada"
+          value={form.anada}
+          onChange={set('anada')}
+          inputMode="numeric"
+          invalid={yearInvalid}
+          hint={`Entre 1900 y ${yearNow}`}
+        />
+        <Field label="Región" value={form.region} onChange={set('region')} />
+        {/* Coma o punto: el backend lo guarda con punto igual. */}
+        <Field
+          label="Alcohol"
+          value={form.alcohol}
+          onChange={set('alcohol')}
+          inputMode="decimal"
+          placeholder="13,5"
+        />
+        {/* `read` marca los opcionales: vacíos no piden completarse. */}
+        <Field
+          label="Estante"
+          value={form.ubicacion}
+          onChange={set('ubicacion')}
+          read
+          placeholder="A1"
+        />
+        <Field
+          label="Precio"
+          value={form.precio_estimado}
+          onChange={set('precio_estimado')}
+          read
+          inputMode="decimal"
+          invalid={priceInvalid}
+          hint="Solo números."
+        />
+
+        {/* La inmutabilidad del código tiene que verse, no deducirse. */}
+        <div className="flex flex-col gap-[6px]">
+          <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
+            Código
+          </span>
+          <div className="cifra flex h-[46px] items-center rounded-[9px] border border-borde bg-madera-950/30 px-[14px] text-[15px] font-medium text-tenue-600">
+            {wine.codigo_vino}
+          </div>
+          <span className="text-[10.5px] text-tenue-600">
+            No cambia aunque edites la bodega, el varietal o la añada.
+          </span>
+        </div>
+      </div>
+
+      {error && (
+        <p className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300">
+          {error}
+        </p>
+      )}
+
+      <div className="flex gap-[10px]">
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={saving}
+          className="h-13 shrink-0 rounded-xl border border-borde-claro px-5 text-[14px] font-semibold text-tenue-400"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving || incomplete || yearInvalid || priceInvalid}
+          className="flex h-12 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:opacity-60"
+        >
+          {saving ? (
+            <>
+              <SpinnerIcon className="animate-spin" />
+              <span className="text-[14px]">Guardando…</span>
+            </>
+          ) : (
+            <>
+              <CheckIcon size={17} />
+              <span className="text-[14px]">Guardar cambios</span>
+            </>
+          )}
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
+/**
+ * El delta se acumula local y se manda en un solo request al guardar: evita N
+ * llamadas contra el límite del Sheet y hace que "Cancelar" signifique algo.
+ */
+function StockSheet({
+  wine,
+  onClose,
+  onSaved,
+}: {
+  wine: WineRecord
+  onClose: () => void
+  onSaved: (wine: WineRecord) => void
+}) {
+  const [delta, setDelta] = useState(0)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const result = wine.cantidad + delta
+
+  async function submit() {
+    setSaving(true)
+    setError(null)
+    try {
+      onSaved(await adjustStock(wine.codigo_vino, delta))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo ajustar el stock.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Sheet onClose={onClose}>
+      <div className="mb-5 flex flex-col gap-1">
+        <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+          Stock
+        </span>
+        <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
+          {wine.nombre_vino}
+        </h2>
+        {/* Son dos formas distintas de bajar el stock y confundirlas arruina el
+            histórico, así que se dice con todas las letras. */}
+        <p className="pt-1 text-[12px] leading-relaxed text-tenue-500">
+          Corrige el inventario. No registra una cata.
+        </p>
+      </div>
+
+      <div className="mb-6 flex items-center justify-center gap-6">
+        <Stepper
+          onClick={() => setDelta(delta - 1)}
+          label="Quitar una"
+          disabled={result <= 0}
+        >
+          <MinusIcon />
+        </Stepper>
+        <div className="flex w-[92px] flex-col items-center gap-[2px]">
+          <span className="cifra font-serif text-[40px] leading-none font-semibold text-oro">
+            {result}
+          </span>
+          <span className="cifra text-[11px] text-tenue-600">
+            {delta === 0 ? 'sin cambios' : delta > 0 ? `+${delta}` : String(delta)}
+          </span>
+        </div>
+        <Stepper onClick={() => setDelta(delta + 1)} label="Agregar una">
+          <PlusIcon />
+        </Stepper>
+      </div>
+
+      {error && (
+        <p className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300">
+          {error}
+        </p>
+      )}
+
+      <div className="flex gap-[10px]">
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={saving}
+          className="h-13 shrink-0 rounded-xl border border-borde-claro px-5 text-[14px] font-semibold text-tenue-400"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving || delta === 0}
+          className="flex h-12 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:opacity-60"
+        >
+          {saving ? (
+            <>
+              <SpinnerIcon className="animate-spin" />
+              <span className="text-[14px]">Guardando…</span>
+            </>
+          ) : (
+            <>
+              <CheckIcon size={17} />
+              <span className="text-[14px]">Guardar stock</span>
+            </>
+          )}
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
+function DeleteSheet({
+  wine,
+  catas,
+  onClose,
+  onDeleted,
+}: {
+  wine: WineRecord
+  catas: number
+  onClose: () => void
+  onDeleted: () => void
+}) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function submit() {
+    setSaving(true)
+    setError(null)
+    try {
+      await deleteWine(wine.codigo_vino)
+      onDeleted()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo eliminar el vino.')
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Sheet onClose={onClose}>
+      <div className="mb-4 flex flex-col gap-1">
+        <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+          Eliminar
+        </span>
+        <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
+          {wine.nombre_vino}
+        </h2>
+      </div>
+
+      <p className="mb-5 text-[13px] leading-relaxed text-crema-300">
+        {wine.cantidad > 0 && (
+          <>
+            Todavía {wine.cantidad === 1 ? 'queda' : 'quedan'}{' '}
+            <span className="cifra font-semibold text-oro">{wine.cantidad}</span>{' '}
+            {wine.cantidad === 1 ? 'botella' : 'botellas'} en cava.{' '}
+          </>
+        )}
+        Sale del inventario y no se puede deshacer.
+        {/* La decisión sobre las catas tiene que ser visible al decidir, no una
+            sorpresa después. */}
+        {catas > 0 && (
+          <>
+            {' '}
+            Sus <span className="cifra font-semibold">{catas}</span>{' '}
+            {catas === 1 ? 'cata se conserva' : 'catas se conservan'} en el histórico.
+          </>
+        )}
+      </p>
+
+      {error && (
+        <p className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300">
+          {error}
+        </p>
+      )}
+
+      {/* Único lugar donde se invierte la botonera: acá lo ancho y cómodo tiene
+          que ser salir, no confirmar. */}
+      <div className="flex gap-[10px]">
+        <button
+          type="button"
+          onClick={submit}
+          disabled={saving}
+          className="flex h-13 shrink-0 items-center justify-center gap-2 rounded-xl border border-borra-600 px-5 text-[14px] font-semibold text-borra-600 disabled:opacity-60"
+        >
+          {saving ? <SpinnerIcon className="animate-spin" /> : <TrashIcon size={15} />}
+          Eliminar
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          disabled={saving}
+          className="h-13 grow rounded-xl border border-borde-claro text-[14px] font-semibold text-tenue-400"
+        >
+          Cancelar
+        </button>
+      </div>
+    </Sheet>
   )
 }

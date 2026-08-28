@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
-import { ApiError, getToken, listWines } from './lib/api'
-import type { WineRecord } from './lib/types'
+import { ApiError, getToken, listCatas, listWines } from './lib/api'
+import type { CataRecord, WineRecord } from './lib/types'
+import { CatasScreen } from './screens/CatasScreen'
 import { CellarScreen } from './screens/CellarScreen'
 import { ScanScreen } from './screens/ScanScreen'
 import { UnlockScreen } from './screens/UnlockScreen'
 import { WineScreen } from './screens/WineScreen'
 import { CameraIcon, CellarIcon, GlassIcon } from './components/icons'
 
+// Editar, borrar y ajustar stock no entran acá: son estado local de
+// WineScreen, igual que la hoja de cata.
 type View =
   | { name: 'cellar' }
+  | { name: 'catas' }
   | { name: 'scan' }
   | { name: 'wine'; codigoVino: string }
 
@@ -17,6 +21,11 @@ export default function App() {
   const [wines, setWines] = useState<WineRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // El histórico crece sin techo y la app abre en Cava, así que no se carga en
+  // el arranque: `null` significa "todavía no se pidió".
+  const [catas, setCatas] = useState<CataRecord[] | null>(null)
+  const [catasLoading, setCatasLoading] = useState(false)
+  const [catasError, setCatasError] = useState<string | null>(null)
   // Se asume desbloqueada si ya hay clave guardada; un 401 la vuelve a pedir.
   const [unlocked, setUnlocked] = useState(() => getToken() !== '')
 
@@ -37,9 +46,37 @@ export default function App() {
       .finally(() => setLoading(false))
   }, [])
 
+  const loadCatas = useCallback(() => {
+    setCatasLoading(true)
+    setCatasError(null)
+    listCatas()
+      .then(setCatas)
+      .catch((cause: unknown) => {
+        if (cause instanceof ApiError && cause.status === 401) {
+          setUnlocked(false)
+          return
+        }
+        setCatasError(
+          cause instanceof Error ? cause.message : 'No se pudo cargar el histórico.',
+        )
+      })
+      .finally(() => setCatasLoading(false))
+  }, [])
+
+  /** Al mutar un vino el histórico queda viejo: borrarlo deja catas huérfanas. */
+  const invalidateCatas = useCallback(() => {
+    setCatas(null)
+  }, [])
+
   useEffect(() => {
     if (unlocked) load()
   }, [unlocked, load])
+
+  useEffect(() => {
+    if (unlocked && view.name === 'catas' && catas === null && !catasLoading) {
+      loadCatas()
+    }
+  }, [unlocked, view, catas, catasLoading, loadCatas])
 
   if (!unlocked) {
     return (
@@ -64,6 +101,16 @@ export default function App() {
         />
       )}
 
+      {view.name === 'catas' && (
+        <CatasScreen
+          catas={catas ?? []}
+          loading={catasLoading}
+          error={catasError}
+          onRetry={loadCatas}
+          onSelect={(codigoVino) => setView({ name: 'wine', codigoVino })}
+        />
+      )}
+
       {view.name === 'scan' && (
         <ScanScreen
           onCancel={() => setView({ name: 'cellar' })}
@@ -78,7 +125,18 @@ export default function App() {
         <WineScreen
           codigoVino={view.codigoVino}
           onBack={() => setView({ name: 'cellar' })}
-          onConsumed={load}
+          onConsumed={() => {
+            load()
+            invalidateCatas()
+          }}
+          onChanged={() => {
+            load()
+            invalidateCatas()
+          }}
+          onDeleted={() => {
+            load()
+            invalidateCatas()
+          }}
         />
       )}
 
@@ -111,11 +169,16 @@ export default function App() {
 
           <button
             type="button"
+            onClick={() => setView({ name: 'catas' })}
             className="flex flex-col items-center gap-[5px]"
             aria-label="Catas"
           >
-            <GlassIcon className="text-tenue-600" />
-            <span className="text-[8.5px] font-semibold tracking-[0.1em] text-tenue-600 uppercase">
+            <GlassIcon className={view.name === 'catas' ? 'text-oro' : 'text-tenue-600'} />
+            <span
+              className={`text-[8.5px] tracking-[0.1em] uppercase ${
+                view.name === 'catas' ? 'font-bold text-oro' : 'font-semibold text-tenue-600'
+              }`}
+            >
               Catas
             </span>
           </button>
