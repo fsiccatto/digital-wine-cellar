@@ -15,11 +15,45 @@ def normalize_optional_text(value):
     return value or None
 
 
+def normalize_alcohol(value):
+    """Deja la graduacion como un numero con punto y sin el simbolo: "13.5".
+
+    Se acepta la coma al escribir porque es como se teclea en es-AR, pero se
+    guarda con punto: el Sheet ya tiene "12,5" mezclado entre once valores con
+    punto, y dos formas del mismo dato no se ordenan ni se comparan.
+
+    Lo que no parece un numero se deja tal cual: es texto libre y una fila vieja
+    del Sheet no tiene por que romperse.
+    """
+    value = normalize_optional_text(value)
+    if not isinstance(value, str):
+        return value
+
+    limpio = value.replace("%", "").replace(",", ".").strip()
+    # Una sola coma decimal, no un separador de miles: "13.5" si, "1.234.5" no.
+    if limpio.count(".") > 1:
+        return value
+
+    try:
+        numero = float(limpio)
+    except ValueError:
+        return value
+
+    # Sin decimales sobrantes: 14.0 se guarda "14", no "14.0".
+    entero = int(numero)
+    return str(entero) if numero == entero else str(numero)
+
+
 def normalize_required_text(value):
     value = normalize_optional_text(value)
     if value is None:
         raise ValueError("El campo no puede estar vacío.")
     return value
+
+
+def normalize_required_alcohol(value):
+    """Como normalize_alcohol, pero vacio no pasa: al cargar es obligatorio."""
+    return normalize_required_text(normalize_alcohol(value))
 
 
 class WineScanResult(BaseModel):
@@ -30,8 +64,9 @@ class WineScanResult(BaseModel):
     alcohol: Optional[str] = None
 
     _normalize_text = field_validator(
-        "bodega", "nombre_vino", "varietal", "region", "alcohol", mode="before"
+        "bodega", "nombre_vino", "varietal", "region", mode="before"
     )(normalize_optional_text)
+    _normalize_alcohol = field_validator("alcohol", mode="before")(normalize_alcohol)
 
     anada: Optional[int] = Field(default=None, ge=1900, le=CURRENT_YEAR)
 
@@ -52,8 +87,11 @@ class WineCreateInput(BaseModel):
     # que es quien escribe el nombre del objeto en el Sheet.
 
     _normalize_required = field_validator(
-        "bodega", "nombre_vino", "varietal", "region", "alcohol", mode="before"
+        "bodega", "nombre_vino", "varietal", "region", mode="before"
     )(normalize_required_text)
+    _normalize_alcohol = field_validator("alcohol", mode="before")(
+        normalize_required_alcohol
+    )
 
 
 class WineUpdateInput(BaseModel):
@@ -75,8 +113,11 @@ class WineUpdateInput(BaseModel):
     precio_estimado: Optional[float] = None
 
     _normalize_required = field_validator(
-        "bodega", "nombre_vino", "varietal", "region", "alcohol", mode="before"
+        "bodega", "nombre_vino", "varietal", "region", mode="before"
     )(normalize_required_text)
+    _normalize_alcohol = field_validator("alcohol", mode="before")(
+        normalize_required_alcohol
+    )
 
 
 class WineStockInput(BaseModel):
@@ -170,6 +211,10 @@ class WineRecord(BaseModel):
     ubicacion: Optional[str] = None
     precio_estimado: Optional[float] = None
     foto_url: Optional[str] = None
+
+    # Las filas ya cargadas traen "14.2", "12,5" y "14" mezclados: se emparejan
+    # al leer para que la app las muestre igual sin tocar el Sheet.
+    _normalize_alcohol = field_validator("alcohol", mode="before")(normalize_alcohol)
 
     # El Sheet devuelve las celdas con formato como texto ("$32.000").
     _parse_precio = field_validator("precio_estimado", mode="before")(parse_sheet_number)
