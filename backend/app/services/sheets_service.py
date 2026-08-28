@@ -90,8 +90,9 @@ def get_catas_worksheet():
     return _get_worksheet(CATAS_TAB, CATAS_HEADERS)
 
 
-def get_inventory_rows() -> List[Dict[str, Any]]:
-    values = get_inventory_worksheet().get_all_values()
+def _rows_from(worksheet) -> List[Dict[str, Any]]:
+    """Lee una pestaña completa como dicts, salteando las filas vacías."""
+    values = worksheet.get_all_values()
     if len(values) <= 1:
         return []
 
@@ -104,9 +105,29 @@ def get_inventory_rows() -> List[Dict[str, Any]]:
     return rows
 
 
+def get_inventory_rows() -> List[Dict[str, Any]]:
+    return _rows_from(get_inventory_worksheet())
+
+
+def get_catas_rows() -> List[Dict[str, Any]]:
+    return _rows_from(get_catas_worksheet())
+
+
 def append_inventory_row(row: Dict[str, Any]):
     worksheet = get_inventory_worksheet()
     worksheet.append_row([row.get(header, "") for header in INVENTORY_HEADERS])
+
+
+def _find_row_number(values: List[List[str]], key_column: str, key: str) -> int:
+    """Número de fila 1-based de la primera coincidencia, o 0 si no está.
+
+    La fila 1 es el encabezado, así que las filas de datos arrancan en 2.
+    """
+    key_index = values[0].index(key_column)
+    for row_number, row in enumerate(values[1:], start=2):
+        if len(row) > key_index and row[key_index] == key:
+            return row_number
+    return 0
 
 
 def _update_inventory_cell(codigo_vino: str, column: str, value: Any, missing: str):
@@ -115,16 +136,11 @@ def _update_inventory_cell(codigo_vino: str, column: str, value: Any, missing: s
     if len(rows) <= 1:
         raise ValueError("El inventario está vacío.")
 
-    headers = rows[0]
-    target_column = headers.index(column) + 1
-    code_index = headers.index("codigo_vino")
+    row_number = _find_row_number(rows, "codigo_vino", codigo_vino)
+    if not row_number:
+        raise ValueError(missing)
 
-    for row_number, row in enumerate(rows[1:], start=2):
-        if len(row) > code_index and row[code_index] == codigo_vino:
-            worksheet.update_cell(row_number, target_column, value)
-            return
-
-    raise ValueError(missing)
+    worksheet.update_cell(row_number, rows[0].index(column) + 1, value)
 
 
 def update_inventory_quantity(codigo_vino: str, quantity: int):
@@ -143,6 +159,52 @@ def update_inventory_photo(codigo_vino: str, object_name: str):
         object_name,
         "No se encontró el vino solicitado para guardar la foto.",
     )
+
+
+def update_inventory_row(codigo_vino: str, row: Dict[str, Any]):
+    """Fusiona `row` sobre la fila existente y la escribe de una sola vez.
+
+    Una escritura por celda gastaría una llamada por campo contra el límite de
+    60/min del free tier; editar un vino son 8 campos. Y la fusión va acá adentro
+    para que una escritura de fila nunca borre las columnas que el payload no
+    trae (`id`, `fecha_ingreso`, `foto_url`, `codigo_vino`, `cantidad`).
+    """
+    worksheet = get_inventory_worksheet()
+    values = worksheet.get_all_values()
+    if len(values) <= 1:
+        raise ValueError("El inventario está vacío.")
+
+    row_number = _find_row_number(values, "codigo_vino", codigo_vino)
+    if not row_number:
+        raise ValueError("No se encontró el vino solicitado para actualizar.")
+
+    headers = values[0]
+    current = values[row_number - 1]
+    merged = []
+    for index, header in enumerate(headers):
+        if header in row:
+            value = row[header]
+            merged.append("" if value is None else value)
+        else:
+            merged.append(current[index] if index < len(current) else "")
+
+    worksheet.update(
+        [merged],
+        f"A{row_number}:{rowcol_to_a1(row_number, len(headers))}",
+    )
+
+
+def delete_inventory_row(codigo_vino: str):
+    worksheet = get_inventory_worksheet()
+    values = worksheet.get_all_values()
+    if len(values) <= 1:
+        raise ValueError("El inventario está vacío.")
+
+    row_number = _find_row_number(values, "codigo_vino", codigo_vino)
+    if not row_number:
+        raise ValueError("No se encontró el vino solicitado para eliminar.")
+
+    worksheet.delete_rows(row_number)
 
 
 def append_cata_record(row: Dict[str, Any]):

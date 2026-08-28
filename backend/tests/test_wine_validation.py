@@ -20,7 +20,8 @@ def test_scan_result_normalizes_text_and_keeps_missing_values():
 
     assert result.bodega == "Trapiche"
     assert result.nombre_vino == "Fond de Cave"
-    assert result.alcohol == "14%"
+    # El simbolo no es parte del dato: se guarda el numero solo (ver test_alcohol).
+    assert result.alcohol == "14"
     assert result.anada is None
 
 
