@@ -31,10 +31,30 @@ function normalize(value: string): string {
     .trim()
 }
 
+/**
+ * Un corte trae varias uvas en una celda: "Malbec & Cabernet Franc".
+ *
+ * Se parte por los separadores y NUNCA por el espacio: "Cabernet Sauvignon" es
+ * una uva sola, y partirla la confundiria con "Cabernet Franc". Tambien se
+ * descartan los conectores sueltos que quedan al separar ("y", "con").
+ */
+const SEPARADORES = /\s*(?:&|\+|\/|,|;|\by\b|\bcon\b)\s*/i
+
+const CONECTORES = ['y', 'con', 'e']
+
+export function splitVarietals(varietal: string): string[] {
+  return varietal
+    .split(SEPARADORES)
+    .map((part) => part.trim())
+    .filter((part) => part !== '' && !CONECTORES.includes(normalize(part)))
+}
+
 export function glassTint(varietal: string): GlassTint {
   const v = normalize(varietal)
-  if (BLANCOS.some((blanco) => v.includes(blanco))) return BLANCO
   if (v.includes('blend') || v.includes('corte') || v.includes('rose')) return BLEND
+  // Un corte de varias uvas es un corte aunque no diga "blend" en la etiqueta.
+  if (splitVarietals(varietal).length > 1) return BLEND
+  if (BLANCOS.some((blanco) => v.includes(blanco))) return BLANCO
   return TINTO
 }
 
@@ -107,14 +127,25 @@ export function totalBottles(wines: WineRecord[]): number {
   return wines.reduce((total, wine) => total + wine.cantidad, 0)
 }
 
-/** Varietales presentes, para los chips de filtro. */
+/**
+ * Varietales presentes, para los chips de filtro. Un corte aporta cada una de
+ * sus uvas, asi que el chip "Malbec" tambien encuentra los blends con Malbec.
+ */
 export function varietals(wines: WineRecord[]): string[] {
   const seen = new Map<string, string>()
   for (const wine of wines) {
-    const key = normalize(wine.varietal)
-    if (key && !seen.has(key)) seen.set(key, wine.varietal)
+    for (const varietal of splitVarietals(wine.varietal)) {
+      const key = normalize(varietal)
+      if (key && !seen.has(key)) seen.set(key, varietal)
+    }
   }
   return [...seen.values()].sort((a, b) => a.localeCompare(b))
+}
+
+/** Si el vino lleva esa uva, sea sola o dentro de un corte. */
+export function hasVarietal(wine: WineRecord, varietal: string): boolean {
+  const target = normalize(varietal)
+  return splitVarietals(wine.varietal).some((part) => normalize(part) === target)
 }
 
 export function matchesSearch(wine: WineRecord, term: string): boolean {

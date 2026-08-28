@@ -4,6 +4,7 @@ import {
   formatYear,
   glassTint,
   groupByShelf,
+  hasVarietal,
   matchesSearch,
   totalBottles,
   varietals,
@@ -35,7 +36,8 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
       wines.filter(
         (wine) =>
           matchesSearch(wine, search) &&
-          (varietal === null || wine.varietal === varietal),
+          // Por uva y no por la celda entera: un corte cae bajo cada una.
+          (varietal === null || hasVarietal(wine, varietal)),
       ),
     [wines, search, varietal],
   )
