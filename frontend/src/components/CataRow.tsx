@@ -14,10 +14,13 @@ export function CataRow({
   cata,
   onSelect,
   onNotes,
+  onOpen,
 }: {
   cata: CataRecord
   onSelect: (codigoVino: string) => void
   onNotes?: (cata: CataRecord) => void
+  /** En la ficha del vino el tap corrige la cata en vez de navegar a el. */
+  onOpen?: (cata: CataRecord) => void
 }) {
   const day = formatDayMonth(cata.fecha_consumo)
   const year = cata.anada === null ? null : formatYear(cata.anada)
@@ -88,7 +91,11 @@ export function CataRow({
 
   return (
     <div className="flex items-stretch gap-[5px]">
-      {cata.vino_existe ? (
+      {onOpen ? (
+        <button type="button" onClick={() => onOpen(cata)} className={shell}>
+          {body}
+        </button>
+      ) : cata.vino_existe ? (
         <button type="button" onClick={() => onSelect(cata.vino_id)} className={shell}>
           {body}
         </button>

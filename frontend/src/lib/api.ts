@@ -1,6 +1,9 @@
 import type {
+  CataCreateInput,
   CataRecord,
+  CataUpdateInput,
   ConsumeResult,
+  DeleteCataResult,
   DeleteResult,
   WineConsumeInput,
   WineCreateInput,
@@ -169,4 +172,33 @@ export function listCatas(): Promise<CataRecord[]> {
 
 export function listWineCatas(codigoVino: string): Promise<CataRecord[]> {
   return request<CataRecord[]>(`/api/wines/${encodeURIComponent(codigoVino)}/catas`)
+}
+
+/** Registra una cata sin descontar stock, a diferencia de consumeWine. */
+export function addCata(
+  codigoVino: string,
+  payload: CataCreateInput,
+): Promise<CataRecord> {
+  return request<CataRecord>(`/api/wines/${encodeURIComponent(codigoVino)}/catas`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updateCata(
+  idCata: string,
+  payload: CataUpdateInput,
+): Promise<CataRecord> {
+  return request<CataRecord>(`/api/catas/${encodeURIComponent(idCata)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deleteCata(idCata: string): Promise<DeleteCataResult> {
+  return request<DeleteCataResult>(`/api/catas/${encodeURIComponent(idCata)}`, {
+    method: 'DELETE',
+  })
 }

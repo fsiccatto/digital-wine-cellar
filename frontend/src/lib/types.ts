@@ -83,3 +83,23 @@ export interface DeleteResult {
   status: string
   codigo_vino: string
 }
+
+/** Lo que se puede corregir de una cata: ni el vino ni la fecha. */
+export interface CataUpdateInput {
+  puntuacion: number
+  notas_cata?: string | null
+  maridaje?: string | null
+}
+
+/** Una cata suelta, sin descontar stock. Sin fecha, la pone el servidor. */
+export interface CataCreateInput {
+  puntuacion: number
+  notas_cata?: string | null
+  maridaje?: string | null
+  fecha_consumo?: string | null
+}
+
+export interface DeleteCataResult {
+  status: string
+  id_cata: string
+}
