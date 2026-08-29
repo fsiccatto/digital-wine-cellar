@@ -106,13 +106,23 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
         ))}
       </div>
 
-      {notes && <NotesSheet cata={notes} onClose={() => setNotes(null)} />}
+      {notes && (
+        <NotesSheet cata={notes} onClose={() => setNotes(null)} onSelect={onSelect} />
+      )}
     </div>
   )
 }
 
 /** Las notas no entran en la fila; se leen acá, sin editar. */
-function NotesSheet({ cata, onClose }: { cata: CataRecord; onClose: () => void }) {
+function NotesSheet({
+  cata,
+  onClose,
+  onSelect,
+}: {
+  cata: CataRecord
+  onClose: () => void
+  onSelect: (codigoVino: string) => void
+}) {
   const date = formatDate(cata.fecha_consumo)
 
   return (
@@ -144,13 +154,26 @@ function NotesSheet({ cata, onClose }: { cata: CataRecord; onClose: () => void }
         {cata.notas_cata}
       </p>
 
-      <button
-        type="button"
-        onClick={onClose}
-        className="h-12 w-full rounded-xl border border-borde-claro text-[14px] font-semibold text-tenue-400"
-      >
-        Cerrar
-      </button>
+      <div className="flex gap-[10px]">
+        <button
+          type="button"
+          onClick={onClose}
+          className="h-12 grow rounded-xl border border-borde-claro text-[14px] font-semibold text-tenue-400"
+        >
+          Cerrar
+        </button>
+        {/* La correccion vive en la ficha del vino, junto al resto de sus catas;
+            duplicar el formulario aca serian dos lugares que mantener. */}
+        {cata.vino_existe && (
+          <button
+            type="button"
+            onClick={() => onSelect(cata.vino_id)}
+            className="h-12 shrink-0 rounded-xl border border-borde-claro px-5 text-[14px] font-semibold text-oro"
+          >
+            Ver el vino
+          </button>
+        )}
+      </div>
     </Sheet>
   )
 }

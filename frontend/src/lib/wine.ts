@@ -380,3 +380,16 @@ export function formatAlcohol(alcohol: string): string {
   if (Number.isNaN(number)) return value
   return `${number.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`
 }
+
+/**
+ * Promedio de las catas puntuadas, o null si ninguna tiene nota.
+ *
+ * Una cata sin puntuacion no cuenta como cero: bajaria el promedio por no
+ * haber cargado un dato, que es lo contrario de lo que significa.
+ */
+export function averageScore(catas: CataRecord[]): number | null {
+  const puntuadas = catas.filter((cata) => cata.puntuacion !== null)
+  if (puntuadas.length === 0) return null
+  const suma = puntuadas.reduce((total, cata) => total + (cata.puntuacion ?? 0), 0)
+  return Math.round((suma / puntuadas.length) * 10) / 10
+}

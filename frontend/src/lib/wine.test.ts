@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CataRecord, WineRecord } from './types'
 import {
+  averageScore,
   cellarValue,
   glassTint,
   groupByMonth,
@@ -217,5 +218,44 @@ describe('groupByMonth', () => {
     const grupos = groupByMonth([cata('no es una fecha'), cata('2026-03-02T21:00:00')])
     expect(grupos[grupos.length - 1].label).toBe('Sin fecha')
     expect(grupos).toHaveLength(2)
+  })
+})
+
+describe('averageScore', () => {
+  function cata(puntuacion: number | null): CataRecord {
+    return {
+      id_cata: String(Math.random()),
+      vino_id: 'TRA-MAL-2020-0001',
+      fecha_consumo: '2026-02-01T21:00:00',
+      puntuacion,
+      notas_cata: null,
+      maridaje: null,
+      bodega: null,
+      nombre_vino: null,
+      anada: null,
+      vino_existe: true,
+    }
+  }
+
+  it('promedia las puntuaciones', () => {
+    expect(averageScore([cata(5), cata(4)])).toBe(4.5)
+  })
+
+  it('redondea a un decimal', () => {
+    expect(averageScore([cata(5), cata(4), cata(4)])).toBe(4.3)
+  })
+
+  it('una cata sin puntuacion no cuenta como cero', () => {
+    // Bajaria el promedio por no haber cargado un dato: lo contrario de lo
+    // que significa que falte.
+    expect(averageScore([cata(5), cata(null)])).toBe(5)
+  })
+
+  it('sin ninguna puntuada devuelve null', () => {
+    expect(averageScore([cata(null)])).toBeNull()
+  })
+
+  it('sin catas devuelve null', () => {
+    expect(averageScore([])).toBeNull()
   })
 })

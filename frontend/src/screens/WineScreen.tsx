@@ -1,15 +1,19 @@
 import { useEffect, useState } from 'react'
 import {
+  addCata,
   adjustStock,
   consumeWine,
+  deleteCata,
   deleteWine,
   getWine,
   listWineCatas,
+  updateCata,
   updateWine,
 } from '../lib/api'
 import type { CataRecord, WineRecord, WineUpdateInput } from '../lib/types'
 import type { Guarda } from '../lib/wine'
 import {
+  averageScore,
   formatAlcohol,
   formatDate,
   formatYear,
@@ -42,7 +46,7 @@ interface Props {
 }
 
 /** Un solo estado: dos hojas abiertas a la vez es un bug esperando. */
-type OpenSheet = null | 'tasting' | 'edit' | 'stock' | 'delete'
+type OpenSheet = null | 'tasting' | 'nota' | 'edit' | 'stock' | 'delete'
 
 export function WineScreen({
   codigoVino,
@@ -56,6 +60,7 @@ export function WineScreen({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [sheet, setSheet] = useState<OpenSheet>(null)
+  const [editando, setEditando] = useState<CataRecord | null>(null)
   const [menu, setMenu] = useState(false)
 
   useEffect(() => {
@@ -116,6 +121,7 @@ export function WineScreen({
   }
 
   const guarda = guardaDe(wine)
+  const promedio = averageScore(catas)
   const tint = glassTint(wine.varietal)
   const year = formatYear(wine.anada)
   const entered = formatDate(wine.fecha_ingreso)
@@ -153,6 +159,7 @@ export function WineScreen({
                 {/* Velo invisible: tocar afuera cierra el menú. */}
                 <div className="fixed inset-0 z-10" onClick={() => setMenu(false)} />
                 <div className="absolute right-0 z-20 mt-1 flex w-[168px] flex-col rounded-xl border border-borde bg-madera-600 py-1 shadow-[0_8px_24px_rgba(70,52,30,0.2)]">
+                  <MenuItem onClick={() => openSheet('nota')}>Anotar una cata</MenuItem>
                   <MenuItem onClick={() => openSheet('edit')}>Editar datos</MenuItem>
                   <MenuItem onClick={() => openSheet('stock')}>Ajustar stock</MenuItem>
 
@@ -267,6 +274,12 @@ export function WineScreen({
               Catas anteriores
             </span>
             <div className="h-px grow bg-borde" />
+            {promedio !== null && (
+              <span className="flex items-center gap-[3px] text-oro">
+                <RatingGlassIcon size={11} filled />
+                <span className="cifra text-[10px] font-semibold">{promedio}</span>
+              </span>
+            )}
             <span className="cifra text-[9px] font-medium text-tenue-600">
               {catas.length}
             </span>
@@ -274,8 +287,13 @@ export function WineScreen({
           <ul className="flex flex-col gap-[5px]">
             {catas.map((cata) => (
               <li key={cata.id_cata}>
-                {/* Ya estamos en la ficha de este vino: la fila no navega. */}
-                <CataRow cata={cata} onSelect={() => {}} />
+                {/* Ya estamos en la ficha de este vino: la fila no navega, y el
+                    tap abre la correccion de esa cata. */}
+                <CataRow
+                  cata={cata}
+                  onSelect={() => {}}
+                  onOpen={() => setEditando(cata)}
+                />
               </li>
             ))}
           </ul>
@@ -289,6 +307,46 @@ export function WineScreen({
           onDone={(remaining) => {
             setWine({ ...wine, cantidad: remaining })
             setSheet(null)
+            // La cata recien escrita todavia no esta en la lista de la ficha.
+            listWineCatas(wine.codigo_vino)
+              .then(setCatas)
+              .catch(() => {})
+            onConsumed()
+          }}
+        />
+      )}
+
+      {sheet === 'nota' && (
+        <TastingSheet
+          wine={wine}
+          modo="nota"
+          onClose={() => setSheet(null)}
+          onSaved={(cata) => {
+            setCatas((actuales) => ordenarCatas([cata, ...actuales]))
+            setSheet(null)
+            onConsumed()
+          }}
+        />
+      )}
+
+      {editando && (
+        <TastingSheet
+          wine={wine}
+          modo="editar"
+          cata={editando}
+          onClose={() => setEditando(null)}
+          onSaved={(cata) => {
+            setCatas((actuales) =>
+              ordenarCatas(
+                actuales.map((item) => (item.id_cata === cata.id_cata ? cata : item)),
+              ),
+            )
+            setEditando(null)
+            onConsumed()
+          }}
+          onDeleted={(idCata) => {
+            setCatas((actuales) => actuales.filter((item) => item.id_cata !== idCata))
+            setEditando(null)
             onConsumed()
           }}
         />
@@ -428,129 +486,231 @@ function Row({
 }
 
 /** Formulario de cata: puntuación 1-5, notas y maridaje. */
+/** Las mas nuevas primero, igual que las devuelve el backend. */
+function ordenarCatas(catas: CataRecord[]): CataRecord[] {
+  return [...catas].sort((a, b) => b.fecha_consumo.localeCompare(a.fecha_consumo))
+}
+
+type ModoCata = 'descorchar' | 'nota' | 'editar'
+
+/**
+ * Un solo formulario para las tres cosas que se hacen con una cata: registrarla
+ * al descorchar, anotarla sin tocar el stock, y corregirla despues.
+ *
+ * Son los mismos tres campos y la misma validacion; lo unico que cambia es a
+ * donde va el guardado y que dice el boton. Tres hojas separadas serian tres
+ * copias del mismo formulario.
+ */
 function TastingSheet({
   wine,
+  modo = 'descorchar',
+  cata,
   onClose,
   onDone,
+  onSaved,
+  onDeleted,
 }: {
   wine: WineRecord
+  modo?: ModoCata
+  cata?: CataRecord
   onClose: () => void
-  onDone: (remaining: number) => void
+  onDone?: (remaining: number) => void
+  onSaved?: (cata: CataRecord) => void
+  onDeleted?: (idCata: string) => void
 }) {
-  const [score, setScore] = useState(4)
-  const [notes, setNotes] = useState('')
-  const [pairing, setPairing] = useState('')
+  const [score, setScore] = useState(cata?.puntuacion ?? 4)
+  const [notes, setNotes] = useState(cata?.notas_cata ?? '')
+  const [pairing, setPairing] = useState(cata?.maridaje ?? '')
   const [saving, setSaving] = useState(false)
+  const [borrando, setBorrando] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const textos = {
+    descorchar: { rotulo: 'Cata', accion: 'Registrar cata', enCurso: 'Registrando…' },
+    nota: { rotulo: 'Anotar cata', accion: 'Guardar cata', enCurso: 'Guardando…' },
+    editar: { rotulo: 'Editar cata', accion: 'Guardar cambios', enCurso: 'Guardando…' },
+  }[modo]
 
   async function submit() {
     setSaving(true)
     setError(null)
+    const payload = {
+      puntuacion: score,
+      notas_cata: notes.trim() || null,
+      maridaje: pairing.trim() || null,
+    }
     try {
-      const result = await consumeWine(wine.codigo_vino, {
-        puntuacion: score,
-        notas_cata: notes.trim() || null,
-        maridaje: pairing.trim() || null,
-      })
-      onDone(result.stock_restante)
+      if (modo === 'descorchar') {
+        const result = await consumeWine(wine.codigo_vino, payload)
+        onDone?.(result.stock_restante)
+      } else if (modo === 'nota') {
+        onSaved?.(await addCata(wine.codigo_vino, payload))
+      } else if (cata) {
+        onSaved?.(await updateCata(cata.id_cata, payload))
+      }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : 'No se pudo registrar la cata.')
+      setError(cause instanceof Error ? cause.message : 'No se pudo guardar la cata.')
       setSaving(false)
+    }
+  }
+
+  async function borrar() {
+    if (!cata) return
+    setSaving(true)
+    setError(null)
+    try {
+      await deleteCata(cata.id_cata)
+      onDeleted?.(cata.id_cata)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'No se pudo borrar la cata.')
+      setSaving(false)
+      setBorrando(false)
     }
   }
 
   return (
     <Sheet onClose={onClose}>
-        <div className="mb-5 flex flex-col gap-1">
-          <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
-            Cata
-          </span>
-          <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
-            {wine.nombre_vino}
-          </h2>
-        </div>
-
-        <div className="mb-5 flex flex-col gap-[9px]">
-          <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
-            Puntuación
-          </span>
-          <div className="flex gap-2">
-            {[1, 2, 3, 4, 5].map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setScore(value)}
-                aria-label={`${value} de 5`}
-                className={value <= score ? 'text-oro' : 'text-borde-claro'}
-              >
-                <RatingGlassIcon size={30} filled={value <= score} />
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="mb-4 flex flex-col gap-[6px]">
-          <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
-            Notas
-          </span>
-          <textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            rows={3}
-            placeholder="Aromas, taninos, cómo se abrió…"
-            className="resize-none rounded-[9px] border border-borde bg-madera-950/55 p-[14px] text-[14px] leading-relaxed placeholder:text-tenue-700 focus:border-oro/40 focus:outline-none"
-          />
-        </div>
-
-        <div className="mb-6 flex flex-col gap-[6px]">
-          <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
-            Maridaje
-          </span>
-          <div className="flex h-[46px] items-center gap-[10px] rounded-[9px] border border-borde bg-madera-950/55 px-[14px] focus-within:border-oro/40">
-            <PairingIcon className="shrink-0 text-vina" />
-            <input
-              value={pairing}
-              onChange={(event) => setPairing(event.target.value)}
-              placeholder="Con qué lo tomaste"
-              className="w-full bg-transparent text-[14px] placeholder:text-tenue-700 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        {error && (
-          <p className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300">
-            {error}
+      <div className="mb-5 flex flex-col gap-1">
+        <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+          {textos.rotulo}
+        </span>
+        <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
+          {wine.nombre_vino}
+        </h2>
+        {modo === 'nota' && (
+          // Es la contracara de "Corrige el inventario. No registra una cata."
+          <p className="pt-1 text-[12px] leading-relaxed text-tenue-500">
+            Anota una cata sin descontar stock.
           </p>
         )}
+      </div>
 
-        <div className="flex gap-[10px]">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={saving}
-            className="h-13 shrink-0 rounded-xl border border-borde-claro px-5 text-[14px] font-semibold text-tenue-400"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={submit}
-            disabled={saving}
-            className="flex h-12 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:opacity-60"
-          >
-            {saving ? (
-              <>
-                <SpinnerIcon className="animate-spin" />
-                <span className="text-[14px]">Registrando…</span>
-              </>
-            ) : (
-              <>
-                <CheckIcon size={17} />
-                <span className="text-[14px]">Registrar cata</span>
-              </>
-            )}
-          </button>
+      <div className="mb-5 flex flex-col gap-[9px]">
+        <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
+          Puntuación
+        </span>
+        <div className="flex gap-2">
+          {[1, 2, 3, 4, 5].map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setScore(value)}
+              aria-label={`${value} de 5`}
+              className={value <= score ? 'text-oro' : 'text-borde-claro'}
+            >
+              <RatingGlassIcon size={30} filled={value <= score} />
+            </button>
+          ))}
         </div>
+      </div>
+
+      <div className="mb-4 flex flex-col gap-[6px]">
+        <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
+          Notas
+        </span>
+        <textarea
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          rows={3}
+          placeholder="Aromas, taninos, cómo se abrió…"
+          className="resize-none rounded-[9px] border border-borde bg-madera-950/55 p-[14px] text-[14px] leading-relaxed placeholder:text-tenue-700 focus:border-oro/40 focus:outline-none"
+        />
+      </div>
+
+      <div className="mb-6 flex flex-col gap-[6px]">
+        <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
+          Maridaje
+        </span>
+        <div className="flex h-[46px] items-center gap-[10px] rounded-[9px] border border-borde bg-madera-950/55 px-[14px] focus-within:border-oro/40">
+          <PairingIcon className="shrink-0 text-vina" />
+          <input
+            value={pairing}
+            onChange={(event) => setPairing(event.target.value)}
+            placeholder="Con qué lo tomaste"
+            className="w-full bg-transparent text-[14px] placeholder:text-tenue-700 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      {error && (
+        <p className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300">
+          {error}
+        </p>
+      )}
+
+      {borrando ? (
+        // La confirmacion reemplaza a la botonera en vez de abrir otra hoja
+        // encima: dos hojas apiladas sobre el mismo dato se leen mal.
+        <div className="flex flex-col gap-3">
+          <p className="text-[13px] leading-relaxed text-crema-300">
+            Se borra del histórico y no se puede deshacer.{' '}
+            <span className="text-tenue-500">
+              El stock del vino no cambia: esa botella se tomó igual.
+            </span>
+          </p>
+          <div className="flex gap-[10px]">
+            <button
+              type="button"
+              onClick={borrar}
+              disabled={saving}
+              className="flex h-13 shrink-0 items-center justify-center gap-2 rounded-xl border border-borra-600 px-5 text-[14px] font-semibold text-borra-600 disabled:opacity-60"
+            >
+              {saving ? <SpinnerIcon className="animate-spin" /> : <TrashIcon size={15} />}
+              Borrar
+            </button>
+            <button
+              type="button"
+              onClick={() => setBorrando(false)}
+              disabled={saving}
+              className="h-13 grow rounded-xl border border-borde-claro text-[14px] font-semibold text-tenue-400"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-3">
+          <div className="flex gap-[10px]">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={saving}
+              className="h-13 shrink-0 rounded-xl border border-borde-claro px-5 text-[14px] font-semibold text-tenue-400"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={saving}
+              className="flex h-12 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:opacity-60"
+            >
+              {saving ? (
+                <>
+                  <SpinnerIcon className="animate-spin" />
+                  <span className="text-[14px]">{textos.enCurso}</span>
+                </>
+              ) : (
+                <>
+                  <CheckIcon size={17} />
+                  <span className="text-[14px]">{textos.accion}</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {modo === 'editar' && (
+            <button
+              type="button"
+              onClick={() => setBorrando(true)}
+              disabled={saving}
+              className="self-center text-[12px] font-semibold text-tenue-500 underline underline-offset-4"
+            >
+              Borrar esta cata
+            </button>
+          )}
+        </div>
+      )}
     </Sheet>
   )
 }
