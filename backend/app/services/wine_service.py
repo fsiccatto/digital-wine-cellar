@@ -5,7 +5,9 @@ from datetime import datetime
 from pydantic import ValidationError
 
 from app.schemas.wine_schema import (
+    CataCreateInput,
     CataRecord,
+    CataUpdateInput,
     WineConsumeInput,
     WineCreateInput,
     WineRecord,
@@ -15,9 +17,11 @@ from app.services import storage_service
 from app.services.sheets_service import (
     append_cata_record,
     append_inventory_row,
+    delete_cata_row,
     delete_inventory_row,
     get_catas_rows,
     get_inventory_rows,
+    update_cata_row,
     update_inventory_photo,
     update_inventory_quantity,
     update_inventory_row,
@@ -230,3 +234,77 @@ def adjust_stock(codigo_vino: str, delta: int) -> WineRecord:
 
     update_inventory_quantity(codigo_vino, updated_quantity)
     return wine.model_copy(update={"cantidad": updated_quantity})
+
+
+def _cata_por_id(id_cata: str) -> dict:
+    row = next((item for item in get_catas_rows() if item.get("id_cata") == id_cata), None)
+    if row is None:
+        raise ValueError("No se encontró la cata solicitada.")
+    return row
+
+
+def add_cata(codigo_vino: str, payload: CataCreateInput) -> CataRecord:
+    """Registra una cata sin tocar el stock.
+
+    Descorchar y anotar son cosas distintas: esto sirve para una botella que se
+    abrió ayer, o que se probó afuera y nunca estuvo en la cava.
+    """
+    wine = get_wine(codigo_vino)
+
+    row = {
+        "id_cata": str(uuid.uuid4()),
+        "vino_id": codigo_vino,
+        "fecha_consumo": payload.fecha_consumo
+        or datetime.now().isoformat(timespec="seconds"),
+        "puntuacion": payload.puntuacion,
+        "notas_cata": payload.notas_cata,
+        "maridaje": payload.maridaje,
+    }
+    append_cata_record(row)
+
+    return CataRecord(
+        **{key: "" if value is None else value for key, value in row.items()},
+        vino_existe=True,
+        bodega=wine.bodega,
+        nombre_vino=wine.nombre_vino,
+        anada=wine.anada,
+    )
+
+
+def update_cata(id_cata: str, payload: CataUpdateInput) -> CataRecord:
+    """Corrige una cata ya registrada. No mueve el stock ni cambia de vino."""
+    row = _cata_por_id(id_cata)
+
+    cambios = payload.model_dump()
+    update_cata_row(
+        id_cata,
+        {key: "" if value is None else value for key, value in cambios.items()},
+    )
+
+    fusionada = {**row, **{k: ("" if v is None else v) for k, v in cambios.items()}}
+    wine = next(
+        (
+            item
+            for item in get_inventory_rows()
+            if item.get("codigo_vino") == fusionada.get("vino_id")
+        ),
+        None,
+    )
+    return CataRecord(
+        **fusionada,
+        vino_existe=wine is not None,
+        bodega=wine.get("bodega") if wine else None,
+        nombre_vino=wine.get("nombre_vino") if wine else None,
+        anada=wine.get("anada") if wine else None,
+    )
+
+
+def delete_cata(id_cata: str) -> dict:
+    """Borra una cata del histórico. El stock del vino no se toca.
+
+    Descorchar ya descontó la botella y esa botella se tomó igual: devolverla al
+    inventario por corregir el registro seria inventar stock.
+    """
+    _cata_por_id(id_cata)
+    delete_cata_row(id_cata)
+    return {"status": "ok", "id_cata": id_cata}

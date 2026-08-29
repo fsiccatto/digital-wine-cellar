@@ -161,7 +161,7 @@ def update_inventory_photo(codigo_vino: str, object_name: str):
     )
 
 
-def update_inventory_row(codigo_vino: str, row: Dict[str, Any]):
+def _update_row(worksheet, key_column: str, key: str, row: Dict[str, Any], missing: str):
     """Fusiona `row` sobre la fila existente y la escribe de una sola vez.
 
     Una escritura por celda gastaría una llamada por campo contra el límite de
@@ -169,14 +169,13 @@ def update_inventory_row(codigo_vino: str, row: Dict[str, Any]):
     para que una escritura de fila nunca borre las columnas que el payload no
     trae (`id`, `fecha_ingreso`, `foto_url`, `codigo_vino`, `cantidad`).
     """
-    worksheet = get_inventory_worksheet()
     values = worksheet.get_all_values()
     if len(values) <= 1:
-        raise ValueError("El inventario está vacío.")
+        raise ValueError(missing)
 
-    row_number = _find_row_number(values, "codigo_vino", codigo_vino)
+    row_number = _find_row_number(values, key_column, key)
     if not row_number:
-        raise ValueError("No se encontró el vino solicitado para actualizar.")
+        raise ValueError(missing)
 
     headers = values[0]
     current = values[row_number - 1]
@@ -194,19 +193,56 @@ def update_inventory_row(codigo_vino: str, row: Dict[str, Any]):
     )
 
 
-def delete_inventory_row(codigo_vino: str):
-    worksheet = get_inventory_worksheet()
+def _delete_row(worksheet, key_column: str, key: str, missing: str):
     values = worksheet.get_all_values()
     if len(values) <= 1:
-        raise ValueError("El inventario está vacío.")
+        raise ValueError(missing)
 
-    row_number = _find_row_number(values, "codigo_vino", codigo_vino)
+    row_number = _find_row_number(values, key_column, key)
     if not row_number:
-        raise ValueError("No se encontró el vino solicitado para eliminar.")
+        raise ValueError(missing)
 
     worksheet.delete_rows(row_number)
+
+
+def update_inventory_row(codigo_vino: str, row: Dict[str, Any]):
+    _update_row(
+        get_inventory_worksheet(),
+        "codigo_vino",
+        codigo_vino,
+        row,
+        "No se encontró el vino solicitado para actualizar.",
+    )
+
+
+def delete_inventory_row(codigo_vino: str):
+    _delete_row(
+        get_inventory_worksheet(),
+        "codigo_vino",
+        codigo_vino,
+        "No se encontró el vino solicitado para eliminar.",
+    )
 
 
 def append_cata_record(row: Dict[str, Any]):
     worksheet = get_catas_worksheet()
     worksheet.append_row([row.get(header, "") for header in CATAS_HEADERS])
+
+
+def update_cata_row(id_cata: str, row: Dict[str, Any]):
+    _update_row(
+        get_catas_worksheet(),
+        "id_cata",
+        id_cata,
+        row,
+        "No se encontró la cata solicitada para actualizar.",
+    )
+
+
+def delete_cata_row(id_cata: str):
+    _delete_row(
+        get_catas_worksheet(),
+        "id_cata",
+        id_cata,
+        "No se encontró la cata solicitada para eliminar.",
+    )

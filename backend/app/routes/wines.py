@@ -1,7 +1,9 @@
 from fastapi import APIRouter, File, HTTPException, UploadFile, status
 
 from app.schemas.wine_schema import (
+    CataCreateInput,
     CataRecord,
+    CataUpdateInput,
     WineConsumeInput,
     WineCreateInput,
     WineRecord,
@@ -10,14 +12,17 @@ from app.schemas.wine_schema import (
 )
 from app.services.storage_service import StorageNotConfigured
 from app.services.wine_service import (
+    add_cata,
     adjust_stock,
     attach_label_photo,
     consume_wine,
     create_wine,
+    delete_cata,
     delete_wine,
     get_wine,
     list_catas,
     list_wines,
+    update_cata,
     update_wine,
 )
 from app.utils.image_upload import read_validated_image
@@ -169,6 +174,55 @@ def get_catas():
 def get_wine_catas(codigo_vino: str):
     try:
         return list_catas(codigo_vino)
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post("/wines/{codigo_vino}/catas", response_model=CataRecord)
+def add_cata_route(codigo_vino: str, payload: CataCreateInput):
+    """Registra una cata sin descontar stock (a diferencia de /consume)."""
+    try:
+        return add_cata(codigo_vino, payload)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+@router.put("/catas/{id_cata}", response_model=CataRecord)
+def update_cata_route(id_cata: str, payload: CataUpdateInput):
+    try:
+        return update_cata(id_cata, payload)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc),
+        ) from exc
+
+
+@router.delete("/catas/{id_cata}")
+def delete_cata_route(id_cata: str):
+    try:
+        return delete_cata(id_cata)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
     except FileNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
