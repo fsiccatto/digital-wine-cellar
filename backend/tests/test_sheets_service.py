@@ -103,3 +103,66 @@ def test_rows_from_skips_blank_rows():
 
     assert len(rows) == 1
     assert rows[0]["codigo_vino"] == "TRA-MAL-2020-0001"
+
+
+CATAS_HEADERS = sheets_service.CATAS_HEADERS
+
+
+class FakeCatasWorksheet(FakeWorksheet):
+    def __init__(self, rows):
+        self.values = [list(CATAS_HEADERS), *rows]
+        self.updates = []
+        self.deleted = []
+
+
+def cata_values(id_cata, puntuacion="3"):
+    base = {
+        "id_cata": id_cata,
+        "vino_id": "TRA-MAL-2020-0001",
+        "fecha_consumo": "2026-02-01T21:00:00",
+        "puntuacion": puntuacion,
+        "notas_cata": "Cerrado al principio",
+        "maridaje": "Cordero",
+    }
+    return [base[header] for header in CATAS_HEADERS]
+
+
+def test_update_cata_row_writes_once_and_keeps_the_wine_and_date():
+    worksheet = FakeCatasWorksheet([cata_values("cata-1"), cata_values("cata-2")])
+
+    with patch.object(sheets_service, "get_catas_worksheet", return_value=worksheet):
+        sheets_service.update_cata_row("cata-2", {"puntuacion": 5})
+
+    assert len(worksheet.updates) == 1
+    values, range_name = worksheet.updates[0]
+    assert range_name == "A3:F3"
+
+    written = dict(zip(CATAS_HEADERS, values[0]))
+    assert written["puntuacion"] == 5
+    # Columnas ausentes del payload: intactas.
+    assert written["id_cata"] == "cata-2"
+    assert written["vino_id"] == "TRA-MAL-2020-0001"
+    assert written["fecha_consumo"] == "2026-02-01T21:00:00"
+
+
+def test_delete_cata_row_uses_one_based_index():
+    worksheet = FakeCatasWorksheet([cata_values("cata-1"), cata_values("cata-2")])
+
+    with patch.object(sheets_service, "get_catas_worksheet", return_value=worksheet):
+        sheets_service.delete_cata_row("cata-2")
+
+    assert worksheet.deleted == [3]
+
+
+def test_update_cata_row_rejects_unknown_id():
+    worksheet = FakeCatasWorksheet([cata_values("cata-1")])
+
+    with patch.object(sheets_service, "get_catas_worksheet", return_value=worksheet):
+        try:
+            sheets_service.update_cata_row("no-existe", {"puntuacion": 5})
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("debía fallar con un id inexistente")
+
+    assert worksheet.updates == []

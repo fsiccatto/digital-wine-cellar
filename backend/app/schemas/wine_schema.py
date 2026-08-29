@@ -136,6 +136,57 @@ class WineStockInput(BaseModel):
         return value
 
 
+class CataUpdateInput(BaseModel):
+    """Lo que se puede corregir de una cata ya registrada.
+
+    No incluye `vino_id` ni `fecha_consumo`: mover una cata de vino la
+    convierte en otra cata, y la fecha la puso el servidor al descorchar.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    puntuacion: int = Field(ge=1, le=5)
+    notas_cata: Optional[str] = None
+    maridaje: Optional[str] = None
+
+    _normalize_text = field_validator("notas_cata", "maridaje", mode="before")(
+        normalize_optional_text
+    )
+
+
+class CataCreateInput(BaseModel):
+    """Una cata suelta: se tomó la botella pero no sale del stock de la app.
+
+    Sirve para anotar algo abierto ayer, o probado afuera. Por eso lleva fecha
+    del cliente, a diferencia de descorchar, que siempre es "ahora".
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    puntuacion: int = Field(ge=1, le=5)
+    notas_cata: Optional[str] = None
+    maridaje: Optional[str] = None
+    fecha_consumo: Optional[str] = None
+
+    _normalize_text = field_validator("notas_cata", "maridaje", mode="before")(
+        normalize_optional_text
+    )
+
+    @field_validator("fecha_consumo")
+    @classmethod
+    def _validar_fecha(cls, value):
+        if value is None:
+            return None
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError("La fecha de consumo no tiene un formato válido.") from exc
+        # Una cata del futuro es siempre un error de carga.
+        if parsed > datetime.now():
+            raise ValueError("La fecha de consumo no puede estar en el futuro.")
+        return parsed.isoformat(timespec="seconds")
+
+
 class WineConsumeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
