@@ -1,8 +1,9 @@
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 
-from app import config
+from app import auth, config
 from app.config import CORS_ALLOW_ORIGINS
 from app.main import app
 
@@ -83,3 +84,28 @@ def test_open_api_when_no_token_configured():
         patch("app.routes.wines.list_wines", return_value=[]),
     ):
         assert client.get("/api/wines").status_code == 200
+
+
+class TestTokenConfigurado:
+    """Sin APP_TOKEN el middleware deja pasar todo: en Cloud Run eso no puede
+    pasar en silencio."""
+
+    def test_cloud_run_sin_token_aborta_el_arranque(self, monkeypatch):
+        monkeypatch.setenv("K_SERVICE", "digital-wine-cellar-backend")
+        monkeypatch.setattr(auth.config, "APP_TOKEN", "")
+
+        with pytest.raises(RuntimeError, match="APP_TOKEN"):
+            auth.verify_token_is_configured()
+
+    def test_cloud_run_con_token_arranca(self, monkeypatch):
+        monkeypatch.setenv("K_SERVICE", "digital-wine-cellar-backend")
+        monkeypatch.setattr(auth.config, "APP_TOKEN", "un-token")
+
+        auth.verify_token_is_configured()
+
+    def test_local_sin_token_arranca_abierto(self, monkeypatch):
+        # Es el modo comodo de desarrollo y tiene que seguir funcionando.
+        monkeypatch.delenv("K_SERVICE", raising=False)
+        monkeypatch.setattr(auth.config, "APP_TOKEN", "")
+
+        auth.verify_token_is_configured()

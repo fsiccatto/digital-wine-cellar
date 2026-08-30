@@ -31,6 +31,12 @@ CATAS_HEADERS = [
     "maridaje",
 ]
 
+# Nota sobre inyeccion de formulas: gspread 6.x escribe con value_input_option
+# RAW por default, asi que un valor que arranque con "=" se guarda como texto y
+# no como formula. Por eso NO se escapan los campos de texto libre. Verificado
+# contra el Sheet real; si alguna vez se pasa USER_ENTERED explicito o se baja
+# de version, esto deja de ser cierto y hay que revisarlo.
+
 INVENTORY_TAB = "Inventario"
 CATAS_TAB = "Historico_Catas"
 
