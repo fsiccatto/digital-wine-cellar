@@ -34,6 +34,7 @@ import {
   TrashIcon,
 } from '../components/icons'
 import { CataRow } from '../components/CataRow'
+import { PhotoViewer } from '../components/PhotoViewer'
 import { Field, Stepper } from '../components/Field'
 import { Sheet } from '../components/Sheet'
 
@@ -62,6 +63,7 @@ export function WineScreen({
   const [sheet, setSheet] = useState<OpenSheet>(null)
   const [editando, setEditando] = useState<CataRecord | null>(null)
   const [menu, setMenu] = useState(false)
+  const [verFoto, setVerFoto] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -181,11 +183,21 @@ export function WineScreen({
         <div className="relative flex items-start gap-[18px]">
           <div className="shrink-0">
             {photo ? (
-              <img
-                src={photo}
-                alt={`Etiqueta de ${wine.nombre_vino}`}
-                className="h-[132px] w-[92px] rounded-md border border-borde object-cover shadow-[0_6px_18px_rgba(70,52,30,0.22)]"
-              />
+              <button
+                type="button"
+                onClick={() => setVerFoto(true)}
+                aria-label="Ver la etiqueta en grande"
+                className="block transition-transform duration-150 active:scale-[0.98]"
+              >
+                <img
+                  src={photo}
+                  alt={`Etiqueta de ${wine.nombre_vino}`}
+                  // Medidas intrinsecas: sin esto la ficha salta cuando carga.
+                  width={92}
+                  height={132}
+                  className="h-[132px] w-[92px] rounded-md border border-borde object-cover shadow-[0_6px_18px_rgba(70,52,30,0.22)]"
+                />
+              </button>
             ) : (
               <BottleIcon glass={tint.glass} edge={tint.edge} width={52} height={132} />
             )}
@@ -298,6 +310,14 @@ export function WineScreen({
             ))}
           </ul>
         </section>
+      )}
+
+      {verFoto && photo && (
+        <PhotoViewer
+          src={photo}
+          alt={`Etiqueta de ${wine.nombre_vino}`}
+          onClose={() => setVerFoto(false)}
+        />
       )}
 
       {sheet === 'tasting' && (
