@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, getToken, listCatas, listWines } from './lib/api'
 import type { CataRecord, WineRecord } from './lib/types'
 import { CatasScreen } from './screens/CatasScreen'
@@ -28,6 +28,34 @@ export default function App() {
   const [catasError, setCatasError] = useState<string | null>(null)
   // Se asume desbloqueada si ya hay clave guardada; un 401 la vuelve a pedir.
   const [unlocked, setUnlocked] = useState(() => getToken() !== '')
+
+  /**
+   * El gesto de "atras" del telefono. Sin esto, instalada como PWA la app se
+   * CIERRA al hacer atras desde cualquier pantalla, porque la navegacion vive
+   * en un useState y el navegador no tiene nada que desandar.
+   *
+   * Cada pantalla que no es la cava empuja una entrada al historial; el atras
+   * la consume y vuelve a la cava. Desde la cava, sale de la app, que es lo
+   * que corresponde.
+   */
+  const enHistorial = useRef(false)
+
+  useEffect(() => {
+    const enCava = view.name === 'cellar'
+
+    if (!enCava && !enHistorial.current) {
+      window.history.pushState({ cava: true }, '')
+      enHistorial.current = true
+    }
+
+    const alVolver = () => {
+      enHistorial.current = false
+      setView({ name: 'cellar' })
+    }
+
+    window.addEventListener('popstate', alVolver)
+    return () => window.removeEventListener('popstate', alVolver)
+  }, [view])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -78,6 +106,17 @@ export default function App() {
     }
   }, [unlocked, view, catas, catasLoading, loadCatas])
 
+  /** Volver a la cava desde la UI, dejando el historial como lo encontro. */
+  function volverACava() {
+    if (enHistorial.current) {
+      enHistorial.current = false
+      // Consume la entrada propia en vez de dejarla colgada.
+      window.history.back()
+      return
+    }
+    setView({ name: 'cellar' })
+  }
+
   if (!unlocked) {
     return (
       <UnlockScreen
@@ -113,7 +152,7 @@ export default function App() {
 
       {view.name === 'scan' && (
         <ScanScreen
-          onCancel={() => setView({ name: 'cellar' })}
+          onCancel={volverACava}
           onSaved={(codigoVino) => {
             load()
             setView({ name: 'wine', codigoVino })
@@ -124,7 +163,7 @@ export default function App() {
       {view.name === 'wine' && (
         <WineScreen
           codigoVino={view.codigoVino}
-          onBack={() => setView({ name: 'cellar' })}
+          onBack={volverACava}
           onConsumed={() => {
             load()
             invalidateCatas()

@@ -136,6 +136,22 @@ class WineStockInput(BaseModel):
         return value
 
 
+def validar_media_copa(value):
+    """La puntuacion va de 0,5 a 5 y solo en saltos de medio punto.
+
+    Media copa es medio punto: cinco copas grandes dan diez valores posibles,
+    sin pedirle al dedo que apunte a blancos de 15px.
+    """
+    if value is None:
+        return None
+    numero = parse_sheet_number(value) if isinstance(value, str) else value
+    if numero is None:
+        return None
+    if float(numero) * 2 != int(float(numero) * 2):
+        raise ValueError("La puntuación va de medio punto en medio punto.")
+    return float(numero)
+
+
 class CataUpdateInput(BaseModel):
     """Lo que se puede corregir de una cata ya registrada.
 
@@ -145,7 +161,9 @@ class CataUpdateInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    puntuacion: int = Field(ge=1, le=5)
+    puntuacion: float = Field(ge=0.5, le=5)
+
+    _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
     notas_cata: Optional[str] = None
     maridaje: Optional[str] = None
 
@@ -163,7 +181,9 @@ class CataCreateInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    puntuacion: int = Field(ge=1, le=5)
+    puntuacion: float = Field(ge=0.5, le=5)
+
+    _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
     notas_cata: Optional[str] = None
     maridaje: Optional[str] = None
     fecha_consumo: Optional[str] = None
@@ -190,7 +210,9 @@ class CataCreateInput(BaseModel):
 class WineConsumeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    puntuacion: int = Field(ge=1, le=5)
+    puntuacion: float = Field(ge=0.5, le=5)
+
+    _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
     notas_cata: Optional[str] = None
     maridaje: Optional[str] = None
 
@@ -280,7 +302,7 @@ class CataRecord(BaseModel):
     fecha_consumo: str
     # Opcional a propósito: una fila cargada a mano sin nota no debe invalidar
     # el registro entero.
-    puntuacion: Optional[int] = None
+    puntuacion: Optional[float] = None
     notas_cata: Optional[str] = None
     maridaje: Optional[str] = None
 
