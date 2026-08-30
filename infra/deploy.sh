@@ -11,7 +11,7 @@ set -euo pipefail
 
 # --- Completar antes de correr ------------------------------------------
 PROJECT_ID="${PROJECT_ID:-}"          # ej: mi-cava-virtual-2026 (debe ser unico global)
-BILLING_ACCOUNT="${BILLING_ACCOUNT:-017886-6FBE15-74AE46}"
+BILLING_ACCOUNT="${BILLING_ACCOUNT:-}"      # gcloud billing accounts list
 REGION="${REGION:-us-central1}"
 SHEET_NAME="${SHEET_NAME:-Mi_Cava_Virtual}"
 GEMINI_API_KEY="${GEMINI_API_KEY:-}"  # si se omite, se lee de backend/.env
@@ -28,6 +28,7 @@ die() { echo "ERROR: $*" >&2; exit 1; }
 step() { echo; echo "=== $* ==="; }
 
 [[ -n "$PROJECT_ID" ]] || die "Falta PROJECT_ID. Editá el script o exportá la variable."
+[[ -n "$BILLING_ACCOUNT" ]] || die "Falta BILLING_ACCOUNT. Sacalo de: gcloud billing accounts list"
 
 if [[ -z "$GEMINI_API_KEY" && -f "$ROOT/backend/.env" ]]; then
   GEMINI_API_KEY="$(grep -E '^GEMINI_API_KEY=' "$ROOT/backend/.env" | cut -d= -f2- | tr -d '\r')"

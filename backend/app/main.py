@@ -1,11 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.auth import token_middleware
+from app.auth import token_middleware, verify_token_is_configured
 from app.config import CORS_ALLOW_ORIGINS
 from app.routes.health import router as health_router
 from app.routes.scan import router as scan_router
 from app.routes.wines import router as wines_router
+
+# Antes de exponer nada: si falta el token en produccion, no se levanta.
+verify_token_is_configured()
 
 app = FastAPI(title="Mi Cava Virtual API", version="0.1.0")
 
