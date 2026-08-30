@@ -15,13 +15,22 @@ Devuelve únicamente JSON válido con este esquema:
   "varietal": "string",
   "anada": 2020,
   "region": "string",
-  "alcohol": "14%"
+  "alcohol": 13.5
 }
 
 Reglas:
 - Si un valor no se puede leer, devolvé null.
 - No agregues texto fuera del JSON.
 - No inventes datos.
+- `nombre_vino` es la línea de la bodega, sin repetir la bodega ni el varietal.
+- `varietal`: si el vino es un corte de varias uvas, listalas todas separadas
+  por " & ", en el orden en que aparecen. Ejemplo: "Malbec & Cabernet Franc".
+- `alcohol`: solo el número, sin el símbolo de porcentaje, con punto decimal
+  ("13,5% vol." se devuelve como 13.5). La graduación suele estar en la
+  contraetiqueta y no en la cara principal: si no la ves, devolvé null en vez
+  de estimarla.
+- `region`: la más específica que aparezca, sin el país. "Mendoza, Argentina"
+  se devuelve como "Mendoza".
 """
 
 
