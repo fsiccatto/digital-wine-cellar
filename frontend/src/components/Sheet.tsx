@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useBackToClose } from '../lib/useBackToClose'
 
 /**
  * El chrome del bottom sheet, que hoy se repite en cada hoja: el velo, el panel
@@ -17,6 +18,10 @@ export function Sheet({
   children: React.ReactNode
   className?: string
 }) {
+  // El gesto de "atras" cierra la hoja en vez de salir de la app. Va aca para
+  // que lo hereden las cinco hojas de una sola vez.
+  useBackToClose(true, onClose)
+
   useEffect(() => {
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'

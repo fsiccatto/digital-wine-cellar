@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { useBackToClose } from '../lib/useBackToClose'
 import { CloseIcon } from './icons'
 
 /**
@@ -18,6 +19,9 @@ export function PhotoViewer({
   alt: string
   onClose: () => void
 }) {
+  // El gesto de "atras" cierra el visor en vez de salir de la app.
+  useBackToClose(true, onClose)
+
   useEffect(() => {
     const previous = document.body.style.overflow
     document.body.style.overflow = 'hidden'
