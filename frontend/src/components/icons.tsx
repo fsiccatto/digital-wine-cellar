@@ -158,6 +158,14 @@ export function CheckIcon({ size = 15, className }: IconProps) {
   )
 }
 
+export function CloseIcon({ size = 15, className }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size} strokeWidth={2.2} className={className}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  )
+}
+
 export function ChevronLeftIcon({ size = 20, className }: IconProps) {
   return (
     <svg {...base} width={size} height={size} strokeWidth={1.9} className={className}>
