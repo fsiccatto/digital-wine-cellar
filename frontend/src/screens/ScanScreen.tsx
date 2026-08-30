@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createWine, scanLabel, uploadLabelPhoto } from '../lib/api'
 import type { WineScanResult } from '../lib/types'
+import { PRESET_GUARDAR, PRESET_OCR, prepareLabelPhoto } from '../lib/image'
 import {
   BarcodeIcon,
   CameraIcon,
@@ -74,7 +75,8 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
     setStage('reading')
 
     try {
-      const result = await scanLabel(file)
+      // Al escaneo va la version grande: son los pixeles que Gemini lee.
+      const result = await scanLabel(await prepareLabelPhoto(file, PRESET_OCR))
       setForm({
         ...EMPTY,
         bodega: result.bodega ?? '',
@@ -130,7 +132,11 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
       // El vino ya está guardado: si la foto falla, no se pierde la carga.
       if (photo) {
         try {
-          await uploadLabelPhoto(created.codigo_vino, photo)
+          // A la cava va la version de mostrar: ~120 KB en vez de 2,5 MB.
+          await uploadLabelPhoto(
+            created.codigo_vino,
+            await prepareLabelPhoto(photo, PRESET_GUARDAR),
+          )
         } catch {
           setPhotoWarning('El vino se guardó, pero la foto no se pudo subir.')
         }
@@ -302,6 +308,13 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
               inputMode="decimal"
               onChange={(alcohol) => setForm({ ...form, alcohol })}
             />
+            {/* La graduacion casi nunca esta en la cara principal, asi que este
+                campo queda vacio de entrada y conviene decir por que. */}
+            {!read.alcohol && (
+              <span className="-mt-[8px] text-[10.5px] leading-relaxed text-tenue-600">
+                La graduación suele estar en la contraetiqueta.
+              </span>
+            )}
           </div>
 
           <SectionLabel className="pt-[6px]">En la cava</SectionLabel>
