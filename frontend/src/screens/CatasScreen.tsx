@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { CataRecord } from '../lib/types'
 import { formatDate, groupByMonth } from '../lib/wine'
+import { formatPuntuacion, rellenoDe } from '../lib/puntuacion'
 import { CataRow } from '../components/CataRow'
 import { Sheet } from '../components/Sheet'
 import { RatingGlassIcon, SpinnerIcon, VineSprigIcon } from '../components/icons'
@@ -139,14 +140,21 @@ function NotesSheet({
 
       {cata.puntuacion !== null && (
         <div className="mb-5 flex gap-2">
-          {[1, 2, 3, 4, 5].map((value) => (
-            <RatingGlassIcon
-              key={value}
-              size={26}
-              filled={value <= cata.puntuacion!}
-              className={value <= cata.puntuacion! ? 'text-oro' : 'text-borde-claro'}
-            />
-          ))}
+          {[1, 2, 3, 4, 5].map((copa) => {
+            const relleno = rellenoDe(copa, cata.puntuacion!)
+            return (
+              <RatingGlassIcon
+                key={copa}
+                size={26}
+                filled={relleno === 'llena'}
+                half={relleno === 'media'}
+                className={relleno === 'vacia' ? 'text-borde-claro' : 'text-oro'}
+              />
+            )
+          })}
+          <span className="cifra self-center font-serif text-[17px] font-semibold text-oro">
+            {formatPuntuacion(cata.puntuacion!)}
+          </span>
         </div>
       )}
 

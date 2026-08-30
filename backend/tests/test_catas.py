@@ -5,9 +5,10 @@ from unittest.mock import patch
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.main import app
-from app.schemas.wine_schema import CataCreateInput, CataUpdateInput
+from app.schemas.wine_schema import CataCreateInput, CataRecord, CataUpdateInput
 from app.services import wine_service
 
 client = TestClient(app)
@@ -210,3 +211,30 @@ class TestRutas:
         with patch("app.routes.wines.add_cata", side_effect=ValueError("no existe")):
             response = client.post("/api/wines/NO-EXISTE/catas", json={"puntuacion": 4})
         assert response.status_code == 404
+
+
+class TestMediaCopa:
+    """Cinco copas grandes pero diez valores: media copa es medio punto."""
+
+    @pytest.mark.parametrize("valor", [0.5, 2.5, 4.5, 5])
+    def test_acepta_medios_puntos(self, valor):
+        assert CataUpdateInput(puntuacion=valor).puntuacion == valor
+
+    @pytest.mark.parametrize("valor", [4.3, 2.7, 1.25])
+    def test_rechaza_lo_que_no_cae_en_media_copa(self, valor):
+        with pytest.raises(ValidationError):
+            CataUpdateInput(puntuacion=valor)
+
+    @pytest.mark.parametrize("valor", [0, 5.5, 6, -1])
+    def test_rechaza_fuera_de_rango(self, valor):
+        with pytest.raises(ValidationError):
+            CataUpdateInput(puntuacion=valor)
+
+    def test_una_puntuacion_con_coma_del_sheet_se_entiende(self):
+        # El Sheet devuelve las celdas con formato como texto.
+        assert CataRecord(
+            id_cata="c1",
+            vino_id="TRA-MAL-2020-0001",
+            fecha_consumo="2026-02-01T21:00:00",
+            puntuacion="4,5",
+        ).puntuacion == 4.5

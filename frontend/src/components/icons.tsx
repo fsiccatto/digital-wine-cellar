@@ -1,3 +1,4 @@
+import { useId } from 'react'
 /** Iconos de trazo, grilla de 24px, para que escalen y se recoloreen. */
 
 type IconProps = {
@@ -118,23 +119,49 @@ export function GlassIcon({ size = 21, className }: IconProps) {
 }
 
 /** Copa de puntuación: rellena cuando la nota la alcanza. */
+/**
+ * La copa de puntuar. Se llena entera, por la mitad o queda vacia: media copa
+ * es medio punto, que es como se carga un 4,5 sin apuntar a blancos diminutos.
+ */
 export function RatingGlassIcon({
   size = 13,
   filled,
+  half = false,
   className,
-}: IconProps & { filled: boolean }) {
+}: IconProps & { filled: boolean; half?: boolean }) {
+  // Un id propio por instancia: dos clipPath con el mismo id se pisan y todas
+  // las copas de la fila se dibujarian igual.
+  const clipId = useId()
+
   return (
     <svg
       viewBox="0 0 24 24"
       width={size}
       height={size}
-      fill={filled ? 'currentColor' : 'none'}
+      fill="none"
       stroke="currentColor"
       strokeWidth={1.6}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
     >
+      {half && (
+        <clipPath id={clipId}>
+          {/* La mitad izquierda del caliz: el relleno se recorta ahi. */}
+          <rect x="0" y="0" width="12" height="24" />
+        </clipPath>
+      )}
+
+      {(filled || half) && (
+        <path
+          d="M8 3h8l-1 7.5a4 4 0 0 1-6 0L8 3z"
+          fill="currentColor"
+          stroke="none"
+          clipPath={half ? `url(#${clipId})` : undefined}
+        />
+      )}
+
+      {/* El contorno va siempre, entera o no: es lo que da la silueta. */}
       <path d="M8 3h8l-1 7.5a4 4 0 0 1-6 0L8 3z" />
       <path d="M12 14v6M9 20h6" />
     </svg>

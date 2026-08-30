@@ -1,5 +1,6 @@
 import type { CataRecord } from '../lib/types'
 import { formatDayMonth, formatYear } from '../lib/wine'
+import { formatPuntuacion } from '../lib/puntuacion'
 import { InfoIcon, PairingIcon, RatingGlassIcon } from './icons'
 
 /**
@@ -75,7 +76,7 @@ export function CataRow({
           }`}
         >
           <RatingGlassIcon size={13} filled />
-          {cata.puntuacion}
+          {formatPuntuacion(cata.puntuacion)}
         </span>
       )}
     </>
