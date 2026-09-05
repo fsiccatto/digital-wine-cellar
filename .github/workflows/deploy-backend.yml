@@ -32,7 +32,7 @@ jobs:
       desplegar: ${{ steps.chequeo.outputs.desplegar }}
       sha: ${{ steps.chequeo.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           # Sin esto se clona main; hace falta el commit exacto que probo CI.
           ref: ${{ github.event.workflow_run.head_sha || github.sha }}
@@ -83,7 +83,7 @@ jobs:
       id-token: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ needs.decidir.outputs.sha }}
 

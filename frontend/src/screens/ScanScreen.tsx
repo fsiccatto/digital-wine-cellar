@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createWine, scanLabel, uploadLabelPhoto } from '../lib/api'
 import type { WineScanResult } from '../lib/types'
 import { PRESET_GUARDAR, PRESET_OCR, prepareLabelPhoto } from '../lib/image'
@@ -51,23 +51,21 @@ interface Props {
 export function ScanScreen({ onCancel, onSaved }: Props) {
   const [stage, setStage] = useState<Stage>('capture')
   const [photo, setPhoto] = useState<File | null>(null)
-  const [preview, setPreview] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY)
   const [read, setRead] = useState<ReadFlags>({})
   const [error, setError] = useState<string | null>(null)
   const [photoWarning, setPhotoWarning] = useState<string | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
 
-  // La preview es un blob: hay que revocarla o queda colgada en memoria.
+  // La preview sale de la foto, no es un estado aparte: guardarla obligaba a
+  // un render extra por cada captura solo para reflejar lo que ya se sabia.
+  const preview = useMemo(() => (photo ? URL.createObjectURL(photo) : null), [photo])
+
+  // Sigue siendo un blob: sin revocarlo queda colgado en memoria.
   useEffect(() => {
-    if (!photo) {
-      setPreview(null)
-      return
-    }
-    const url = URL.createObjectURL(photo)
-    setPreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [photo])
+    if (!preview) return
+    return () => URL.revokeObjectURL(preview)
+  }, [preview])
 
   async function handleFile(file: File) {
     setPhoto(file)
