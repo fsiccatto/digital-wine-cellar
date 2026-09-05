@@ -1,39 +1,89 @@
-# Terraform Deployment (Cloud Run)
+# Infraestructura (Cloud Run)
 
-This folder provisions Google Cloud infrastructure for the backend.
+Todo lo que la app necesita en GCP se define acá, como estado que se puede
+planificar y revisar antes de aplicarlo.
 
-## What it creates
+Después del primer `apply`, los deploys salen solos por
+`.github/workflows/deploy-backend.yml` en cada push a `main` que toque
+`backend/`.
 
-- Required APIs: Cloud Run + Artifact Registry
-- One Cloud Run v2 service
-- Optional public invoker permission
+## Qué crea
 
-## Prerequisites
+- APIs: Run, Artifact Registry, Secret Manager, Storage, Cloud Build, Sheets,
+  Drive, Generative Language, IAM Credentials
+- El repositorio de Artifact Registry donde CI publica la imagen
+- El bucket privado de fotos de etiqueta, y el permiso de la app sobre él
+- La Service Account del backend
+- Los secretos `app-token`, `gemini-api-key` y `sheets-credentials` (los
+  contenedores; los valores se cargan a mano, ver abajo)
+- El servicio de Cloud Run, con `max_instances = 1`
+- La federación (Workload Identity) que deja desplegar desde GitHub Actions
+  sin guardar ninguna clave en el repo
 
-- Terraform >= 1.6
-- Google Cloud CLI authenticated
-- A container image already built and published
+## Lo que NO crea, y hay que hacer una vez
 
-## Usage
+Son los pasos que necesitan una decisión o una credencial, y que por eso no
+tiene sentido automatizar:
 
-1. Copy vars file:
+1. **El proyecto y la facturación.** Sin una cuenta vinculada, Storage y Run
+   devuelven 403 aunque el uso entre en el free tier:
+
+   ```bash
+   gcloud projects create TU_PROYECTO --name="Digital Wine Cellar"
+   gcloud billing projects link TU_PROYECTO --billing-account="$(gcloud billing accounts list --format='value(name)' --limit=1)"
+   ```
+
+2. **La clave de la Service Account.** Es lo que firma las URLs de las fotos y
+   lee la planilla. Se genera después del primer `apply`:
+
+   ```bash
+   gcloud iam service-accounts keys create backend/credentials.json \
+     --iam-account="$(terraform output -raw backend_service_account)"
+   ```
+
+3. **Los valores de los secretos.** Terraform crea los contenedores vacíos;
+   los valores no entran al estado:
+
+   ```bash
+   printf '%s' "TU_API_KEY" | gcloud secrets versions add gemini-api-key --data-file=-
+   openssl rand -base64 32 | tr -d '\n' | gcloud secrets versions add app-token --data-file=-
+   gcloud secrets versions add sheets-credentials --data-file=backend/credentials.json
+   ```
+
+   Sin `app-token` el backend **no arranca** en Cloud Run: prefiere fallar
+   antes que publicar la cava abierta.
+
+4. **Compartir la planilla.** Como Editor, con la cuenta que devuelve
+   `terraform output backend_service_account`. Es el paso que más se olvida:
+   sin esto la API levanta pero no ve ningún vino.
+
+5. **Las variables del repo en GitHub** (Settings > Secrets and variables >
+   Actions > Variables), para que el workflow pueda desplegar:
+
+   | Variable | De dónde sale |
+   |---|---|
+   | `GCP_PROJECT_ID` | tu project id |
+   | `GCP_WIF_PROVIDER` | `terraform output -raw workload_identity_provider` |
+   | `GCP_DEPLOY_SA` | `terraform output -raw deployer_service_account` |
+   | `GCP_ARTIFACT_REPO` | `terraform output -raw artifact_repository_url` (solo el último segmento) |
+
+## Uso
 
 ```bash
-cp terraform.tfvars.example terraform.tfvars
-```
-
-2. Edit `terraform.tfvars` with your project and image URL.
-
-3. Apply:
-
-```bash
+cp terraform.tfvars.example terraform.tfvars   # editar con tu proyecto
 terraform init
 terraform plan
 terraform apply
 ```
 
-## Notes
+## Notas
 
-- This module only provisions infrastructure.
-- Secrets such as `GEMINI_API_KEY` should be injected via Secret Manager or your CI/CD pipeline.
-- If you want private access only, set `allow_unauthenticated = false`.
+- El estado es local. Si alguna vez lo corre más de una persona, conviene un
+  backend remoto (un bucket GCS) antes de que dos `apply` se pisen.
+- `max_instances = 1` no es por costo: los límites de uso se cuentan en memoria
+  del proceso, así que con dos instancias el tope real se duplicaría. Ver
+  `backend/app/rate_limit.py`.
+- `container_image` es el punto de partida; después de eso la imagen la maneja
+  el workflow de deploy, así que `terraform plan` va a querer volver a la del
+  tfvars. Actualizala o usá `-refresh-only` para ignorar esa diferencia.
+- Para dejar la API privada de verdad: `allow_unauthenticated = false`.

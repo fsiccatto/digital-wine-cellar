@@ -7,6 +7,10 @@ allow_unauthenticated = true
 # Nombre global unico para las fotos de etiqueta.
 labels_bucket_name = "your-project-wine-labels"
 
+# Unico repo autorizado a desplegar por federacion. Cualquier otro queda
+# afuera aunque su workflow presente un token valido de GitHub.
+github_repository = "tu-usuario/tu-repo"
+
 # client_email de credentials.json: sube las fotos y firma sus URLs.
 sheets_service_account_email = "your-sa@your-project.iam.gserviceaccount.com"
 

@@ -66,8 +66,49 @@ variable "max_instances" {
   default     = 1
 }
 
+variable "artifact_repository" {
+  description = "Artifact Registry repo where CI publishes the backend image"
+  type        = string
+  default     = "digital-wine-cellar"
+}
+
+variable "app_token_secret_id" {
+  description = "Secret Manager id for the shared app token"
+  type        = string
+  default     = "app-token"
+}
+
 variable "environment_variables" {
   description = "Plain environment variables for Cloud Run"
   type        = map(string)
   default     = {}
+}
+
+variable "github_repository" {
+  description = "owner/repo allowed to deploy through Workload Identity Federation"
+  type        = string
+}
+
+variable "github_pool_id" {
+  description = "Workload Identity Pool id"
+  type        = string
+  default     = "github-actions"
+}
+
+variable "github_provider_id" {
+  description = "Workload Identity Pool provider id"
+  type        = string
+  default     = "github-oidc"
+}
+
+variable "backend_service_account_id" {
+  description = "Account id of the runtime SA; the Sheet is shared with this identity, so changing it breaks access"
+  type        = string
+  default     = "wine-cellar"
+}
+
+variable "deployer_service_account_id" {
+  description = "Account id of the CI deployer SA (max 30 chars)"
+  type        = string
+  default     = "wine-cellar-deployer"
 }

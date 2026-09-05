@@ -1,7 +1,7 @@
 """Limites de uso en memoria.
 
 El estado vive en el proceso, asi que el servicio corre con max-instances=1
-(ver infra/deploy.sh): con dos instancias cada una llevaria su propio contador
+(ver infra/terraform): con dos instancias cada una llevaria su propio contador
 y el tope real se duplicaria. Lo que queda afuera es el arranque en frio, que
 borra los contadores; en el peor caso alguien gana una ventana entera de cupo
 justo despues de uno.
