@@ -72,10 +72,37 @@ jobs:
       - name: Construir la imagen
         # El tag es el SHA del commit: cada revision se rastrea hasta su codigo
         # y se puede volver a una anterior sin reconstruir nada.
+        #
+        # --async y espera propia en vez del streaming de gcloud: para seguir
+        # los logs en vivo hace falta permiso de lectura sobre el bucket donde
+        # Cloud Build los escribe, y sin el `builds submit` termina en error
+        # aunque la imagen se haya construido bien. Lo que importa aca es el
+        # estado final del build, no ver los logs pasar.
         run: |
           IMAGE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO || 'cloud-run-source-deploy' }}/${SERVICE}:${GITHUB_SHA::7}"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
-          gcloud builds submit backend --tag "$IMAGE" --quiet
+
+          BUILD_ID="$(gcloud builds submit backend --tag "$IMAGE" --async --format='value(id)' --quiet)"
+          echo "Build $BUILD_ID lanzado"
+
+          # ~10 min de techo: el build completo tarda cerca de uno.
+          for _ in $(seq 1 120); do
+            ESTADO="$(gcloud builds describe "$BUILD_ID" --format='value(status)' --quiet)"
+            case "$ESTADO" in
+              SUCCESS)
+                echo "Build OK: $IMAGE"
+                exit 0
+                ;;
+              FAILURE|INTERNAL_ERROR|TIMEOUT|CANCELLED|EXPIRED)
+                echo "::error::El build termino en $ESTADO. Logs: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ vars.GCP_PROJECT_ID }}"
+                exit 1
+                ;;
+            esac
+            sleep 5
+          done
+
+          echo "::error::El build no termino a tiempo. Logs: https://console.cloud.google.com/cloud-build/builds/$BUILD_ID?project=${{ vars.GCP_PROJECT_ID }}"
+          exit 1
 
       - name: Desplegar
         # Solo la imagen: las env vars, los secretos y la SA los maneja
@@ -104,13 +131,19 @@ jobs:
           exit 1
 
       - name: Si fallo, volver a la revision anterior
-        if: failure()
+        # Solo si este workflow llego a publicar una revision. Si fallo
+        # antes (tests, build), no hay nada roto que arreglar y mandar el
+        # trafico a la anterior seria retroceder una que servia bien.
+        if: failure() && steps.desplegar.outcome == 'failure'
         run: |
-          ANTERIOR="$(gcloud run revisions list --service="$SERVICE" --region="$REGION" \
+          SANA="$(gcloud run revisions list --service="$SERVICE" --region="$REGION" \
+            --filter='status.conditions.type=Active AND status.conditions.status=True' \
             --format='value(metadata.name)' --sort-by='~metadata.creationTimestamp' \
             | sed -n 2p)"
-          if [ -n "$ANTERIOR" ]; then
-            echo "Volviendo a $ANTERIOR"
-            gcloud run services update-traffic "$SERVICE" --region="$REGION" \
-              --to-revisions="$ANTERIOR=100" --quiet
+          if [ -z "$SANA" ]; then
+            echo "::warning::No hay revision anterior a la que volver."
+            exit 0
           fi
+          echo "Volviendo a $SANA"
+          gcloud run services update-traffic "$SERVICE" --region="$REGION" \
+            --to-revisions="$SANA=100" --quiet
