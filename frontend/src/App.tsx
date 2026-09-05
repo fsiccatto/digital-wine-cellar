@@ -49,6 +49,15 @@ export default function App() {
     }
 
     const alVolver = () => {
+      // Cerrar una hoja con el boton consume su propia entrada con
+      // `history.back()`, y eso dispara popstate igual que el gesto del
+      // telefono. Sin mirar donde caimos, cerrar cualquier hoja de la ficha
+      // devolvia a la cava. Solo es "volver" cuando lo que quedo abajo ya no
+      // es ninguna entrada nuestra: la de la pantalla (`cava`) ni la de una
+      // capa (`capa`).
+      const estado = window.history.state
+      if (estado?.cava || estado?.capa) return
+
       enHistorial.current = false
       setView({ name: 'cellar' })
     }
@@ -185,6 +194,9 @@ export default function App() {
           <button
             type="button"
             onClick={() => setView({ name: 'cellar' })}
+            // El color solo no alcanza: sin esto un lector de pantalla lee dos
+            // pestañas identicas y ninguna dice cual esta abierta.
+            aria-current={view.name === 'cellar' ? 'page' : undefined}
             className="flex flex-col items-center gap-[5px]"
           >
             <CellarIcon className={view.name === 'cellar' ? 'text-oro' : 'text-tenue-600'} />
@@ -209,6 +221,7 @@ export default function App() {
           <button
             type="button"
             onClick={() => setView({ name: 'catas' })}
+            aria-current={view.name === 'catas' ? 'page' : undefined}
             className="flex flex-col items-center gap-[5px]"
             aria-label="Catas"
           >
