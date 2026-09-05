@@ -60,8 +60,17 @@ Dos cosas del diseño que conviene no romper:
 
 El estado vive en memoria del proceso. Por eso el servicio corre con
 **`max_instances = 1`**: con dos instancias cada una lleva su contador y el tope
-real se duplica. Un arranque en frío borra los contadores, y es un costo
-aceptado.
+real se duplica.
+
+Los contadores se bajan a `estado/rate-limit.json` en el bucket de fotos cada
+60 segundos como mucho, y se releen al arrancar. Sin eso, con `min-instances=0`
+la app duerme casi todo el día y cada despertar regalaba una ventana limpia. El
+espaciado importa: sin ese piso, rotar IPs generaba una escritura por intento.
+
+**Todo lo del bucket falla en silencio a propósito** — si no responde, se sigue
+con los contadores en memoria. El costado feo es que una implementación rota se
+ve igual que una sana desde afuera, así que si tocás eso, verificá el viaje de
+ida y vuelta a mano.
 
 ### La salida de Gemini es entrada no confiable
 
@@ -70,10 +79,23 @@ etiqueta preparada puede pedirle párrafos enteros, que terminan en el Sheet. La
 defensa real es el **truncado a 200 caracteres** en el validador: un modelo
 puede desobedecer una instrucción del prompt, no puede escaparse de un `[:200]`.
 
+### Sheets devuelve 503 de vez en cuando
+
+Se reintenta hasta tres veces con backoff, pero **solo lo idempotente**:
+lecturas y escrituras que fijan un valor en una dirección concreta. `append_row`
+y `delete_rows` quedan afuera a propósito — un 503 puede llegar con la fila ya
+escrita, y el reintento cargaría el vino dos veces o borraría la fila de al
+lado, que subió un lugar.
+
 ## Infra
 
 Todo en `infra/terraform`. No hay scripts de deploy: el que había describía una
 infra que no era la que corría.
+
+### El state vive en un bucket
+
+`terraform init` necesita `-backend-config=backend.hcl`, que no está versionado
+porque el nombre del bucket lleva el project id. Hay un `.example` al lado.
 
 ### Los deploys son automáticos
 

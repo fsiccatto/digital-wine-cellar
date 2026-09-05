@@ -42,9 +42,9 @@ class TestVentanaDeslizante:
         rate_limit.check("k", limit=1, window_seconds=60)
 
         # Se viaja en el tiempo en vez de dormir 60 segundos. El salto es
-        # relativo: monotonic() ya arranca alto y un valor fijo iria al pasado.
-        futuro = time.monotonic() + 61
-        with patch("app.rate_limit.time.monotonic", return_value=futuro):
+        # relativo al reloj real: un valor fijo caeria en 1970.
+        futuro = time.time() + 61
+        with patch("app.rate_limit.time.time", return_value=futuro):
             permitido, _ = rate_limit.check("k", limit=1, window_seconds=60)
 
         assert permitido
