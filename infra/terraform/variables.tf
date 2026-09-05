@@ -61,9 +61,9 @@ variable "sheets_service_account_email" {
 }
 
 variable "max_instances" {
-  description = "Upper bound on Cloud Run instances, caps worst-case cost"
+  description = "Upper bound on Cloud Run instances; keep at 1 so the in-memory rate limits stay exact"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "environment_variables" {

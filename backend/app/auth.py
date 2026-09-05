@@ -13,7 +13,7 @@ import secrets
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 
-from app import config
+from app import config, rate_limit
 
 # Abiertas para cualquiera: /health lo consulta la plataforma y OPTIONS es el
 # preflight de CORS, que el navegador manda sin cabeceras propias.
@@ -48,6 +48,19 @@ def _is_valid(token: str | None) -> bool:
     return bool(token) and secrets.compare_digest(token, config.APP_TOKEN)
 
 
+def client_ip(request: Request) -> str:
+    """IP del cliente segun el proxy de Cloud Run.
+
+    Cloud Run termina el TLS y reescribe X-Forwarded-For, dejando la IP real
+    del cliente al frente de la lista. Se toma solo la primera: el resto lo
+    puede inventar quien llama.
+    """
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "desconocido"
+
+
 async def token_middleware(request: Request, call_next):
     """Corta el pedido antes de que FastAPI valide el cuerpo.
 
@@ -56,11 +69,37 @@ async def token_middleware(request: Request, call_next):
     cuerpo a quien no esta autenticado.
     """
     if (
-        config.APP_TOKEN
-        and request.url.path not in OPEN_PATHS
-        and request.method != "OPTIONS"
-        and not _is_valid(request.headers.get("X-App-Token"))
+        not config.APP_TOKEN
+        or request.url.path in OPEN_PATHS
+        or request.method == "OPTIONS"
     ):
+        return await call_next(request)
+
+    ip = client_ip(request)
+
+    # Se consulta antes de comparar: si ya se paso de fallos, ni siquiera se
+    # mira la clave, asi el bloqueo no se puede sortear acertando de casualidad.
+    permitido, retry_after = rate_limit.check(
+        f"auth:{ip}",
+        limit=config.AUTH_FAIL_LIMIT,
+        window_seconds=config.AUTH_FAIL_WINDOW_SECONDS,
+        peek=True,
+    )
+    if not permitido:
+        logger.warning("Demasiados intentos de token fallidos desde %s", ip)
+        return JSONResponse(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            content={"detail": "Demasiados intentos. Probá más tarde."},
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    if not _is_valid(request.headers.get("X-App-Token")):
+        # Solo los fallos gastan cupo: quien tiene la clave nunca se bloquea.
+        rate_limit.check(
+            f"auth:{ip}",
+            limit=config.AUTH_FAIL_LIMIT,
+            window_seconds=config.AUTH_FAIL_WINDOW_SECONDS,
+        )
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"detail": "Token invalido o ausente."},
