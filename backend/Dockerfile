@@ -11,6 +11,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 
+# Sin usuario propio el proceso corre como root, con las credenciales del
+# Service Account montadas en /secrets/. Nada de lo que hace la app necesita
+# root: solo lee su propio codigo y escribe contra APIs de Google.
+RUN useradd --create-home --uid 1000 cava && chown -R cava:cava /app
+USER cava
+
 # Cloud Run inyecta PORT; 8080 es el default de la plataforma.
 ENV PORT=8080
 EXPOSE 8080
