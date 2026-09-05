@@ -393,3 +393,39 @@ export function averageScore(catas: CataRecord[]): number | null {
   const suma = puntuadas.reduce((total, cata) => total + (cata.puntuacion ?? 0), 0)
   return Math.round((suma / puntuadas.length) * 10) / 10
 }
+
+/**
+ * Los filtros de la cava que no entran en los chips de varietal.
+ *
+ * Viven aca y no en la pantalla para que se puedan probar: son la clase de
+ * regla que se rompe callada (un `<=` por un `<` y las agotadas vuelven).
+ */
+export interface CellarFilters {
+  soloConStock: boolean
+  guarda: EstadoGuarda | null
+}
+
+export const SIN_FILTROS: CellarFilters = { soloConStock: false, guarda: null }
+
+/** Cuantos filtros hay puestos, para avisarlo en el boton que los abre. */
+export function activeFilterCount(filters: CellarFilters): number {
+  return (filters.soloConStock ? 1 : 0) + (filters.guarda === null ? 0 : 1)
+}
+
+/**
+ * Una botella sin añada valida no tiene estado de guarda, asi que cualquier
+ * filtro por guarda la deja afuera: decir "en su punto" de algo que no se pudo
+ * estimar seria inventar el dato.
+ */
+export function matchesFilters(
+  wine: WineRecord,
+  filters: CellarFilters,
+  hoy = new Date(),
+): boolean {
+  if (filters.soloConStock && wine.cantidad <= 0) return false
+  if (filters.guarda !== null) {
+    const guarda = guardaDe(wine, hoy)
+    if (guarda === null || guarda.estado !== filters.guarda) return false
+  }
+  return true
+}

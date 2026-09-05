@@ -59,7 +59,10 @@ export function UnlockScreen({ onUnlocked }: Props) {
             className="h-[46px] w-full rounded-[9px] border border-borde bg-madera-700 px-[14px] text-center text-[15px] tracking-wide placeholder:tracking-normal placeholder:text-tenue-600 focus:border-oro/50 focus:outline-none"
           />
           {error && (
-            <p className="text-center text-[11.5px] leading-relaxed text-borra-600">
+            <p
+              role="alert"
+              className="text-center text-[11.5px] leading-relaxed text-borra-600"
+            >
               {error}
             </p>
           )}

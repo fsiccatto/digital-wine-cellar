@@ -32,10 +32,14 @@
   --color-crema: #2b2119;
   --color-crema-200: #33291f;
   --color-crema-300: #4a3c2c;
+  /* Los tres escalones tenues se oscurecieron: sobre papel daban 3,1:1, 2,6:1
+     y 2,1:1 contra madera-900, y casi todo lo que los usa mide entre 8 y 12px.
+     Tipografia chica con ese contraste no se lee al sol. Siguen siendo cuatro
+     pasos distinguibles, solo que corridos a 4,3:1, 3,6:1 y 3,0:1. */
   --color-tenue-400: #6d5c47;
-  --color-tenue-500: #97836a;
-  --color-tenue-600: #a2907a;
-  --color-tenue-700: #b3a28c;
+  --color-tenue-500: #806c54;
+  --color-tenue-600: #8b7862;
+  --color-tenue-700: #99856d;
 
   --font-serif: 'Cormorant Garamond', Georgia, serif;
   --font-sans: 'Karla', system-ui, sans-serif;
@@ -55,6 +59,13 @@ body,
 .cifra {
   font-variant-numeric: lining-nums tabular-nums;
   font-feature-settings: 'lnum' 1, 'tnum' 1;
+}
+
+/* El input de busqueda trae su propia X en WebKit, que en escritorio quedaba
+   al lado de la nuestra. Gana la nuestra: en el telefono la nativa no aparece,
+   asi que si no, el boton de limpiar existiria solo en la mitad de los casos. */
+input[type='search']::-webkit-search-cancel-button {
+  display: none;
 }
 
 /* Scroll horizontal sin la barra a la vista: el gesto tactil se conserva, lo
@@ -163,6 +174,24 @@ button {
   animation: zarcillo-crece 1.5s var(--ease-suave) 0.25s both;
 }
 
+/* El esqueleto de carga respira apenas: tiene que leerse como "esto viene en
+   camino" y no confundirse con contenido de verdad. */
+@keyframes respira {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+.esqueleto {
+  border-radius: 5px;
+  background: var(--color-borde);
+  animation: respira 1.6s ease-in-out infinite;
+}
+
 /* Al tocar una tarjeta se hunde apenas en el papel. */
 .tarjeta {
   transition:
@@ -194,6 +223,12 @@ button {
   .zarcillo,
   .hoja-cata {
     animation: none;
+  }
+  /* El esqueleto se queda quieto, pero visible: sin animacion sigue diciendo
+     que el contenido no llego. */
+  .esqueleto {
+    animation: none;
+    opacity: 0.7;
   }
   .tarjeta {
     transition: none;

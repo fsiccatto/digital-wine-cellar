@@ -4,7 +4,8 @@ import { formatDate, groupByMonth } from '../lib/wine'
 import { formatPuntuacion, rellenoDe } from '../lib/puntuacion'
 import { CataRow } from '../components/CataRow'
 import { Sheet } from '../components/Sheet'
-import { RatingGlassIcon, SpinnerIcon, VineSprigIcon } from '../components/icons'
+import { GlassIcon, RatingGlassIcon, VineSprigIcon } from '../components/icons'
+import { ListaSkeleton } from '../components/Skeleton'
 
 interface Props {
   catas: CataRecord[]
@@ -41,27 +42,28 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
               <VineSprigIcon />
             </span>
           </div>
-          <div className="flex shrink-0 items-baseline gap-[4px]">
-            <span className="cifra font-serif text-[19px] leading-none font-semibold text-oro">
-              {catas.length}
-            </span>
-            <span className="text-[8.5px] font-semibold tracking-[0.14em] text-tenue-500 uppercase">
-              {catas.length === 1 ? 'cata' : 'catas'}
-            </span>
-          </div>
+          {/* Igual que en la cava: "0 catas" mientras carga miente. */}
+          {!loading && (
+            <div className="flex shrink-0 items-baseline gap-[4px]">
+              <span className="cifra font-serif text-[19px] leading-none font-semibold text-oro">
+                {catas.length}
+              </span>
+              <span className="text-[8.5px] font-semibold tracking-[0.14em] text-tenue-500 uppercase">
+                {catas.length === 1 ? 'cata' : 'catas'}
+              </span>
+            </div>
+          )}
         </div>
       </header>
 
       <div className="relative flex grow flex-col gap-4 px-5 pt-2 pb-27">
-        {loading && (
-          <div className="flex items-center justify-center gap-[10px] py-16 text-tenue-500">
-            <SpinnerIcon className="animate-spin" />
-            <span className="text-[13px]">Abriendo el libro…</span>
-          </div>
-        )}
+        {loading && <ListaSkeleton aviso="Abriendo el libro…" />}
 
         {error && !loading && (
-          <div className="flex flex-col items-start gap-3 rounded-[11px] border border-borra-600/40 bg-borra-800/20 p-4">
+          <div
+            role="alert"
+            className="flex flex-col items-start gap-3 rounded-[11px] border border-borra-600/40 bg-borra-800/20 p-4"
+          >
             <p className="text-[13px] leading-relaxed text-crema-300">{error}</p>
             <button
               type="button"
@@ -74,10 +76,13 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
         )}
 
         {!loading && !error && catas.length === 0 && (
-          <p className="py-16 text-center text-[13px] leading-relaxed text-tenue-600">
-            Todavía no descorchaste ninguna botella. Cuando lo hagas, la cata queda
-            registrada acá.
-          </p>
+          <div className="flex flex-col items-center gap-4 py-16">
+            <GlassIcon size={38} className="text-borde-claro" />
+            <p className="max-w-[240px] text-center text-[13px] leading-relaxed text-tenue-500">
+              Todavía no descorchaste ninguna botella. Cuando lo hagas, la cata queda
+              registrada acá.
+            </p>
+          </div>
         )}
 
         {months.map((month, index) => (
@@ -166,7 +171,7 @@ function NotesSheet({
         <button
           type="button"
           onClick={onClose}
-          className="h-12 grow rounded-xl border border-borde-claro text-[14px] font-semibold text-tenue-400"
+          className="h-13 grow rounded-xl border border-borde-claro text-[14px] font-semibold text-tenue-400"
         >
           Cerrar
         </button>
@@ -176,7 +181,7 @@ function NotesSheet({
           <button
             type="button"
             onClick={() => onSelect(cata.vino_id)}
-            className="h-12 shrink-0 rounded-xl border border-borde-claro px-5 text-[14px] font-semibold text-oro"
+            className="h-13 shrink-0 rounded-xl border border-borde-claro px-5 text-[14px] font-semibold text-oro"
           >
             Ver el vino
           </button>

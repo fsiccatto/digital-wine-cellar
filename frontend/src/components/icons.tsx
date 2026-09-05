@@ -100,6 +100,30 @@ export function CameraIcon({ size = 24, className }: IconProps) {
   )
 }
 
+/** Galeria: para elegir una etiqueta que ya estaba en el carrete. */
+export function ImageIcon({ size = 15, className }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size} strokeWidth={1.7} className={className}>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <circle cx="8.6" cy="10" r="1.6" />
+      <path d="m3.4 17.6 4.4-4.1a1.9 1.9 0 0 1 2.6 0L14 16.8" />
+      <path d="m12.8 15.6 2.3-2.1a1.9 1.9 0 0 1 2.6 0l2.9 2.6" />
+    </svg>
+  )
+}
+
+/**
+ * Los tres puntos del menu de la ficha. Antes era un caracter de texto, que
+ * cambia de forma, de peso y de alineacion segun la fuente que tenga el telefono.
+ */
+export function MoreIcon({ size = 18, className }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size} strokeWidth={2.2} className={className}>
+      <path d="M12 5.6v.01M12 12v.01M12 18.4v.01" />
+    </svg>
+  )
+}
+
 export function CellarIcon({ size = 21, className }: IconProps) {
   return (
     <svg {...base} width={size} height={size} strokeWidth={1.7} className={className}>

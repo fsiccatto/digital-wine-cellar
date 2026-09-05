@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import type { CataRecord, WineRecord } from './types'
 import {
+  activeFilterCount,
   averageScore,
   cellarValue,
   glassTint,
   groupByMonth,
   guardaDe,
+  matchesFilters,
+  SIN_FILTROS,
   splitVarietals,
   varietals,
   ventanaDeGuarda,
@@ -257,5 +260,51 @@ describe('averageScore', () => {
 
   it('sin catas devuelve null', () => {
     expect(averageScore([])).toBeNull()
+  })
+})
+
+describe('matchesFilters', () => {
+  it('sin filtros no descarta nada', () => {
+    expect(matchesFilters(wine({ cantidad: 0 }), SIN_FILTROS, HOY)).toBe(true)
+  })
+
+  it('"solo con stock" deja afuera la agotada', () => {
+    const filtros = { ...SIN_FILTROS, soloConStock: true }
+    expect(matchesFilters(wine({ cantidad: 0 }), filtros, HOY)).toBe(false)
+    expect(matchesFilters(wine({ cantidad: 1 }), filtros, HOY)).toBe(true)
+  })
+
+  it('filtra por el estado de guarda', () => {
+    // Un malbec 2024 en 2026 tiene 2 años: entra en su ventana (2-8).
+    const enPunto = wine({ anada: 2024 })
+    expect(matchesFilters(enPunto, { soloConStock: false, guarda: 'listo' }, HOY)).toBe(
+      true,
+    )
+    expect(matchesFilters(enPunto, { soloConStock: false, guarda: 'joven' }, HOY)).toBe(
+      false,
+    )
+  })
+
+  it('una añada invalida no entra en ningun filtro de guarda', () => {
+    // Sin añada no hay estimacion: decir "en su punto" seria inventar el dato.
+    const sinAnada = wine({ anada: 0 })
+    expect(matchesFilters(sinAnada, { soloConStock: false, guarda: 'listo' }, HOY)).toBe(
+      false,
+    )
+    expect(matchesFilters(sinAnada, SIN_FILTROS, HOY)).toBe(true)
+  })
+
+  it('los filtros se acumulan', () => {
+    const filtros = { soloConStock: true, guarda: 'listo' as const }
+    expect(matchesFilters(wine({ anada: 2024, cantidad: 0 }), filtros, HOY)).toBe(false)
+    expect(matchesFilters(wine({ anada: 2024, cantidad: 2 }), filtros, HOY)).toBe(true)
+  })
+})
+
+describe('activeFilterCount', () => {
+  it('cuenta los que estan puestos', () => {
+    expect(activeFilterCount(SIN_FILTROS)).toBe(0)
+    expect(activeFilterCount({ soloConStock: true, guarda: null })).toBe(1)
+    expect(activeFilterCount({ soloConStock: true, guarda: 'pasado' })).toBe(2)
   })
 })

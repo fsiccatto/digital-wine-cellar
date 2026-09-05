@@ -27,6 +27,7 @@ import {
   CorkscrewIcon,
   GlassIcon,
   MinusIcon,
+  MoreIcon,
   PairingIcon,
   PlusIcon,
   RatingGlassIcon,
@@ -65,6 +66,17 @@ export function WineScreen({
   const [editando, setEditando] = useState<CataRecord | null>(null)
   const [menu, setMenu] = useState(false)
   const [verFoto, setVerFoto] = useState(false)
+
+  // Escape cierra el menu, como en el visor de fotos. El velo ya lo cerraba al
+  // tocar afuera, pero con teclado no habia forma de salir sin elegir algo.
+  useEffect(() => {
+    if (!menu) return
+    const alTeclear = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenu(false)
+    }
+    window.addEventListener('keydown', alTeclear)
+    return () => window.removeEventListener('keydown', alTeclear)
+  }, [menu])
 
   useEffect(() => {
     let active = true
@@ -152,9 +164,9 @@ export function WineScreen({
               onClick={() => setMenu((open) => !open)}
               aria-label="Más acciones"
               aria-expanded={menu}
-              className="flex h-9 w-9 items-center justify-center text-[19px] leading-none text-tenue-400"
+              className="flex h-9 w-9 items-center justify-center text-tenue-400"
             >
-              ⋯
+              <MoreIcon />
             </button>
 
             {menu && (
@@ -669,7 +681,10 @@ function TastingSheet({
       </div>
 
       {error && (
-        <p className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300">
+        <p
+          role="alert"
+          className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300"
+        >
           {error}
         </p>
       )}
@@ -719,7 +734,7 @@ function TastingSheet({
               type="button"
               onClick={submit}
               disabled={saving}
-              className="flex h-12 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:opacity-60"
+              className="flex h-13 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:opacity-60"
             >
               {saving ? (
                 <>
@@ -882,7 +897,10 @@ function EditSheet({
       </div>
 
       {error && (
-        <p className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300">
+        <p
+          role="alert"
+          className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300"
+        >
           {error}
         </p>
       )}
@@ -900,7 +918,7 @@ function EditSheet({
           type="button"
           onClick={submit}
           disabled={saving || incomplete || yearInvalid || priceInvalid}
-          className="flex h-12 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:opacity-60"
+          className="flex h-13 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:opacity-60"
         >
           {saving ? (
             <>
@@ -987,7 +1005,10 @@ function StockSheet({
       </div>
 
       {error && (
-        <p className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300">
+        <p
+          role="alert"
+          className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300"
+        >
           {error}
         </p>
       )}
@@ -1005,7 +1026,7 @@ function StockSheet({
           type="button"
           onClick={submit}
           disabled={saving || delta === 0}
-          className="flex h-12 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:opacity-60"
+          className="flex h-13 grow items-center justify-center gap-[10px] rounded-xl bg-borra-600 font-bold text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.26)] transition-transform duration-150 active:scale-[0.985] disabled:opacity-60"
         >
           {saving ? (
             <>
@@ -1082,7 +1103,10 @@ function DeleteSheet({
       </p>
 
       {error && (
-        <p className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300">
+        <p
+          role="alert"
+          className="mb-4 rounded-[9px] border border-borra-600/40 bg-borra-800/20 p-3 text-[12px] text-crema-300"
+        >
           {error}
         </p>
       )}
