@@ -15,13 +15,24 @@ inventario. Ambas planillas se comparten con la misma Service Account.
 
 ## Desplegarlo
 
-`infra/deploy.sh` hace todo el camino: crea el proyecto, vincula facturación,
-habilita APIs, arma la Service Account y los secretos, crea el bucket, construye
-la imagen con Cloud Build y despliega en Cloud Run.
+La infraestructura está en `infra/terraform`: APIs, bucket, Service Account,
+secretos, Cloud Run y la federación que deja desplegar desde GitHub Actions.
+El detalle de los pasos que quedan a mano —crear el proyecto, vincular
+facturación, cargar los valores de los secretos— está en el README de esa
+carpeta.
 
 ```bash
-PROJECT_ID=tu-proyecto bash infra/deploy.sh
+cd infra/terraform
+cp terraform.tfvars.example terraform.tfvars   # editar con tu proyecto
+terraform init && terraform apply
 ```
+
+Después de eso **el deploy es automático**: cada push a `main` que toque
+`backend/` corre los tests y, si pasan, construye la imagen y publica una
+revisión nueva (`.github/workflows/deploy-backend.yml`). Si la revisión no
+contesta en `/health`, el workflow vuelve solo a la anterior.
+
+Para desplegar sin esperar un push: Actions > Deploy backend > Run workflow.
 
 Queda **un paso manual** sin el cual el backend no lee la planilla: compartir el
 Sheet con el `client_email` del `credentials.json`, con permiso de Editor.

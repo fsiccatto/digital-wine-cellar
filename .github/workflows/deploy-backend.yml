@@ -1,0 +1,116 @@
+name: Deploy backend
+
+# El backend sale solo, pero nunca antes que sus tests: el frontend publicado
+# ya apunta a este servicio y una revision rota se ve en la app al instante.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+# Una revision a la vez, y no se cancela la que ya esta saliendo: cortar un
+# deploy por la mitad deja el servicio en un estado que nadie eligio.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+env:
+  REGION: us-central1
+  SERVICE: digital-wine-cellar-backend
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - run: pip install -r backend/requirements.txt
+
+      - name: Tests
+        run: pytest backend/tests -q
+
+      - name: Lint
+        run: ruff check backend
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+
+    # Federacion con GCP: el token OIDC de este workflow se cambia por uno
+    # temporal de Google. Sin esto no hay credencial que guardar en el repo.
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verificar configuracion
+        run: |
+          if [ -z "${{ vars.GCP_PROJECT_ID }}" ] || [ -z "${{ vars.GCP_WIF_PROVIDER }}" ] || [ -z "${{ vars.GCP_DEPLOY_SA }}" ]; then
+            echo "::error::Faltan variables del repo. Corré 'terraform apply' y cargá sus outputs en Settings > Secrets and variables > Actions > Variables: GCP_PROJECT_ID, GCP_WIF_PROVIDER, GCP_DEPLOY_SA."
+            exit 1
+          fi
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SA }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Construir la imagen
+        # El tag es el SHA del commit: cada revision se rastrea hasta su codigo
+        # y se puede volver a una anterior sin reconstruir nada.
+        run: |
+          IMAGE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO || 'cloud-run-source-deploy' }}/${SERVICE}:${GITHUB_SHA::7}"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          gcloud builds submit backend --tag "$IMAGE" --quiet
+
+      - name: Desplegar
+        # Solo la imagen: las env vars, los secretos y la SA los maneja
+        # Terraform, y pasarlos aca los pisaria con lo que diga este archivo.
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image="$IMAGE" \
+            --region="$REGION" \
+            --quiet
+
+      - name: Verificar que quedo sana
+        # Un deploy que responde 500 no es un deploy exitoso. /health no pide
+        # token; que conteste prueba que la revision arranco de verdad.
+        run: |
+          URL="$(gcloud run services describe "$SERVICE" --region="$REGION" --format='value(status.url)')"
+          for intento in 1 2 3 4 5; do
+            code="$(curl -s -o /dev/null -w '%{http_code}' "$URL/health" || true)"
+            if [ "$code" = "200" ]; then
+              echo "OK: $URL/health respondio 200"
+              exit 0
+            fi
+            echo "intento $intento: health=$code, reintento en 5s"
+            sleep 5
+          done
+          echo "::error::La revision no respondio 200 en /health. Revisá los logs de Cloud Run."
+          exit 1
+
+      - name: Si fallo, volver a la revision anterior
+        if: failure()
+        run: |
+          ANTERIOR="$(gcloud run revisions list --service="$SERVICE" --region="$REGION" \
+            --format='value(metadata.name)' --sort-by='~metadata.creationTimestamp' \
+            | sed -n 2p)"
+          if [ -n "$ANTERIOR" ]; then
+            echo "Volviendo a $ANTERIOR"
+            gcloud run services update-traffic "$SERVICE" --region="$REGION" \
+              --to-revisions="$ANTERIOR=100" --quiet
+          fi

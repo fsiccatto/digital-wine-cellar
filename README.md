@@ -101,7 +101,6 @@ frontend/
     components/  íconos SVG, campos, hojas, fila de cata
     lib/         api, types, helpers de dominio
 infra/
-  deploy.sh      deploy completo
-  terraform/     la misma infra, declarativa
+  terraform/     toda la infra, declarativa
 design/          artboards del diseño
 ```
