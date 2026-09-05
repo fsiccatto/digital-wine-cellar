@@ -5,6 +5,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 CURRENT_YEAR = datetime.now().year
 
+# Tope de los campos que vuelven del scan. La foto la elige el usuario y el
+# modelo obedece a lo que dice la etiqueta, asi que su salida es entrada no
+# confiable como cualquier otra.
+MAX_SCAN_TEXT_LENGTH = 200
+
 
 def normalize_optional_text(value):
     if value is None:
@@ -56,6 +61,20 @@ def normalize_required_alcohol(value):
     return normalize_required_text(normalize_alcohol(value))
 
 
+def truncate_scanned_text(value):
+    """Corta lo que devuelve el modelo a un largo de etiqueta razonable.
+
+    Lo que se lee de la foto es texto que eligio quien saco la foto: una
+    etiqueta preparada puede pedirle al modelo que devuelva parrafos enteros,
+    y eso termina escrito en el Sheet. Ningun campo real de una etiqueta pasa
+    de 200 caracteres.
+    """
+    value = normalize_optional_text(value)
+    if isinstance(value, str) and len(value) > MAX_SCAN_TEXT_LENGTH:
+        return value[:MAX_SCAN_TEXT_LENGTH]
+    return value
+
+
 class WineScanResult(BaseModel):
     bodega: Optional[str] = None
     nombre_vino: Optional[str] = None
@@ -65,7 +84,7 @@ class WineScanResult(BaseModel):
 
     _normalize_text = field_validator(
         "bodega", "nombre_vino", "varietal", "region", mode="before"
-    )(normalize_optional_text)
+    )(truncate_scanned_text)
     _normalize_alcohol = field_validator("alcohol", mode="before")(normalize_alcohol)
 
     anada: Optional[int] = Field(default=None, ge=1900, le=CURRENT_YEAR)

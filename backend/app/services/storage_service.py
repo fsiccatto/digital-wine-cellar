@@ -5,6 +5,7 @@ lectura se firman on demand, para no publicar un link permanente.
 """
 
 import os
+import re
 from datetime import timedelta
 from functools import lru_cache
 
@@ -55,7 +56,22 @@ def _get_bucket():
     return client.bucket(GCS_BUCKET_NAME)
 
 
+# Los codigos que arma build_wine_code son BOD-VAR-2020-0001: solo mayusculas,
+# digitos y guiones. Nada que pueda salirse del prefijo "etiquetas/".
+CODIGO_VALIDO = re.compile(r"[A-Za-z0-9_-]{1,64}$")
+
+
 def build_object_name(codigo_vino: str, content_type: str) -> str:
+    """Arma la ruta del objeto, rechazando cualquier codigo raro.
+
+    Hoy el unico camino hasta aca valida el codigo contra el Sheet antes de
+    llamar, asi que esto no cierra un agujero abierto: fija la garantia en el
+    lugar donde se construye la ruta, para que no dependa de que todas las
+    filas del Sheet esten bien formadas ni de quien llame manana.
+    """
+    if not CODIGO_VALIDO.fullmatch(codigo_vino or ""):
+        raise ValueError(f"Codigo de vino invalido para un nombre de objeto: {codigo_vino!r}")
+
     extension = EXTENSION_BY_MIME.get(content_type, ".jpg")
     return f"etiquetas/{codigo_vino}{extension}"
 
