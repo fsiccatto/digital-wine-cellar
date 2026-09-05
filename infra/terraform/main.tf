@@ -126,6 +126,19 @@ resource "google_cloud_run_v2_service" "backend" {
 
   ingress = "INGRESS_TRAFFIC_ALL"
 
+  # container_image es solo el punto de partida: despues de la primera
+  # revision la imagen la maneja el workflow de deploy, que publica una por
+  # commit. Sin ignorarla, cada `apply` revierte el ultimo deploy a lo que
+  # diga el tfvars, que es siempre mas viejo.
+  lifecycle {
+    ignore_changes = [
+      template[0].containers[0].image,
+      # gcloud los graba al desplegar; son suyos, no de Terraform.
+      client,
+      client_version,
+    ]
+  }
+
   template {
     service_account = google_service_account.backend.email
 
