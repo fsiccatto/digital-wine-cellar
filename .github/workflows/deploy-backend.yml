@@ -2,12 +2,14 @@ name: Deploy backend
 
 # El backend sale solo, pero nunca antes que sus tests: el frontend publicado
 # ya apunta a este servicio y una revision rota se ve en la app al instante.
+#
+# Los tests no se repiten aca: se espera a que CI termine en verde sobre este
+# mismo commit. workflow_run no filtra por path ni por rama, asi que eso lo
+# comprueba el job de abajo antes de tocar nada.
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'backend/**'
-      - '.github/workflows/deploy-backend.yml'
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
   workflow_dispatch:
 
 # Una revision a la vez, y no se cancela la que ya esta saliendo: cortar un
@@ -21,29 +23,57 @@ env:
   SERVICE: digital-wine-cellar-backend
 
 jobs:
-  test:
+  # workflow_run se dispara con CADA corrida de CI: de otra rama, de un pull
+  # request, o de un commit que no toco el backend. Este job decide si lo que
+  # sigue tiene sentido.
+  decidir:
     runs-on: ubuntu-latest
-    env:
-      PYTHONPATH: backend
+    outputs:
+      desplegar: ${{ steps.chequeo.outputs.desplegar }}
+      sha: ${{ steps.chequeo.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: pip
-          cache-dependency-path: backend/requirements.txt
+          # Sin esto se clona main; hace falta el commit exacto que probo CI.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          fetch-depth: 2
 
-      - run: pip install -r backend/requirements.txt
+      - id: chequeo
+        run: |
+          SHA="${{ github.event.workflow_run.head_sha || github.sha }}"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
 
-      - name: Tests
-        run: pytest backend/tests -q
+          # A mano (workflow_dispatch) se despliega siempre.
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "desplegar=si" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
-      - name: Lint
-        run: ruff check backend
+          if [ "${{ github.event.workflow_run.conclusion }}" != "success" ]; then
+            echo "CI no paso: no se despliega."
+            echo "desplegar=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ "${{ github.event.workflow_run.head_branch }}" != "main" ]; then
+            echo "No es main: no se despliega."
+            echo "desplegar=no" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Lo que push.paths hacia solo: si el commit no toco el backend, no
+          # hay imagen nueva que construir.
+          if git diff --name-only HEAD~1 HEAD | grep -qE '^backend/|^\.github/workflows/deploy-backend\.yml$'; then
+            echo "El commit toca el backend: se despliega."
+            echo "desplegar=si" >> "$GITHUB_OUTPUT"
+          else
+            echo "El commit no toca el backend: no se despliega."
+            echo "desplegar=no" >> "$GITHUB_OUTPUT"
+          fi
 
   deploy:
-    needs: test
+    needs: decidir
+    if: needs.decidir.outputs.desplegar == 'si'
     runs-on: ubuntu-latest
 
     # Federacion con GCP: el token OIDC de este workflow se cambia por uno
@@ -54,6 +84,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.decidir.outputs.sha }}
 
       - name: Verificar configuracion
         run: |
@@ -78,8 +110,11 @@ jobs:
         # Cloud Build los escribe, y sin el `builds submit` termina en error
         # aunque la imagen se haya construido bien. Lo que importa aca es el
         # estado final del build, no ver los logs pasar.
+        env:
+          SHA_PROBADO: ${{ needs.decidir.outputs.sha }}
         run: |
-          IMAGE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO || 'cloud-run-source-deploy' }}/${SERVICE}:${GITHUB_SHA::7}"
+          SHA_CORTO="${SHA_PROBADO:0:7}"
+          IMAGE="${REGION}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GCP_ARTIFACT_REPO || 'cloud-run-source-deploy' }}/${SERVICE}:${SHA_CORTO}"
           echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
 
           BUILD_ID="$(gcloud builds submit backend --tag "$IMAGE" --async --format='value(id)' --quiet)"
