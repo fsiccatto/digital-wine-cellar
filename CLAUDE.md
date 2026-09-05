@@ -55,8 +55,11 @@ Dos cosas del diseño que conviene no romper:
 - **Solo los fallos gastan cupo.** Con la clave correcta nunca te bloqueás.
 - **El bloqueo se consulta antes de comparar la clave** (`peek=True`). Si no,
   bastaría seguir probando hasta acertar y el límite no serviría.
-- De `X-Forwarded-For` se toma **solo la primera IP**; el resto lo inventa quien
-  llama.
+- De `X-Forwarded-For` se toma la **última** entrada (`TRUSTED_PROXY_HOPS=1`
+  desde el final). Los proxies **agregan al final**, así que lo de la izquierda
+  lo escribe quien llama. Tomar la primera hacía que rotar IPs inventadas diera
+  cupo nuevo en cada pedido — era explotable en producción y se verificó así
+  antes de arreglarlo.
 
 El estado vive en memoria del proceso. Por eso el servicio corre con
 **`max_instances = 1`**: con dos instancias cada una lleva su contador y el tope

@@ -120,9 +120,33 @@ class TestFuerzaBruta:
 
         assert respuesta.status_code == 401
 
-    def test_solo_cuenta_la_primera_ip_reenviada(self):
-        # El resto de X-Forwarded-For lo puede inventar quien llama; si contara,
-        # se esquivaria el limite agregando IPs falsas a la izquierda.
+    def test_no_se_esquiva_el_limite_inventando_ips(self):
+        # Los proxies AGREGAN al final, asi que lo de la izquierda lo escribe
+        # quien llama. Cuando se tomaba la primera, bastaba mandar una IP
+        # inventada distinta en cada pedido para estrenar cupo cada vez. Se
+        # verifico contra produccion que era explotable de verdad.
+        with (
+            patch.object(config, "APP_TOKEN", TOKEN),
+            patch.object(config, "AUTH_FAIL_LIMIT", 2),
+        ):
+            for inventada in ("1.1.1.1", "2.2.2.2"):
+                client.get(
+                    "/api/wines",
+                    headers={
+                        "X-App-Token": "mal",
+                        "X-Forwarded-For": f"{inventada}, 9.9.9.9",
+                    },
+                )
+
+            # Tercer pedido, otra IP inventada, mismo cliente real al final.
+            respuesta = client.get(
+                "/api/wines",
+                headers={"X-App-Token": "mal", "X-Forwarded-For": "3.3.3.3, 9.9.9.9"},
+            )
+
+        assert respuesta.status_code == 429, "rotar IPs falsas no puede dar cupo nuevo"
+
+    def test_dos_clientes_reales_distintos_no_se_pisan(self):
         with (
             patch.object(config, "APP_TOKEN", TOKEN),
             patch.object(config, "AUTH_FAIL_LIMIT", 2),
@@ -130,15 +154,15 @@ class TestFuerzaBruta:
             for _ in range(2):
                 client.get(
                     "/api/wines",
-                    headers={"X-App-Token": "mal", "X-Forwarded-For": "9.9.9.9, 1.1.1.1"},
+                    headers={"X-App-Token": "mal", "X-Forwarded-For": "1.1.1.1"},
                 )
 
             respuesta = client.get(
                 "/api/wines",
-                headers={"X-App-Token": "mal", "X-Forwarded-For": "9.9.9.9, 7.7.7.7"},
+                headers={"X-App-Token": "mal", "X-Forwarded-For": "2.2.2.2"},
             )
 
-        assert respuesta.status_code == 429
+        assert respuesta.status_code == 401
 
     def test_health_no_se_bloquea(self):
         # La plataforma lo consulta seguido y no manda token.
@@ -188,3 +212,50 @@ class TestCuotaDeScan:
         assert respuesta.status_code == 429
         # Lo que se protege es la cuota: la tercera no debe llegar a Gemini.
         assert gemini.call_count == 2
+
+
+class TestDeQuienEsElPedido:
+    """X-Forwarded-For la arma quien llama; los proxies agregan al final."""
+
+    def hacer_request(self, header: str | None, host: str = "10.0.0.1"):
+        from unittest.mock import Mock
+
+        request = Mock()
+        request.headers = {"X-Forwarded-For": header} if header is not None else {}
+        request.client = Mock(host=host)
+        return request
+
+    def test_toma_la_ultima_que_es_la_que_puso_la_infraestructura(self):
+        from app import auth
+
+        ip = auth.client_ip(self.hacer_request("1.1.1.1, 2.2.2.2, 9.9.9.9"))
+
+        assert ip == "9.9.9.9"
+
+    def test_una_sola_entrada_es_esa(self):
+        from app import auth
+
+        assert auth.client_ip(self.hacer_request("9.9.9.9")) == "9.9.9.9"
+
+    def test_sin_cabecera_usa_el_peer(self):
+        from app import auth
+
+        assert auth.client_ip(self.hacer_request(None)) == "10.0.0.1"
+
+    def test_una_cabecera_vacia_no_rompe(self):
+        from app import auth
+
+        assert auth.client_ip(self.hacer_request("")) == "10.0.0.1"
+
+    def test_con_mas_saltos_que_entradas_se_queda_con_la_mas_a_la_izquierda(self):
+        from app import auth
+
+        with patch.object(config, "TRUSTED_PROXY_HOPS", 5):
+            ip = auth.client_ip(self.hacer_request("1.1.1.1, 2.2.2.2"))
+
+        assert ip == "1.1.1.1"
+
+    def test_se_toleran_los_espacios_y_las_comas_sueltas(self):
+        from app import auth
+
+        assert auth.client_ip(self.hacer_request(" 1.1.1.1 ,  , 9.9.9.9 ")) == "9.9.9.9"

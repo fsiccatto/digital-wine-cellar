@@ -49,15 +49,25 @@ def _is_valid(token: str | None) -> bool:
 
 
 def client_ip(request: Request) -> str:
-    """IP del cliente segun el proxy de Cloud Run.
+    """IP del cliente, contando desde el final de X-Forwarded-For.
 
-    Cloud Run termina el TLS y reescribe X-Forwarded-For, dejando la IP real
-    del cliente al frente de la lista. Se toma solo la primera: el resto lo
-    puede inventar quien llama.
+    La cabecera la arma quien llama y los proxies van AGREGANDO al final, asi
+    que las primeras entradas son las que el cliente escribio y las ultimas las
+    que puso la infraestructura. Tomar la primera dejaba el limite por IP en
+    manos del atacante: mandando una IP inventada distinta en cada pedido, cada
+    uno estrenaba cupo. Verificado contra produccion antes de arreglarlo.
+
+    Se cuenta `TRUSTED_PROXY_HOPS` desde el final: en Cloud Run, 1.
     """
     forwarded = request.headers.get("X-Forwarded-For", "")
     if forwarded:
-        return forwarded.split(",")[0].strip()
+        cadena = [parte.strip() for parte in forwarded.split(",") if parte.strip()]
+        if cadena:
+            # Si vienen menos entradas que saltos esperados, la mas a la
+            # izquierda es lo mas confiable que hay.
+            indice = max(0, len(cadena) - config.TRUSTED_PROXY_HOPS)
+            return cadena[indice]
+
     return request.client.host if request.client else "desconocido"
 
 
@@ -94,6 +104,10 @@ async def token_middleware(request: Request, call_next):
         )
 
     if not _is_valid(request.headers.get("X-App-Token")):
+        logger.warning(
+            "Token invalido desde %s (X-Forwarded-For crudo: %r)",
+            ip, request.headers.get("X-Forwarded-For", ""),
+        )
         # Solo los fallos gastan cupo: quien tiene la clave nunca se bloquea.
         rate_limit.check(
             f"auth:{ip}",

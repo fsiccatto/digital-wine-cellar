@@ -35,3 +35,8 @@ AUTH_FAIL_WINDOW_SECONDS = int(os.getenv("AUTH_FAIL_WINDOW_SECONDS", str(15 * 60
 # Documentacion interactiva. Ya vive detras del token, pero en produccion no
 # hay motivo para publicar el mapa de la API.
 ENABLE_DOCS = os.getenv("ENABLE_DOCS", "").lower() in {"1", "true", "yes"} or not os.getenv("K_SERVICE")
+
+# Cuantos proxies de confianza hay delante. Cloud Run agrega la IP real del
+# cliente al final de X-Forwarded-For, asi que la de verdad es la ultima: 1.
+# Lo que venga antes lo escribe quien llama y no se puede creer.
+TRUSTED_PROXY_HOPS = int(os.getenv("TRUSTED_PROXY_HOPS", "1"))
