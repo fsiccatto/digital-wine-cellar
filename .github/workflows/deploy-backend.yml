@@ -148,6 +148,22 @@ jobs:
             --region="$REGION" \
             --quiet
 
+      - name: Verificar que el trafico va a la revision nueva
+        # Un rollback anterior pudo haber clavado el trafico a una revision
+        # fija. Ahi el deploy "sale bien" pero no cambia nada: la revision
+        # nueva queda creada y sin recibir un solo pedido.
+        run: |
+          SIRVE="$(gcloud run services describe "$SERVICE" --region="$REGION" \
+            --format='value(status.traffic[0].revisionName)')"
+          ULTIMA="$(gcloud run services describe "$SERVICE" --region="$REGION" \
+            --format='value(status.latestCreatedRevisionName)')"
+
+          if [ "$SIRVE" != "$ULTIMA" ]; then
+            echo "::error::El trafico esta fijo en $SIRVE y la revision nueva es $ULTIMA. Corregilo con: gcloud run services update-traffic $SERVICE --region=$REGION --to-latest"
+            exit 1
+          fi
+          echo "El trafico va a $SIRVE"
+
       - name: Verificar que quedo sana
         # Un deploy que responde 500 no es un deploy exitoso. /health no pide
         # token; que conteste prueba que la revision arranco de verdad.
@@ -167,8 +183,8 @@ jobs:
 
       - name: Si fallo, volver a la revision anterior
         # Solo si este workflow llego a publicar una revision. Si fallo
-        # antes (tests, build), no hay nada roto que arreglar y mandar el
-        # trafico a la anterior seria retroceder una que servia bien.
+        # antes (build), no hay nada roto que arreglar y mandar el trafico
+        # a la anterior seria retroceder una que servia bien.
         if: failure() && steps.desplegar.outcome == 'failure'
         run: |
           SANA="$(gcloud run revisions list --service="$SERVICE" --region="$REGION" \
@@ -179,6 +195,13 @@ jobs:
             echo "::warning::No hay revision anterior a la que volver."
             exit 0
           fi
+
           echo "Volviendo a $SANA"
           gcloud run services update-traffic "$SERVICE" --region="$REGION" \
             --to-revisions="$SANA=100" --quiet
+
+          # --to-revisions clava el trafico a esa revision, y el servicio
+          # deja de seguir a la ultima: los deploys siguientes crean
+          # revisiones que no reciben trafico y parecen no hacer nada.
+          # Queda avisado para volver a --to-latest despues de arreglar.
+          echo "::warning::El trafico quedo fijo en $SANA. Cuando el deploy vuelva a andar, correr: gcloud run services update-traffic $SERVICE --region=$REGION --to-latest"
