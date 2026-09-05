@@ -67,6 +67,11 @@ Los contadores se bajan a `estado/rate-limit.json` en el bucket de fotos cada
 la app duerme casi todo el día y cada despertar regalaba una ventana limpia. El
 espaciado importa: sin ese piso, rotar IPs generaba una escritura por intento.
 
+Ese espaciado **pierde los incrementos intermedios**, así que el intento que
+agota el cupo fuerza la escritura: "esta clave se quedó sin cupo" es el único
+estado que no se puede perder, y pasa una vez por ventana. Lo que sí se puede
+perder es parte del conteo previo si el proceso muere en el minuto.
+
 **Todo lo del bucket falla en silencio a propósito** — si no responde, se sigue
 con los contadores en memoria. El costado feo es que una implementación rota se
 ve igual que una sana desde afuera, así que si tocás eso, verificá el viaje de

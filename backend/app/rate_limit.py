@@ -74,10 +74,16 @@ def check(
 
         bucket.append(now)
         instantanea = {k: list(b) for k, b in _hits.items() if b}
+        # Este intento fue el que agoto el cupo. Es el unico estado que no se
+        # puede perder: con la escritura espaciada, los intermedios se pierden
+        # y tras un arranque en frio se recupera parte del cupo, pero "esta
+        # clave quedo sin cupo" tiene que quedar grabado si o si. Pasa una vez
+        # por ventana, asi que no dispara escrituras de mas.
+        recien_agotado = len(bucket) >= limit
 
     # Fuera del lock: guardar habla con la red y no vale la pena bloquear al
     # resto de los pedidos por eso. El store decide si toca escribir.
-    rate_limit_store.save(instantanea)
+    rate_limit_store.save(instantanea, forzar=recien_agotado)
     return True, 0
 
 

@@ -164,3 +164,44 @@ class TestEscrituraEspaciada:
         patch.stopall()
         # Sin el piso, rotar IPs generaria una escritura por intento.
         assert subidas == 1
+
+
+class TestElBloqueoSeGuardaSiempre:
+    """La escritura espaciada pierde los intermedios; el agotamiento no."""
+
+    def test_agotar_el_cupo_fuerza_la_escritura(self):
+        with patch.object(rate_limit_store, "save") as guardar:
+            for _ in range(3):
+                rate_limit.check("ip", limit=3, window_seconds=60)
+
+        forzados = [c for c in guardar.call_args_list if c.kwargs.get("forzar")]
+        assert len(forzados) == 1, "solo el intento que agota el cupo fuerza"
+
+    def test_los_intentos_de_antes_no_fuerzan(self):
+        with patch.object(rate_limit_store, "save") as guardar:
+            for _ in range(2):
+                rate_limit.check("ip", limit=5, window_seconds=60)
+
+        assert not any(c.kwargs.get("forzar") for c in guardar.call_args_list)
+
+    def test_el_bloqueo_sobrevive_al_reinicio(self):
+        guardado = {}
+
+        def fake_save(estado, forzar=False):
+            # Solo lo forzado llega al bucket: simula que el espaciado
+            # descarta el resto.
+            if forzar:
+                guardado.clear()
+                guardado.update(estado)
+
+        with (
+            patch.object(rate_limit_store, "save", side_effect=fake_save),
+            patch.object(rate_limit_store, "load", side_effect=lambda: dict(guardado)),
+        ):
+            for _ in range(3):
+                rate_limit.check("ip", limit=3, window_seconds=900)
+
+            reiniciar_proceso()
+            permitido, _ = rate_limit.check("ip", limit=3, window_seconds=900)
+
+        assert not permitido, "el bloqueo tiene que sobrevivir aunque se pierdan los intermedios"
