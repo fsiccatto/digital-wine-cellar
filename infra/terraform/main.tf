@@ -23,6 +23,28 @@ resource "google_project_service" "required" {
   disable_on_destroy = false
 }
 
+# El state de Terraform. Sin esto vive solo en la maquina: si se pierde, hay
+# que reimportar cada recurso a mano para que Terraform vuelva a saber que ya
+# existen. Versionado, porque un state pisado es igual de malo que uno perdido.
+resource "google_storage_bucket" "tfstate" {
+  name     = var.tfstate_bucket_name
+  location = var.region
+
+  uniform_bucket_level_access = true
+  public_access_prevention    = "enforced"
+
+  versioning {
+    enabled = true
+  }
+
+  # El state describe toda la infra: borrarlo no se hace sin querer.
+  lifecycle {
+    prevent_destroy = true
+  }
+
+  depends_on = [google_project_service.required]
+}
+
 # Donde el workflow publica la imagen del backend.
 resource "google_artifact_registry_repository" "backend" {
   location      = var.region

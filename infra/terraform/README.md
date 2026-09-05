@@ -69,17 +69,36 @@ tiene sentido automatizar:
 
 ## Uso
 
+El state vive en un bucket, no en la máquina, así que la primera vez hay dos
+archivos que copiar:
+
 ```bash
 cp terraform.tfvars.example terraform.tfvars   # editar con tu proyecto
-terraform init
+cp backend.hcl.example backend.hcl             # el bucket del state
+
+terraform init -backend-config=backend.hcl
 terraform plan
 terraform apply
 ```
 
+Ninguno de los dos se versiona: llevan el project id y este repo es público.
+Por eso el bloque `backend "gcs" {}` de `versions.tf` va vacío y el bucket se
+pasa por `-backend-config`.
+
+Huevo y gallina: el bucket del state tiene que existir antes del primer `init`.
+Se crea una sola vez y después Terraform lo adopta:
+
+```bash
+gcloud storage buckets create gs://TU-PROYECTO-tfstate   --location=us-central1 --uniform-bucket-level-access --public-access-prevention
+gcloud storage buckets update gs://TU-PROYECTO-tfstate --versioning
+terraform import google_storage_bucket.tfstate TU-PROYECTO/TU-PROYECTO-tfstate
+```
+
 ## Notas
 
-- El estado es local. Si alguna vez lo corre más de una persona, conviene un
-  backend remoto (un bucket GCS) antes de que dos `apply` se pisen.
+- El state está en GCS con versionado. Si se pierde, Terraform deja de saber
+  qué recursos existen y hay que reimportarlos uno por uno; el versionado
+  también cubre el caso de un `apply` que lo deje mal.
 - `max_instances = 1` no es por costo: los límites de uso se cuentan en memoria
   del proceso, así que con dos instancias el tope real se duplicaría. Ver
   `backend/app/rate_limit.py`.

@@ -1,0 +1,5 @@
+# Copiar a backend.hcl y completar. No se versiona: lleva el project id.
+#   terraform init -backend-config=backend.hcl
+
+bucket = "your-project-tfstate"
+prefix = "cava"
