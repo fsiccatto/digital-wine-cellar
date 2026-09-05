@@ -292,6 +292,19 @@ resource "google_project_iam_member" "deployer_roles" {
   member  = "serviceAccount:${google_service_account.deployer.email}"
 }
 
+# Cloud Build construye la imagen con la SA de compute por defecto, asi que el
+# deployer necesita poder actuar como ella. Sin esto `gcloud builds submit`
+# corta con PERMISSION_DENIED antes de empezar a construir.
+data "google_project" "current" {
+  project_id = var.project_id
+}
+
+resource "google_service_account_iam_member" "deployer_actas_compute" {
+  service_account_id = "projects/${var.project_id}/serviceAccounts/${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${google_service_account.deployer.email}"
+}
+
 # El deployer despliega el servicio, que corre como la SA del backend: hace
 # falta permiso explicito para asignarla.
 resource "google_service_account_iam_member" "deployer_actas_backend" {
