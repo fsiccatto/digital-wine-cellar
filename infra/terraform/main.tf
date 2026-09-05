@@ -57,7 +57,10 @@ resource "google_storage_bucket_iam_member" "labels_writer" {
 # Identidad propia del servicio. La SA default de Compute trae mas permisos
 # de los que este backend necesita.
 resource "google_service_account" "backend" {
-  account_id   = "${var.service_name}-sa"
+  # El id va aparte de service_name: es la identidad con la que se comparte
+  # la planilla, asi que cambiarlo obliga a recompartirla y a regenerar
+  # credentials.json. Un rename silencioso aca rompe el acceso al Sheet.
+  account_id   = var.backend_service_account_id
   display_name = "Digital Wine Cellar backend"
 
   depends_on = [google_project_service.required]
@@ -235,7 +238,8 @@ resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
 # larga duracion que rotar ni que se pueda filtrar desde los secrets.
 
 resource "google_service_account" "deployer" {
-  account_id   = "${var.service_name}-deployer"
+  # Maximo 30 caracteres, de ahi que no cuelgue de service_name.
+  account_id   = var.deployer_service_account_id
   display_name = "GitHub Actions deployer"
 
   depends_on = [google_project_service.required]

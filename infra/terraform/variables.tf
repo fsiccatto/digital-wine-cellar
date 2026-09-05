@@ -100,3 +100,15 @@ variable "github_provider_id" {
   type        = string
   default     = "github-oidc"
 }
+
+variable "backend_service_account_id" {
+  description = "Account id of the runtime SA; the Sheet is shared with this identity, so changing it breaks access"
+  type        = string
+  default     = "wine-cellar"
+}
+
+variable "deployer_service_account_id" {
+  description = "Account id of the CI deployer SA (max 30 chars)"
+  type        = string
+  default     = "wine-cellar-deployer"
+}
