@@ -21,3 +21,17 @@ CORS_ALLOW_ORIGINS = [o.strip() for o in _origins.split(",") if o.strip()]
 # Clave compartida para entrar a la app. Vacia: la API queda abierta, comodo
 # en local. En produccion se define y el frontend la manda en X-App-Token.
 APP_TOKEN = os.getenv("APP_TOKEN", "")
+
+# --- Limites de uso ------------------------------------------------------
+# Topes por IP en una ventana deslizante. El de scan protege la cuota de
+# Gemini (que cuesta plata); el de auth evita que se prueben claves de a
+# miles. Ambos son holgados para el uso real de una persona.
+SCAN_RATE_LIMIT = int(os.getenv("SCAN_RATE_LIMIT", "20"))
+SCAN_RATE_WINDOW_SECONDS = int(os.getenv("SCAN_RATE_WINDOW_SECONDS", str(60 * 60)))
+
+AUTH_FAIL_LIMIT = int(os.getenv("AUTH_FAIL_LIMIT", "10"))
+AUTH_FAIL_WINDOW_SECONDS = int(os.getenv("AUTH_FAIL_WINDOW_SECONDS", str(15 * 60)))
+
+# Documentacion interactiva. Ya vive detras del token, pero en produccion no
+# hay motivo para publicar el mapa de la API.
+ENABLE_DOCS = os.getenv("ENABLE_DOCS", "").lower() in {"1", "true", "yes"} or not os.getenv("K_SERVICE")

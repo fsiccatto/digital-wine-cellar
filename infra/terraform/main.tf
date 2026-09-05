@@ -93,7 +93,8 @@ resource "google_cloud_run_v2_service" "backend" {
     service_account = google_service_account.backend.email
 
     # min = 0 es lo que mantiene el costo en cero: sin trafico no hay
-    # instancias facturables. max acota un pico inesperado.
+    # instancias facturables. max = 1 ademas mantiene exactos los limites
+    # de uso, que se cuentan en memoria del proceso (ver app/rate_limit.py).
     scaling {
       min_instance_count = 0
       max_instance_count = var.max_instances

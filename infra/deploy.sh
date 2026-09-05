@@ -111,13 +111,16 @@ IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/backend:latest"
 gcloud builds submit "$ROOT/backend" --tag "$IMAGE"
 
 step "8/9 Desplegar Cloud Run"
+# max=1 no es por costo: los limites de uso viven en memoria del proceso,
+# asi que con dos instancias cada una lleva su propio contador y el tope
+# real se duplica. Una sola aguanta de sobra el trafico de una persona.
 gcloud run deploy "$SERVICE" \
   --image="$IMAGE" \
   --region="$REGION" \
   --service-account="$SA_EMAIL" \
   --allow-unauthenticated \
   --min-instances=0 \
-  --max-instances=2 \
+  --max-instances=1 \
   --cpu=1 --memory=512Mi \
   --port=8080 \
   --set-env-vars="GOOGLE_SHEET_NAME=${SHEET_NAME},GCS_BUCKET_NAME=${BUCKET},GOOGLE_SHEETS_CREDENTIALS_FILE=/secrets/credentials.json" \
