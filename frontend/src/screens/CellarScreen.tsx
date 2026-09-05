@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import type { WineRecord } from '../lib/types'
-import type { CellarFilters, EstadoGuarda } from '../lib/wine'
+import type { CellarFilters, FiltroGuarda } from '../lib/wine'
 import {
   activeFilterCount,
   cellarValue,
@@ -14,18 +14,23 @@ import {
   matchesSearch,
   SIN_FILTROS,
   totalBottles,
+  urgentes,
   varietals,
 } from '../lib/wine'
 import {
   BottleIcon,
   CheckIcon,
+  ChevronDownIcon,
   CloseIcon,
   FiltersIcon,
+  GlassIcon,
   SearchIcon,
   VineSprigIcon,
 } from '../components/icons'
 import { Sheet } from '../components/Sheet'
 import { ListaSkeleton } from '../components/Skeleton'
+import { IndicadorRecarga } from '../components/Recarga'
+import { usePullToRefresh } from '../lib/usePullToRefresh'
 
 interface Props {
   wines: WineRecord[]
@@ -68,8 +73,19 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
   const shelves = useMemo(() => groupByShelf(visible), [visible])
   const valor = useMemo(() => cellarValue(visible), [visible])
 
+  // Sobre TODA la cava y no sobre lo visible: el destacado avisa lo que hay,
+  // no lo que quedo despues de filtrar.
+  const piden = useMemo(() => urgentes(wines), [wines])
+
+  // El esqueleto solo cuando no hay nada que mostrar. Al recargar con la lista
+  // ya cargada, la lista se queda y el aviso lo da el disco de arriba.
+  const cargandoVacio = loading && wines.length === 0
+  const { tiron, alcanzo } = usePullToRefresh(onRetry, !loading)
+
   return (
     <div className="vetas relative flex min-h-full flex-col">
+      <IndicadorRecarga tiron={tiron} alcanzo={alcanzo} refrescando={loading} />
+
       <header className="relative px-5 pt-8 pb-3">
         <div className="flex items-end justify-between gap-4">
           <div className="flex items-end gap-[7px]">
@@ -88,7 +104,7 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
           {/* Mientras carga no hay contador: un "0 bot." duro se lee como que la
               cava esta vacia, y despues salta al numero real. Mejor nada. */}
           <div className="flex shrink-0 flex-col items-end gap-[1px]">
-            {!loading && (
+            {!cargandoVacio && (
               <div className="flex items-baseline gap-[4px]">
                 <span className="cifra font-serif text-[19px] leading-none font-semibold text-oro">
                   {totalBottles(visible)}
@@ -174,9 +190,9 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
       )}
 
       <div className="relative flex grow flex-col gap-4 px-5 pb-27">
-        {loading && <ListaSkeleton aviso="Abriendo la cava…" estante />}
+        {cargandoVacio && <ListaSkeleton aviso="Abriendo la cava…" estante />}
 
-        {error && !loading && (
+        {error && !cargandoVacio && (
           <div
             role="alert"
             className="flex flex-col items-start gap-3 rounded-[11px] border border-borra-600/40 bg-borra-800/20 p-4"
@@ -192,7 +208,7 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
           </div>
         )}
 
-        {!loading && !error && visible.length === 0 && (
+        {!cargandoVacio && !error && visible.length === 0 && (
           <div className="flex flex-col items-center gap-4 py-16">
             {/* Una botella vacia dice "cava" mejor que un parrafo solo, y es la
                 misma que despues llena los estantes. */}
@@ -216,6 +232,33 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
               </button>
             )}
           </div>
+        )}
+
+        {/* Lo unico que la app sabe y uno no: cuales se estan yendo de ventana.
+            Estaba enterrado detras de la hoja de filtros. */}
+        {!cargandoVacio && !error && piden.length > 0 && filters.guarda === null && (
+          <button
+            type="button"
+            onClick={() => setFilters({ ...filters, guarda: 'urgente' })}
+            className="tarjeta flex items-center gap-[11px] rounded-[11px] border border-oro/35 bg-oro/6 px-[14px] py-[11px] text-left"
+          >
+            <GlassIcon size={16} className="shrink-0 text-oro" />
+            <span className="flex min-w-0 grow flex-col gap-[1px]">
+              <span className="text-[12.5px] font-semibold text-oro">
+                {piden.length === 1
+                  ? 'Una botella pide turno'
+                  : `${piden.length} botellas piden turno`}
+              </span>
+              <span className="truncate text-[10.5px] text-tenue-500">
+                {piden
+                  .slice(0, 2)
+                  .map((wine) => wine.nombre_vino)
+                  .join(' · ')}
+                {piden.length > 2 && ` · y ${piden.length - 2} más`}
+              </span>
+            </span>
+            <ChevronDownIcon size={12} className="shrink-0 -rotate-90 text-oro" />
+          </button>
         )}
 
         {shelves.map((shelf, index) => (
@@ -264,7 +307,8 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
 }
 
 /** Los estados de guarda, con el nombre que usa quien mira la cava. */
-const GUARDAS: { estado: EstadoGuarda; label: string; detalle: string }[] = [
+const GUARDAS: { estado: FiltroGuarda; label: string; detalle: string }[] = [
+  { estado: 'urgente', label: 'Piden turno', detalle: 'Se les esta yendo la ventana' },
   { estado: 'listo', label: 'En su punto', detalle: 'Se pueden abrir ya' },
   { estado: 'pasando', label: 'Tomalos este año', detalle: 'Les queda poca ventana' },
   { estado: 'joven', label: 'Para guardar', detalle: 'Todavía les falta' },

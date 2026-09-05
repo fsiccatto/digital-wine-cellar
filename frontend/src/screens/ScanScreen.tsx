@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { createWine, scanLabel, uploadLabelPhoto } from '../lib/api'
-import type { WineScanResult } from '../lib/types'
+import { adjustStock, createWine, scanLabel, uploadLabelPhoto } from '../lib/api'
+import type { WineRecord, WineScanResult } from '../lib/types'
+import { candidatoDuplicado, glassTint } from '../lib/wine'
 import { PRESET_GUARDAR, PRESET_OCR, prepareLabelPhoto } from '../lib/image'
 import {
   BarcodeIcon,
+  BottleIcon,
   CameraIcon,
   CheckIcon,
   ChevronLeftIcon,
@@ -45,11 +47,13 @@ const EMPTY: FormState = {
 type ReadFlags = Partial<Record<keyof WineScanResult, boolean>>
 
 interface Props {
+  /** La cava entera, para reconocer una botella que ya esta cargada. */
+  wines: WineRecord[]
   onCancel: () => void
   onSaved: (codigoVino: string) => void
 }
 
-export function ScanScreen({ onCancel, onSaved }: Props) {
+export function ScanScreen({ wines, onCancel, onSaved }: Props) {
   const [stage, setStage] = useState<Stage>('capture')
   const [photo, setPhoto] = useState<File | null>(null)
   const [form, setForm] = useState<FormState>(EMPTY)
@@ -59,6 +63,8 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
   // pantalla, y el de leer sigue siendo cierto mientras se intenta guardar.
   const [saveError, setSaveError] = useState<string | null>(null)
   const [photoWarning, setPhotoWarning] = useState<string | null>(null)
+  // "Es otra": se descarta el aviso hasta que cambien los datos que lo dispararon.
+  const [descartado, setDescartado] = useState<string | null>(null)
   const camara = useRef<HTMLInputElement>(null)
   const galeria = useRef<HTMLInputElement>(null)
 
@@ -162,8 +168,55 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
     }
   }
 
+  /**
+   * Sumar al vino que ya esta en vez de crear una fila nueva.
+   *
+   * Va por PATCH de stock y no por createWine: dos filas para la misma botella
+   * parten el inventario en dos y despues hay que juntarlas a mano en el Sheet.
+   */
+  async function handleSumar() {
+    if (!candidato) return
+    setSaveError(null)
+    setPhotoWarning(null)
+    setStage('saving')
+
+    try {
+      await adjustStock(candidato.codigo_vino, form.cantidad)
+
+      // Si el que ya estaba no tenia foto, esta es una mejora gratis. Si ya
+      // tenia, no se pisa: la vieja puede ser mejor que la de recien.
+      if (photo && !candidato.foto_url) {
+        try {
+          await uploadLabelPhoto(
+            candidato.codigo_vino,
+            await prepareLabelPhoto(photo, PRESET_GUARDAR),
+          )
+        } catch {
+          setPhotoWarning('Se sumó el stock, pero la foto no se pudo subir.')
+        }
+      }
+
+      onSaved(candidato.codigo_vino)
+    } catch (cause) {
+      setSaveError(
+        cause instanceof Error ? cause.message : 'No se pudo sumar al stock.',
+      )
+      setStage('form')
+    }
+  }
+
   const yearNow = new Date().getFullYear()
   const anadaNumber = Number.parseInt(form.anada, 10)
+
+  // Se recalcula con lo que hay en el formulario, no con lo que leyo la IA: si
+  // se corrige la añada a mano, el aviso tiene que seguir el dato corregido.
+  const candidato = candidatoDuplicado(wines, {
+    bodega: form.bodega,
+    varietal: form.varietal,
+    anada: anadaNumber,
+  })
+  const avisarDuplicado =
+    candidato !== null && descartado !== candidato.codigo_vino && form.cantidad > 0
   const anadaValid =
     Number.isInteger(anadaNumber) && anadaNumber >= 1900 && anadaNumber <= yearNow
 
@@ -321,6 +374,71 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
         // La barra de abajo crece con el aviso de lo que falta y con el error de
         // guardar: el aire de mas es para que no tape la ultima tarjeta.
         <div className="relative flex grow flex-col gap-[15px] px-[22px] pb-40">
+          {/* Va antes que el formulario porque es una decision, no un detalle:
+              sumar o guardar aparte cambia que boton se toca al final. */}
+          {avisarDuplicado && candidato && (
+            <div className="flex flex-col gap-[11px] rounded-[11px] border border-oro/35 bg-oro/6 p-[14px]">
+              <span className="text-[9px] font-bold tracking-[0.16em] text-oro uppercase">
+                Esto ya está en tu cava
+              </span>
+
+              {/* La ficha entera del que ya esta: coincidir en bodega, uva y
+                  año no prueba que sea la misma etiqueta, asi que la decision
+                  la toma quien mira, con los datos a la vista. */}
+              <div className="flex items-center gap-[10px] rounded-[7px] border border-borde bg-madera-700 px-[11px] py-2">
+                <div className="flex w-[13px] shrink-0 items-center justify-center">
+                  <BottleIcon
+                    glass={glassTint(candidato.varietal).glass}
+                    edge={glassTint(candidato.varietal).edge}
+                    width={12}
+                    height={30}
+                  />
+                </div>
+                <div className="flex min-w-0 grow flex-col gap-px">
+                  <span className="truncate text-[8px] font-bold tracking-[0.12em] text-tenue-500 uppercase">
+                    {candidato.bodega}
+                  </span>
+                  <span className="truncate font-serif text-[15px] leading-[1.15] font-semibold text-crema">
+                    {candidato.nombre_vino}
+                  </span>
+                  <span className="cifra truncate text-[9.5px] text-tenue-500">
+                    {candidato.varietal} · {candidato.anada}
+                    {candidato.ubicacion ? ` · ${candidato.ubicacion}` : ''}
+                  </span>
+                </div>
+                <span className="cifra shrink-0 font-serif text-[16px] leading-none font-semibold text-oro">
+                  {candidato.cantidad}
+                </span>
+              </div>
+
+              <p className="text-[11px] leading-relaxed text-tenue-500">
+                Coinciden la bodega, la uva y la añada. Si es esta misma botella
+                conviene sumarla al stock que ya está; si es otra etiqueta,
+                guardala aparte.
+              </p>
+
+              <div className="flex gap-[8px]">
+                <button
+                  type="button"
+                  onClick={handleSumar}
+                  disabled={stage === 'saving'}
+                  className="flex h-10 grow items-center justify-center gap-[7px] rounded-[9px] bg-borra-600 text-[12.5px] font-bold text-madera-700 disabled:opacity-60"
+                >
+                  <PlusIcon size={12} />
+                  Sumar {form.cantidad} a esta
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDescartado(candidato.codigo_vino)}
+                  disabled={stage === 'saving'}
+                  className="h-10 shrink-0 rounded-[9px] border border-borde-claro px-4 text-[12.5px] font-semibold text-tenue-400"
+                >
+                  Es otra
+                </button>
+              </div>
+            </div>
+          )}
+
           <SectionLabel>Datos del vino</SectionLabel>
 
           <div className="flex flex-col gap-[13px]">
@@ -380,7 +498,11 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
           <div className="flex gap-[11px]">
             <div className="flex grow flex-col gap-[6px]">
               <FieldLabel>Cantidad</FieldLabel>
-              <div className="flex h-[46px] items-center justify-between rounded-[9px] border border-borde bg-madera-950/55 pr-[9px] pl-[14px]">
+              <div
+                role="group"
+                aria-label={`Cantidad: ${form.cantidad}`}
+                className="flex h-[46px] items-center justify-between rounded-[9px] border border-borde bg-madera-950/55 pr-[9px] pl-[14px]"
+              >
                 <span className="text-[15px] font-semibold text-crema">
                   {form.cantidad}
                 </span>
@@ -405,8 +527,9 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
             </div>
 
             <div className="flex w-[118px] flex-col gap-[6px]">
-              <FieldLabel>Estante</FieldLabel>
+              <FieldLabel htmlFor="scan-estante">Estante</FieldLabel>
               <input
+                id="scan-estante"
                 value={form.ubicacion}
                 onChange={(event) => setForm({ ...form, ubicacion: event.target.value })}
                 placeholder="A2"
@@ -417,12 +540,13 @@ export function ScanScreen({ onCancel, onSaved }: Props) {
 
           <div className="flex flex-col gap-[6px]">
             <div className="flex items-center gap-[7px]">
-              <FieldLabel>Precio</FieldLabel>
+              <FieldLabel htmlFor="scan-precio">Precio</FieldLabel>
               <span className="text-[9.5px] font-medium text-tenue-700">· opcional</span>
             </div>
             <div className="flex h-[46px] items-center gap-2 rounded-[9px] border border-borde bg-madera-950/55 px-[14px] focus-within:border-oro/40">
               <span className="text-[15px] text-tenue-700">$</span>
               <input
+                id="scan-precio"
                 value={form.precio_estimado}
                 onChange={(event) =>
                   setForm({ ...form, precio_estimado: event.target.value })

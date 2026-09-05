@@ -7,8 +7,11 @@ import {
   glassTint,
   groupByMonth,
   guardaDe,
+  candidatoDuplicado,
+  matchesCataSearch,
   matchesFilters,
   SIN_FILTROS,
+  urgentes,
   splitVarietals,
   varietals,
   ventanaDeGuarda,
@@ -306,5 +309,116 @@ describe('activeFilterCount', () => {
     expect(activeFilterCount(SIN_FILTROS)).toBe(0)
     expect(activeFilterCount({ soloConStock: true, guarda: null })).toBe(1)
     expect(activeFilterCount({ soloConStock: true, guarda: 'pasado' })).toBe(2)
+  })
+})
+
+describe('urgentes', () => {
+  // Pinot Noir: ventana 1-5. En 2026 un 2013 tiene 13 años, o sea pasado.
+  const pasado = { anada: 2013, varietal: 'Pinot Noir' }
+
+  it('junta las que se estan yendo de ventana', () => {
+    expect(urgentes([wine(pasado)], HOY).map((w) => w.anada)).toEqual([2013])
+  })
+
+  it('deja afuera la agotada aunque este pasada', () => {
+    // No hay nada que abrir: avisarlo seria ruido.
+    expect(urgentes([wine({ ...pasado, cantidad: 0 })], HOY)).toEqual([])
+  })
+
+  it('deja afuera la que todavia esta en su punto', () => {
+    expect(urgentes([wine({ anada: 2024, varietal: 'Malbec' })], HOY)).toEqual([])
+  })
+
+  it('el filtro "urgente" muestra lo mismo que el destacado', () => {
+    const lista = [
+      wine({ anada: 2013, varietal: 'Pinot Noir', codigo_vino: 'A' }),
+      wine({ anada: 2024, varietal: 'Malbec', codigo_vino: 'B' }),
+    ]
+    const filtrados = lista.filter((w) =>
+      matchesFilters(w, { soloConStock: false, guarda: 'urgente' }, HOY),
+    )
+    expect(filtrados.map((w) => w.codigo_vino)).toEqual(
+      urgentes(lista, HOY).map((w) => w.codigo_vino),
+    )
+  })
+})
+
+describe('matchesCataSearch', () => {
+  const cata = (overrides: Partial<CataRecord> = {}): CataRecord => ({
+    id_cata: 'c1',
+    vino_id: 'TRA-MAL-2020-0001',
+    fecha_consumo: '2026-08-01T21:00:00',
+    puntuacion: 4,
+    notas_cata: 'Ciruela y violetas',
+    maridaje: 'Cordero al horno',
+    bodega: 'Trapiche',
+    nombre_vino: 'Fond de Cave',
+    anada: 2020,
+    vino_existe: true,
+    ...overrides,
+  })
+
+  it('sin termino no descarta nada', () => {
+    expect(matchesCataSearch(cata(), '')).toBe(true)
+  })
+
+  it('encuentra por maridaje, que es como se recuerda una cata', () => {
+    expect(matchesCataSearch(cata(), 'cordero')).toBe(true)
+  })
+
+  it('encuentra por lo que dicen las notas', () => {
+    expect(matchesCataSearch(cata(), 'violetas')).toBe(true)
+  })
+
+  it('ignora tildes y mayusculas', () => {
+    expect(matchesCataSearch(cata({ maridaje: 'Lomo al Malbéc' }), 'malbec')).toBe(true)
+  })
+
+  it('a una cata huerfana la encuentra por su codigo', () => {
+    const huerfana = cata({
+      bodega: null, nombre_vino: null, anada: null, maridaje: null,
+      notas_cata: null, vino_existe: false,
+    })
+    expect(matchesCataSearch(huerfana, 'TRA-MAL')).toBe(true)
+    expect(matchesCataSearch(huerfana, 'trapiche')).toBe(false)
+  })
+
+  it('no inventa coincidencias', () => {
+    expect(matchesCataSearch(cata(), 'pescado')).toBe(false)
+  })
+})
+
+describe('candidatoDuplicado', () => {
+  const enCava = [
+    wine({ codigo_vino: 'A', bodega: 'Trapiche', varietal: 'Malbec', anada: 2020 }),
+    wine({ codigo_vino: 'B', bodega: 'Trapiche', varietal: 'Bonarda', anada: 2020 }),
+  ]
+
+  it('encuentra el que comparte bodega, uva y añada', () => {
+    const hit = candidatoDuplicado(enCava, {
+      bodega: 'trapiche', varietal: 'MALBEC', anada: 2020,
+    })
+    expect(hit?.codigo_vino).toBe('A')
+  })
+
+  it('otra uva de la misma bodega y año no es la misma botella', () => {
+    expect(
+      candidatoDuplicado(enCava, { bodega: 'Trapiche', varietal: 'Syrah', anada: 2020 }),
+    ).toBeNull()
+  })
+
+  it('otra añada tampoco', () => {
+    expect(
+      candidatoDuplicado(enCava, { bodega: 'Trapiche', varietal: 'Malbec', anada: 2021 }),
+    ).toBeNull()
+  })
+
+  it('sin datos completos no arriesga un candidato', () => {
+    expect(
+      candidatoDuplicado(enCava, { bodega: '', varietal: 'Malbec', anada: 2020 }),
+    ).toBeNull()
+    expect(
+      candidatoDuplicado(enCava, { bodega: 'Trapiche', varietal: 'Malbec', anada: NaN }),
+    ).toBeNull()
   })
 })

@@ -161,6 +161,8 @@ export default function App() {
 
       {view.name === 'scan' && (
         <ScanScreen
+          // Para avisar si la etiqueta que se acaba de leer ya esta en la cava.
+          wines={wines}
           onCancel={volverACava}
           onSaved={(codigoVino) => {
             load()

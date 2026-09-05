@@ -1,11 +1,19 @@
 import { useMemo, useState } from 'react'
 import type { CataRecord } from '../lib/types'
-import { formatDate, groupByMonth } from '../lib/wine'
+import { formatDate, groupByMonth, matchesCataSearch } from '../lib/wine'
 import { formatPuntuacion, rellenoDe } from '../lib/puntuacion'
 import { CataRow } from '../components/CataRow'
 import { Sheet } from '../components/Sheet'
-import { GlassIcon, RatingGlassIcon, VineSprigIcon } from '../components/icons'
+import {
+  CloseIcon,
+  GlassIcon,
+  RatingGlassIcon,
+  SearchIcon,
+  VineSprigIcon,
+} from '../components/icons'
 import { ListaSkeleton } from '../components/Skeleton'
+import { IndicadorRecarga } from '../components/Recarga'
+import { usePullToRefresh } from '../lib/usePullToRefresh'
 
 interface Props {
   catas: CataRecord[]
@@ -22,11 +30,21 @@ interface Props {
  */
 export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props) {
   const [notes, setNotes] = useState<CataRecord | null>(null)
+  const [search, setSearch] = useState('')
 
-  const months = useMemo(() => groupByMonth(catas), [catas])
+  const visibles = useMemo(
+    () => catas.filter((cata) => matchesCataSearch(cata, search)),
+    [catas, search],
+  )
+  const months = useMemo(() => groupByMonth(visibles), [visibles])
+
+  const cargandoVacio = loading && catas.length === 0
+  const { tiron, alcanzo } = usePullToRefresh(onRetry, !loading)
 
   return (
     <div className="vetas relative flex min-h-full flex-col">
+      <IndicadorRecarga tiron={tiron} alcanzo={alcanzo} refrescando={loading} />
+
       <header className="relative px-5 pt-8 pb-3">
         <div className="flex items-end justify-between gap-4">
           <div className="flex items-end gap-[7px]">
@@ -43,23 +61,51 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
             </span>
           </div>
           {/* Igual que en la cava: "0 catas" mientras carga miente. */}
-          {!loading && (
+          {!cargandoVacio && (
             <div className="flex shrink-0 items-baseline gap-[4px]">
               <span className="cifra font-serif text-[19px] leading-none font-semibold text-oro">
-                {catas.length}
+                {visibles.length}
               </span>
               <span className="text-[8.5px] font-semibold tracking-[0.14em] text-tenue-500 uppercase">
-                {catas.length === 1 ? 'cata' : 'catas'}
+                {visibles.length === 1 ? 'cata' : 'catas'}
               </span>
             </div>
           )}
         </div>
       </header>
 
-      <div className="relative flex grow flex-col gap-4 px-5 pt-2 pb-27">
-        {loading && <ListaSkeleton aviso="Abriendo el libro…" />}
+      {/* El historico crece sin techo: sin buscador, encontrar "aquel que
+          tomamos con cordero" es scrollear meses. Aparece recien cuando hay
+          suficientes como para que haga falta. */}
+      {(catas.length > 6 || search !== '') && (
+        <div className="relative px-5 pb-[10px]">
+          <label className="flex h-[34px] items-center gap-2 rounded-lg border border-borde bg-madera-700 px-[11px]">
+            <SearchIcon size={12} className="shrink-0 text-tenue-600" />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Buscar por vino, maridaje o notas"
+              className="w-full bg-transparent text-[11.5px] placeholder:text-tenue-600 focus:outline-none"
+            />
+            {search !== '' && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                aria-label="Borrar la búsqueda"
+                className="-my-[10px] shrink-0 py-[10px] text-tenue-500"
+              >
+                <CloseIcon size={11} />
+              </button>
+            )}
+          </label>
+        </div>
+      )}
 
-        {error && !loading && (
+      <div className="relative flex grow flex-col gap-4 px-5 pt-2 pb-27">
+        {cargandoVacio && <ListaSkeleton aviso="Abriendo el libro…" />}
+
+        {error && !cargandoVacio && (
           <div
             role="alert"
             className="flex flex-col items-start gap-3 rounded-[11px] border border-borra-600/40 bg-borra-800/20 p-4"
@@ -75,13 +121,23 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
           </div>
         )}
 
-        {!loading && !error && catas.length === 0 && (
+        {!cargandoVacio && !error && visibles.length === 0 && (
           <div className="flex flex-col items-center gap-4 py-16">
             <GlassIcon size={38} className="text-borde-claro" />
             <p className="max-w-[240px] text-center text-[13px] leading-relaxed text-tenue-500">
-              Todavía no descorchaste ninguna botella. Cuando lo hagas, la cata queda
-              registrada acá.
+              {catas.length === 0
+                ? 'Todavía no descorchaste ninguna botella. Cuando lo hagas, la cata queda registrada acá.'
+                : 'Ninguna cata coincide con lo que estás buscando.'}
             </p>
+            {catas.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="rounded-lg border border-borde-claro px-3 py-[7px] text-[12px] font-semibold text-oro"
+              >
+                Limpiar la búsqueda
+              </button>
+            )}
           </div>
         )}
 

@@ -1,3 +1,4 @@
+import { useId } from 'react'
 import { CheckIcon } from './icons'
 
 export function SectionLabel({
@@ -17,11 +18,25 @@ export function SectionLabel({
   )
 }
 
-export function FieldLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
+/**
+ * El rotulo de un campo. Con `htmlFor` sale como <label> de verdad y no como un
+ * <span> decorativo: sin eso el input no tiene nombre accesible, y ademas
+ * tocar el texto no enfoca el campo.
+ */
+export function FieldLabel({
+  children,
+  htmlFor,
+}: {
+  children: React.ReactNode
+  htmlFor?: string
+}) {
+  const clases = 'text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase'
+  return htmlFor ? (
+    <label htmlFor={htmlFor} className={clases}>
       {children}
-    </span>
+    </label>
+  ) : (
+    <span className={clases}>{children}</span>
   )
 }
 
@@ -45,11 +60,15 @@ export function Field({
   hint?: string
 }) {
   const missing = !read && value.trim() === ''
+  // Un id propio por instancia: dos campos con el mismo id rompen la relacion
+  // con el rotulo y el foco se va siempre al primero.
+  const id = useId()
+  const idPista = `${id}-pista`
 
   return (
     <div className="flex flex-col gap-[6px]">
       <div className="flex items-center gap-[7px]">
-        <FieldLabel>{label}</FieldLabel>
+        <FieldLabel htmlFor={id}>{label}</FieldLabel>
         {read && <CheckIcon size={12} className="text-vina" />}
         {missing && (
           <span className="text-[9.5px] font-bold tracking-[0.06em] text-oro">
@@ -58,10 +77,13 @@ export function Field({
         )}
       </div>
       <input
+        id={id}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         inputMode={inputMode}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid && hint ? idPista : undefined}
         className={`h-[46px] rounded-[9px] border bg-madera-950/55 px-[14px] text-[15px] font-medium placeholder:font-normal placeholder:text-tenue-700 focus:outline-none ${
           invalid
             ? 'border-borra-600'
@@ -70,7 +92,11 @@ export function Field({
               : 'border-borde focus:border-oro/40'
         }`}
       />
-      {invalid && hint && <span className="text-[10.5px] text-borra-600">{hint}</span>}
+      {invalid && hint && (
+        <span id={idPista} className="text-[10.5px] text-borra-600">
+          {hint}
+        </span>
+      )}
     </div>
   )
 }

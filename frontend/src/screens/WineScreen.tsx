@@ -653,10 +653,14 @@ function TastingSheet({
       </div>
 
       <div className="mb-4 flex flex-col gap-[6px]">
-        <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
+        <label
+          htmlFor="cata-notas"
+          className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase"
+        >
           Notas
-        </span>
+        </label>
         <textarea
+          id="cata-notas"
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
           rows={3}
@@ -666,12 +670,16 @@ function TastingSheet({
       </div>
 
       <div className="mb-6 flex flex-col gap-[6px]">
-        <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
+        <label
+          htmlFor="cata-maridaje"
+          className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase"
+        >
           Maridaje
-        </span>
+        </label>
         <div className="flex h-[46px] items-center gap-[10px] rounded-[9px] border border-borde bg-madera-950/55 px-[14px] focus-within:border-oro/40">
           <PairingIcon className="shrink-0 text-vina" />
           <input
+            id="cata-maridaje"
             value={pairing}
             onChange={(event) => setPairing(event.target.value)}
             placeholder="Con qué lo tomaste"

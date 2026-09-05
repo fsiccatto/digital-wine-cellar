@@ -400,9 +400,16 @@ export function averageScore(catas: CataRecord[]): number | null {
  * Viven aca y no en la pantalla para que se puedan probar: son la clase de
  * regla que se rompe callada (un `<=` por un `<` y las agotadas vuelven).
  */
+/**
+ * "urgente" no es un estado de guarda mas: junta `pasando` y `pasado` en la
+ * pregunta que de verdad se hace uno parado frente a la cava, que es cual abro
+ * antes de que se me vaya. Es lo que filtra el destacado de la cava.
+ */
+export type FiltroGuarda = EstadoGuarda | 'urgente'
+
 export interface CellarFilters {
   soloConStock: boolean
-  guarda: EstadoGuarda | null
+  guarda: FiltroGuarda | null
 }
 
 export const SIN_FILTROS: CellarFilters = { soloConStock: false, guarda: null }
@@ -425,7 +432,77 @@ export function matchesFilters(
   if (filters.soloConStock && wine.cantidad <= 0) return false
   if (filters.guarda !== null) {
     const guarda = guardaDe(wine, hoy)
-    if (guarda === null || guarda.estado !== filters.guarda) return false
+    if (guarda === null) return false
+    if (filters.guarda === 'urgente') {
+      if (!esUrgente(guarda.estado)) return false
+    } else if (guarda.estado !== filters.guarda) {
+      return false
+    }
   }
   return true
+}
+
+function esUrgente(estado: EstadoGuarda): boolean {
+  return estado === 'pasando' || estado === 'pasado'
+}
+
+/**
+ * Las botellas que piden turno: se les esta yendo la ventana y todavia quedan.
+ *
+ * Una agotada no entra aunque este pasada — no hay nada que abrir, avisarlo
+ * seria ruido. Es el mismo criterio que ya usa la marca de la fila en la cava.
+ */
+export function urgentes(wines: WineRecord[], hoy = new Date()): WineRecord[] {
+  return wines.filter((wine) => {
+    if (wine.cantidad <= 0) return false
+    const guarda = guardaDe(wine, hoy)
+    return guarda !== null && esUrgente(guarda.estado)
+  })
+}
+
+/**
+ * Buscador del historico. Mira tambien las notas y el maridaje, que es como se
+ * recuerda de verdad una cata: no por el nombre del vino sino por "aquel que
+ * tomamos con cordero".
+ *
+ * Una cata huerfana no tiene bodega ni nombre; queda su codigo, que es lo unico
+ * por lo que se la puede encontrar.
+ */
+export function matchesCataSearch(cata: CataRecord, term: string): boolean {
+  const q = normalize(term)
+  if (!q) return true
+  return [
+    cata.nombre_vino,
+    cata.bodega,
+    cata.maridaje,
+    cata.notas_cata,
+    cata.vino_id,
+    cata.anada === null ? '' : String(cata.anada),
+  ].some((field) => normalize(field ?? '').includes(q))
+}
+
+/**
+ * El vino que ya esta en la cava y podria ser esta misma botella.
+ *
+ * La clave es bodega + varietal + añada, que es la misma con la que el backend
+ * arma el codigo. NO alcanza para afirmar que es la misma botella: una bodega
+ * saca varias etiquetas de la misma uva y año. Por eso esto devuelve un
+ * candidato para que lo confirme quien esta mirando, y nunca decide solo.
+ */
+export function candidatoDuplicado(
+  wines: WineRecord[],
+  datos: { bodega: string; varietal: string; anada: number },
+): WineRecord | null {
+  const bodega = normalize(datos.bodega)
+  const varietal = normalize(datos.varietal)
+  if (!bodega || !varietal || !Number.isInteger(datos.anada)) return null
+
+  return (
+    wines.find(
+      (wine) =>
+        normalize(wine.bodega) === bodega &&
+        normalize(wine.varietal) === varietal &&
+        wine.anada === datos.anada,
+    ) ?? null
+  )
 }
