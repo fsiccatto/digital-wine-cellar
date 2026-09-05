@@ -37,7 +37,7 @@ def is_configured() -> bool:
 
 
 @lru_cache(maxsize=1)
-def _get_bucket():
+def get_bucket():
     if not GCS_BUCKET_NAME:
         raise StorageNotConfigured(
             "Falta GCS_BUCKET_NAME en el entorno: no se pueden guardar fotos."
@@ -79,7 +79,7 @@ def build_object_name(codigo_vino: str, content_type: str) -> str:
 def upload_label_photo(codigo_vino: str, image_bytes: bytes, content_type: str) -> str:
     """Sube la foto y devuelve el nombre del objeto guardado en el Sheet."""
     object_name = build_object_name(codigo_vino, content_type)
-    blob = _get_bucket().blob(object_name)
+    blob = get_bucket().blob(object_name)
     blob.upload_from_string(image_bytes, content_type=content_type)
     return object_name
 
@@ -90,7 +90,7 @@ def build_signed_url(object_name: str) -> str | None:
         return None
 
     try:
-        return _get_bucket().blob(object_name).generate_signed_url(
+        return get_bucket().blob(object_name).generate_signed_url(
             version="v4",
             expiration=timedelta(seconds=GCS_SIGNED_URL_TTL_SECONDS),
             method="GET",
@@ -103,6 +103,6 @@ def delete_label_photo(object_name: str) -> None:
     if not object_name:
         return
     try:
-        _get_bucket().blob(object_name).delete()
+        get_bucket().blob(object_name).delete()
     except gcloud_exceptions.NotFound:
         pass

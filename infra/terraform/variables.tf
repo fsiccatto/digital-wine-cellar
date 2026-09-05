@@ -112,3 +112,8 @@ variable "deployer_service_account_id" {
   type        = string
   default     = "wine-cellar-deployer"
 }
+
+variable "tfstate_bucket_name" {
+  description = "Globally unique bucket that stores the Terraform state"
+  type        = string
+}

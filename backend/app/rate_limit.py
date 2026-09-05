@@ -2,9 +2,12 @@
 
 El estado vive en el proceso, asi que el servicio corre con max-instances=1
 (ver infra/terraform): con dos instancias cada una llevaria su propio contador
-y el tope real se duplicaria. Lo que queda afuera es el arranque en frio, que
-borra los contadores; en el peor caso alguien gana una ventana entera de cupo
-justo despues de uno.
+y el tope real se duplicaria.
+
+Los contadores se bajan a un objeto en el bucket cada tanto y se releen al
+arrancar, asi un arranque en frio ya no regala una ventana limpia (ver
+services/rate_limit_store.py). Si el bucket no esta o falla, se sigue solo en
+memoria.
 
 Para una cava de una persona alcanza: no es una defensa contra un atacante
 distribuido, es un tope para que un token filtrado no queme la cuota de Gemini
@@ -17,10 +20,16 @@ import time
 from collections import defaultdict, deque
 from threading import Lock
 
+from app.services import rate_limit_store
+
 # Ventana deslizante por clave. Cada valor es la cola de timestamps de los
 # intentos que todavia estan dentro de la ventana.
 _hits: dict[str, deque] = defaultdict(deque)
 _lock = Lock()
+
+# Se lee el estado guardado una sola vez, en el primer pedido: hacerlo al
+# importar rompe los tests y retrasa el arranque por algo que puede fallar.
+_loaded = False
 
 # Cuantas claves distintas se recuerdan. Sin tope, un atacante que rota IPs
 # hace crecer el dict hasta quedarse con la memoria de la instancia.
@@ -40,7 +49,11 @@ def check(
     Con `peek` solo consulta el estado y no gasta cupo: sirve para preguntar
     si una clave ya esta bloqueada antes de decidir si el intento cuenta.
     """
-    now = time.monotonic()
+    # Reloj de pared, no monotonic: las marcas se guardan y se releen en otro
+    # proceso, donde el reloj monotonico arranca de cero y no significa nada.
+    now = time.time()
+
+    _ensure_loaded()
 
     with _lock:
         bucket = _hits[key]
@@ -60,7 +73,35 @@ def check(
             _evict_stale(now, window_seconds)
 
         bucket.append(now)
-        return True, 0
+        instantanea = {k: list(b) for k, b in _hits.items() if b}
+
+    # Fuera del lock: guardar habla con la red y no vale la pena bloquear al
+    # resto de los pedidos por eso. El store decide si toca escribir.
+    rate_limit_store.save(instantanea)
+    return True, 0
+
+
+def _ensure_loaded() -> None:
+    """Trae el estado guardado la primera vez que se consulta algo."""
+    global _loaded
+    if _loaded:
+        return
+
+    with _lock:
+        if _loaded:
+            return
+        _loaded = True
+        guardado = rate_limit_store.load()
+
+    if not guardado:
+        return
+
+    with _lock:
+        for clave, marcas in guardado.items():
+            # Lo que ya estaba en memoria gana: es de este proceso y es mas
+            # nuevo que cualquier cosa que estuviera en el bucket.
+            if not _hits[clave]:
+                _hits[clave].extend(sorted(marcas))
 
 
 def _evict_stale(now: float, window_seconds: float) -> None:
@@ -71,5 +112,8 @@ def _evict_stale(now: float, window_seconds: float) -> None:
 
 def reset() -> None:
     """Solo para los tests: cada uno arranca con el contador limpio."""
+    global _loaded
     with _lock:
         _hits.clear()
+        _loaded = False
+    rate_limit_store.reset()
