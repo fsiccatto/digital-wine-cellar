@@ -110,6 +110,13 @@ Por eso el código cuenta viajes, no líneas:
   `get_all_values()` que igual se pide, así que se valida ahí.
 - Las dos pestañas se resuelven con un solo `worksheets()`.
 - `list_catas` corta antes de leer el inventario si no hay una sola cata.
+- Ajustar stock, editar un vino, editar una cata y borrarla hacen lo mismo: leen
+  su pestaña una vez y le pasan esas celdas a la escritura. `_fila_como_dict`
+  es lo que evita releer para ubicar la fila. Quedaron todas en 2 llamadas.
+
+Editar una cata usa 3 y no se puede bajar: la tercera es el inventario, que hace
+falta para devolver el nombre del vino al día. Ese dato tiene que salir vivo,
+no de la copia congelada de la hoja.
 
 Si tocás algo de esto, medí. Es fácil agregar un viaje sin notarlo.
 

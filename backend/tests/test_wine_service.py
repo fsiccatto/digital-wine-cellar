@@ -95,6 +95,20 @@ def inventory_row(codigo="TRA-MAL-2020-0001", **overrides):
     return row
 
 
+def como_planilla(rows, headers=None):
+    """Los dicts de los tests, en el formato crudo que devuelve el Sheet.
+
+    Las operaciones de escritura ya no reciben dicts: leen la planilla una sola
+    vez y le pasan esas mismas celdas a la escritura, para no releerla. Los
+    tests siguen describiendo filas como dicts, que se lee mucho mejor, y esto
+    las traduce.
+    """
+    if not rows:
+        return [list(headers or [])]
+    headers = list(headers or rows[0].keys())
+    return [headers] + [[str(row.get(h, "")) for h in headers] for row in rows]
+
+
 def update_payload():
     return WineUpdateInput(
         bodega="Catena Zapata",
@@ -107,9 +121,9 @@ def update_payload():
 
 
 def test_update_wine_keeps_the_code_immutable():
-    rows = [inventory_row()]
+    values = como_planilla([inventory_row()])
     with (
-        patch.object(wine_service, "get_inventory_rows", return_value=rows),
+        patch.object(wine_service, "get_inventory_values", return_value=values),
         patch.object(wine_service, "update_inventory_row") as update_row,
     ):
         result = wine_service.update_wine("TRA-MAL-2020-0001", update_payload())
@@ -120,13 +134,15 @@ def test_update_wine_keeps_the_code_immutable():
     assert result.anada == 2021
     # Y tampoco se manda el código como columna a escribir.
     written = update_row.call_args.args[1]
+    # La planilla ya leida viaja a la escritura: es lo que evita releerla.
+    assert update_row.call_args.args[2] is values
     assert "codigo_vino" not in written
     assert "cantidad" not in written
 
 
 def test_update_wine_rejects_unknown_code():
     with (
-        patch.object(wine_service, "get_inventory_rows", return_value=[]),
+        patch.object(wine_service, "get_inventory_values", return_value=[]),
         patch.object(wine_service, "update_inventory_row") as update_row,
     ):
         with pytest.raises(ValueError):
@@ -136,9 +152,9 @@ def test_update_wine_rejects_unknown_code():
 
 
 def test_delete_wine_removes_photo_but_never_the_catas():
-    rows = [inventory_row()]
+    values = como_planilla([inventory_row()])
     with (
-        patch.object(wine_service, "get_inventory_rows", return_value=rows),
+        patch.object(wine_service, "get_inventory_values", return_value=values),
         patch.object(wine_service, "delete_inventory_row") as delete_row,
         patch.object(wine_service.storage_service, "is_configured", return_value=True),
         patch.object(wine_service.storage_service, "delete_label_photo") as delete_photo,
@@ -147,16 +163,16 @@ def test_delete_wine_removes_photo_but_never_the_catas():
         result = wine_service.delete_wine("TRA-MAL-2020-0001")
 
     assert result == {"status": "ok", "codigo_vino": "TRA-MAL-2020-0001"}
-    delete_row.assert_called_once_with("TRA-MAL-2020-0001")
+    delete_row.assert_called_once_with("TRA-MAL-2020-0001", values)
     # El nombre del objeto crudo, no una URL firmada.
     delete_photo.assert_called_once_with("etiquetas/foto.jpg")
     append_cata.assert_not_called()
 
 
 def test_delete_wine_survives_a_failing_bucket():
-    rows = [inventory_row()]
+    values = como_planilla([inventory_row()])
     with (
-        patch.object(wine_service, "get_inventory_rows", return_value=rows),
+        patch.object(wine_service, "get_inventory_values", return_value=values),
         patch.object(wine_service, "delete_inventory_row") as delete_row,
         patch.object(wine_service.storage_service, "is_configured", return_value=True),
         patch.object(
@@ -173,23 +189,39 @@ def test_delete_wine_survives_a_failing_bucket():
 
 
 def test_adjust_stock_does_not_write_a_cata():
-    rows = [inventory_row(cantidad="3")]
+    values = como_planilla([inventory_row(cantidad="3")])
     with (
-        patch.object(wine_service, "get_inventory_rows", return_value=rows),
+        patch.object(wine_service, "get_inventory_values", return_value=values),
         patch.object(wine_service, "update_inventory_quantity") as update_quantity,
         patch.object(wine_service, "append_cata_record") as append_cata,
     ):
         result = wine_service.adjust_stock("TRA-MAL-2020-0001", -1)
 
     assert result.cantidad == 2
-    update_quantity.assert_called_once_with("TRA-MAL-2020-0001", 2)
+    update_quantity.assert_called_once_with("TRA-MAL-2020-0001", 2, values)
     append_cata.assert_not_called()
 
 
-def test_adjust_stock_refuses_to_go_negative():
-    rows = [inventory_row(cantidad="1")]
+def test_adjust_stock_lee_la_planilla_una_sola_vez():
+    """Resolver el vino y ubicar su fila salen de la MISMA lectura.
+
+    Antes eran dos viajes a Sheets seguidos, ~0,35s cada uno, sobre datos
+    identicos.
+    """
+    values = como_planilla([inventory_row(cantidad="3")])
     with (
-        patch.object(wine_service, "get_inventory_rows", return_value=rows),
+        patch.object(wine_service, "get_inventory_values", return_value=values) as leer,
+        patch.object(wine_service, "update_inventory_quantity"),
+    ):
+        wine_service.adjust_stock("TRA-MAL-2020-0001", 1)
+
+    assert leer.call_count == 1
+
+
+def test_adjust_stock_refuses_to_go_negative():
+    values = como_planilla([inventory_row(cantidad="1")])
+    with (
+        patch.object(wine_service, "get_inventory_values", return_value=values),
         patch.object(wine_service, "update_inventory_quantity") as update_quantity,
     ):
         with pytest.raises(ValueError):

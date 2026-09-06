@@ -280,15 +280,26 @@ def update_inventory_photo(codigo_vino: str, object_name: str):
     )
 
 
-def _update_row(worksheet, key_column: str, key: str, row: Dict[str, Any], missing: str):
+def _update_row(
+    worksheet,
+    key_column: str,
+    key: str,
+    row: Dict[str, Any],
+    missing: str,
+    values: List[List[str]] | None = None,
+):
     """Fusiona `row` sobre la fila existente y la escribe de una sola vez.
 
     Una escritura por celda gastaría una llamada por campo contra el límite de
     60/min del free tier; editar un vino son 8 campos. Y la fusión va acá adentro
     para que una escritura de fila nunca borre las columnas que el payload no
     trae (`id`, `fecha_ingreso`, `foto_url`, `codigo_vino`, `cantidad`).
+
+    `values` deja pasar la planilla que quien llama YA leyó, igual que en
+    `_update_inventory_cell`: sin eso, editar releía entera la pestaña que se
+    acababa de leer para resolver el registro.
     """
-    values = _retry(worksheet.get_all_values)
+    values = values if values is not None else _retry(worksheet.get_all_values)
     if len(values) <= 1:
         raise ValueError(missing)
 
@@ -313,8 +324,14 @@ def _update_row(worksheet, key_column: str, key: str, row: Dict[str, Any], missi
     )
 
 
-def _delete_row(worksheet, key_column: str, key: str, missing: str):
-    values = _retry(worksheet.get_all_values)
+def _delete_row(
+    worksheet,
+    key_column: str,
+    key: str,
+    missing: str,
+    values: List[List[str]] | None = None,
+):
+    values = values if values is not None else _retry(worksheet.get_all_values)
     if len(values) <= 1:
         raise ValueError(missing)
 
@@ -328,22 +345,26 @@ def _delete_row(worksheet, key_column: str, key: str, missing: str):
     worksheet.delete_rows(row_number)
 
 
-def update_inventory_row(codigo_vino: str, row: Dict[str, Any]):
+def update_inventory_row(
+    codigo_vino: str, row: Dict[str, Any], values: List[List[str]] | None = None
+):
     _update_row(
         get_inventory_worksheet(),
         "codigo_vino",
         codigo_vino,
         row,
         "No se encontró el vino solicitado para actualizar.",
+        values=values,
     )
 
 
-def delete_inventory_row(codigo_vino: str):
+def delete_inventory_row(codigo_vino: str, values: List[List[str]] | None = None):
     _delete_row(
         get_inventory_worksheet(),
         "codigo_vino",
         codigo_vino,
         "No se encontró el vino solicitado para eliminar.",
+        values=values,
     )
 
 
@@ -353,20 +374,29 @@ def append_cata_record(row: Dict[str, Any]):
     worksheet.append_row([row.get(header, "") for header in CATAS_HEADERS])
 
 
-def update_cata_row(id_cata: str, row: Dict[str, Any]):
+def get_catas_values() -> List[List[str]]:
+    """La pestaña de catas cruda, para quien despues va a escribir sobre ella."""
+    return _retry(get_catas_worksheet().get_all_values)
+
+
+def update_cata_row(
+    id_cata: str, row: Dict[str, Any], values: List[List[str]] | None = None
+):
     _update_row(
         get_catas_worksheet(),
         "id_cata",
         id_cata,
         row,
         "No se encontró la cata solicitada para actualizar.",
+        values=values,
     )
 
 
-def delete_cata_row(id_cata: str):
+def delete_cata_row(id_cata: str, values: List[List[str]] | None = None):
     _delete_row(
         get_catas_worksheet(),
         "id_cata",
         id_cata,
         "No se encontró la cata solicitada para eliminar.",
+        values=values,
     )

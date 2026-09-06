@@ -21,6 +21,7 @@ from app.services.sheets_service import (
     delete_cata_row,
     delete_inventory_row,
     get_catas_rows,
+    get_catas_values,
     get_inventory_rows,
     get_inventory_values,
     update_cata_row,
@@ -31,6 +32,29 @@ from app.services.sheets_service import (
 from app.utils.wine_code import build_wine_code, next_sequence
 
 logger = logging.getLogger(__name__)
+
+
+def _fila_como_dict(values: list[list[str]], columna: str, clave: str) -> dict | None:
+    """Busca una fila en la planilla YA LEIDA y la devuelve como dict.
+
+    Existe para no leer dos veces lo mismo. El patron que se repetia era:
+    resolver el registro con una lectura y, adentro de la escritura, releer la
+    pestaña entera para saber en que fila cae. Cada una de esas lecturas cuesta
+    ~0,35s contra Sheets, y son la mitad del tiempo de un PATCH de stock.
+    """
+    if len(values) <= 1:
+        return None
+    headers = values[0]
+    if columna not in headers:
+        return None
+    indice = headers.index(columna)
+    for fila in values[1:]:
+        if len(fila) > indice and fila[indice] == clave:
+            return {
+                header: fila[i] if i < len(fila) else ""
+                for i, header in enumerate(headers)
+            }
+    return None
 
 
 def _with_photo_url(record: WineRecord) -> WineRecord:
@@ -238,11 +262,17 @@ def list_catas(codigo_vino: str | None = None) -> list[CataRecord]:
 
 def update_wine(codigo_vino: str, payload: WineUpdateInput) -> WineRecord:
     """Edita los datos del vino. El código NO se regenera: es inmutable."""
-    wine = get_wine(codigo_vino)
+    values = get_inventory_values()
+    row = _fila_como_dict(values, "codigo_vino", codigo_vino)
+    if row is None:
+        raise ValueError("No se encontró el vino solicitado.")
+
+    wine = _with_photo_url(WineRecord(**row))
     changes = payload.model_dump()
     update_inventory_row(
         codigo_vino,
         {key: "" if value is None else value for key, value in changes.items()},
+        values,
     )
     # Se reconstruye en memoria en vez de releer el Sheet: ya sabemos qué cambió.
     return wine.model_copy(update=changes)
@@ -255,17 +285,15 @@ def delete_wine(codigo_vino: str) -> dict:
     un blob huérfano (barato e invisible); al revés quedaría una fila apuntando a
     una foto inexistente.
     """
-    row = next(
-        (item for item in get_inventory_rows() if item.get("codigo_vino") == codigo_vino),
-        None,
-    )
+    values = get_inventory_values()
+    row = _fila_como_dict(values, "codigo_vino", codigo_vino)
     if row is None:
         raise ValueError("No se encontró el vino solicitado.")
 
     # El nombre del objeto, crudo: get_wine devuelve la URL firmada.
     object_name = row.get("foto_url") or None
 
-    delete_inventory_row(codigo_vino)
+    delete_inventory_row(codigo_vino, values)
 
     if object_name and storage_service.is_configured():
         try:
@@ -283,19 +311,27 @@ def delete_wine(codigo_vino: str) -> dict:
 
 def adjust_stock(codigo_vino: str, delta: int) -> WineRecord:
     """Corrige el inventario sin registrar una cata: esa es la diferencia con
-    `consume_wine`."""
-    wine = get_wine(codigo_vino)
+    `consume_wine`.
 
+    Lee la planilla UNA vez y se la pasa a la escritura. Antes resolvia el vino
+    con `get_wine` y despues la escritura la releia entera para ubicar la fila.
+    """
+    values = get_inventory_values()
+    row = _fila_como_dict(values, "codigo_vino", codigo_vino)
+    if row is None:
+        raise ValueError("No se encontró el vino solicitado.")
+
+    wine = _with_photo_url(WineRecord(**row))
     updated_quantity = wine.cantidad + delta
     if updated_quantity < 0:
         raise ValueError("El stock no puede quedar negativo.")
 
-    update_inventory_quantity(codigo_vino, updated_quantity)
+    update_inventory_quantity(codigo_vino, updated_quantity, values)
     return wine.model_copy(update={"cantidad": updated_quantity})
 
 
-def _cata_por_id(id_cata: str) -> dict:
-    row = next((item for item in get_catas_rows() if item.get("id_cata") == id_cata), None)
+def _cata_por_id(values: list[list[str]], id_cata: str) -> dict:
+    row = _fila_como_dict(values, "id_cata", id_cata)
     if row is None:
         raise ValueError("No se encontró la cata solicitada.")
     return row
@@ -333,12 +369,14 @@ def add_cata(codigo_vino: str, payload: CataCreateInput) -> CataRecord:
 
 def update_cata(id_cata: str, payload: CataUpdateInput) -> CataRecord:
     """Corrige una cata ya registrada. No mueve el stock ni cambia de vino."""
-    row = _cata_por_id(id_cata)
+    values = get_catas_values()
+    row = _cata_por_id(values, id_cata)
 
     cambios = payload.model_dump()
     update_cata_row(
         id_cata,
         {key: "" if value is None else value for key, value in cambios.items()},
+        values,
     )
 
     fusionada = {**row, **{k: ("" if v is None else v) for k, v in cambios.items()}}
@@ -371,6 +409,7 @@ def delete_cata(id_cata: str) -> dict:
     Descorchar ya descontó la botella y esa botella se tomó igual: devolverla al
     inventario por corregir el registro seria inventar stock.
     """
-    _cata_por_id(id_cata)
-    delete_cata_row(id_cata)
+    values = get_catas_values()
+    _cata_por_id(values, id_cata)
+    delete_cata_row(id_cata, values)
     return {"status": "ok", "id_cata": id_cata}

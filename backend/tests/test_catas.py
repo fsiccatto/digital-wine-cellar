@@ -34,6 +34,19 @@ def inventory_row(codigo="TRA-MAL-2020-0001", **overrides):
     return row
 
 
+def como_planilla(rows, headers=None):
+    """Los dicts de los tests, en el formato crudo que devuelve el Sheet.
+
+    Editar y borrar una cata leen la pestaña UNA vez y le pasan esas mismas
+    celdas a la escritura, para no releerla. Los tests la siguen describiendo
+    como dicts, que se lee mejor, y esto traduce.
+    """
+    if not rows:
+        return []
+    headers = list(headers or rows[0].keys())
+    return [headers] + [[str(row.get(h, "")) for h in headers] for row in rows]
+
+
 def cata_row(id_cata="cata-1", **overrides):
     row = {
         "id_cata": id_cata,
@@ -106,7 +119,7 @@ class TestAgregarCataSuelta:
 class TestEditarCata:
     def test_corrige_la_puntuacion_sin_mover_el_stock(self):
         with (
-            patch.object(wine_service, "get_catas_rows", return_value=[cata_row()]),
+            patch.object(wine_service, "get_catas_values", return_value=como_planilla([cata_row()])),
             patch.object(wine_service, "get_inventory_rows", return_value=[inventory_row()]),
             patch.object(wine_service, "update_cata_row") as update_row,
             patch.object(wine_service, "update_inventory_quantity") as update_quantity,
@@ -124,7 +137,7 @@ class TestEditarCata:
     def test_no_cambia_de_vino_ni_de_fecha(self):
         """Mover una cata de vino la convierte en otra cata."""
         with (
-            patch.object(wine_service, "get_catas_rows", return_value=[cata_row()]),
+            patch.object(wine_service, "get_catas_values", return_value=como_planilla([cata_row()])),
             patch.object(wine_service, "get_inventory_rows", return_value=[inventory_row()]),
             patch.object(wine_service, "update_cata_row") as update_row,
         ):
@@ -139,7 +152,7 @@ class TestEditarCata:
     def test_una_cata_huerfana_se_puede_editar(self):
         """El vino se borró pero la cata sigue siendo corregible."""
         with (
-            patch.object(wine_service, "get_catas_rows", return_value=[cata_row()]),
+            patch.object(wine_service, "get_catas_values", return_value=como_planilla([cata_row()])),
             patch.object(wine_service, "get_inventory_rows", return_value=[]),
             patch.object(wine_service, "update_cata_row"),
         ):
@@ -151,7 +164,7 @@ class TestEditarCata:
 
     def test_rechaza_una_cata_inexistente(self):
         with (
-            patch.object(wine_service, "get_catas_rows", return_value=[]),
+            patch.object(wine_service, "get_catas_values", return_value=[]),
             patch.object(wine_service, "update_cata_row") as update_row,
         ):
             with pytest.raises(ValueError):
@@ -164,19 +177,21 @@ class TestBorrarCata:
     def test_no_devuelve_la_botella_al_stock(self):
         """La botella se tomó igual: devolverla seria inventar stock."""
         with (
-            patch.object(wine_service, "get_catas_rows", return_value=[cata_row()]),
+            patch.object(wine_service, "get_catas_values", return_value=como_planilla([cata_row()])),
             patch.object(wine_service, "delete_cata_row") as delete_row,
             patch.object(wine_service, "update_inventory_quantity") as update_quantity,
         ):
             result = wine_service.delete_cata("cata-1")
 
         update_quantity.assert_not_called()
-        delete_row.assert_called_once_with("cata-1")
+        # La planilla ya leida viaja a la escritura: es lo que evita releerla.
+        assert delete_row.call_args.args[0] == "cata-1"
+        assert delete_row.call_args.args[1][0][0] == "id_cata"
         assert result == {"status": "ok", "id_cata": "cata-1"}
 
     def test_rechaza_una_cata_inexistente(self):
         with (
-            patch.object(wine_service, "get_catas_rows", return_value=[]),
+            patch.object(wine_service, "get_catas_values", return_value=[]),
             patch.object(wine_service, "delete_cata_row") as delete_row,
         ):
             with pytest.raises(ValueError):
