@@ -99,7 +99,7 @@ def test_delete_inventory_row_uses_one_based_index():
 def test_rows_from_skips_blank_rows():
     worksheet = FakeWorksheet([row_for("TRA-MAL-2020-0001"), [""] * len(HEADERS)])
 
-    rows = sheets_service._rows_from(worksheet)
+    rows = sheets_service._rows_from(worksheet, HEADERS)
 
     assert len(rows) == 1
     assert rows[0]["codigo_vino"] == "TRA-MAL-2020-0001"

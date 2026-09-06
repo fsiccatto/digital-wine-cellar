@@ -6,7 +6,11 @@ from typing import Any, Dict, List
 import gspread
 from gspread.utils import rowcol_to_a1
 
-from app.config import GOOGLE_SHEETS_CREDENTIALS_FILE, GOOGLE_SHEET_NAME
+from app.config import (
+    GOOGLE_SHEETS_CREDENTIALS_FILE,
+    GOOGLE_SHEET_ID,
+    GOOGLE_SHEET_NAME,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -88,36 +92,61 @@ def get_spreadsheet():
         )
 
     gc = gspread.service_account(filename=GOOGLE_SHEETS_CREDENTIALS_FILE)
-    _spreadsheet = _retry(gc.open, GOOGLE_SHEET_NAME)
+    # `open(nombre)` resuelve el nombre con una busqueda en Drive, que medida
+    # cuesta ~1,6s contra ~0,8s de `open_by_key`. Con min-instances=0 eso se
+    # paga en cada arranque en frio, o sea casi en cada uso real de la app.
+    # El id es opcional: sin el, se sigue abriendo por nombre como siempre.
+    if GOOGLE_SHEET_ID:
+        _spreadsheet = _retry(gc.open_by_key, GOOGLE_SHEET_ID)
+    else:
+        _spreadsheet = _retry(gc.open, GOOGLE_SHEET_NAME)
     return _spreadsheet
 
 
 def _get_worksheet(title: str, headers: List[str]):
-    """Resolve a worksheet once per process, creating the tab and header row if absent."""
+    """Resuelve una pestaña una vez por proceso, creandola si no esta.
+
+    Las dos pestañas se piden juntas con `worksheets()`: una sola llamada trae
+    ambas, contra una por pestaña que costaba ~0,32s cada una.
+
+    El encabezado NO se valida aca. Antes se leia con `row_values(1)`, ~0,4s por
+    pestaña en cada arranque en frio, para comparar contra una lista fija. La
+    fila 1 es justamente lo primero que devuelve `get_all_values()`, que igual
+    se pide en el primer pedido: se valida ahi (ver `_rows_from`) y el arranque
+    se ahorra las dos llamadas.
+    """
     if title in _worksheets:
         return _worksheets[title]
 
     spreadsheet = get_spreadsheet()
-    try:
-        worksheet = _retry(spreadsheet.worksheet, title)
-    except gspread.WorksheetNotFound:
+    for worksheet in _retry(spreadsheet.worksheets):
+        _worksheets[worksheet.title] = worksheet
+
+    worksheet = _worksheets.get(title)
+    if worksheet is None:
         worksheet = spreadsheet.add_worksheet(title=title, rows=100, cols=len(headers))
         worksheet.append_row(headers)
         _worksheets[title] = worksheet
-        return worksheet
 
-    first_row = _retry(worksheet.row_values, 1)
+    return worksheet
+
+
+def _ensure_headers(worksheet, headers: List[str], first_row: List[str]):
+    """Repara la fila 1 si no es el encabezado que espera el codigo.
+
+    Recibe la fila ya leida en vez de pedirla: quien llama acaba de traer la
+    pestaña entera y la fila 1 viene incluida.
+    """
+    if first_row == headers:
+        return
     if not first_row:
         worksheet.append_row(headers)
-    elif first_row != headers:
-        # La fila 1 ya es un encabezado (posiblemente de un esquema anterior):
-        # se reescribe en lugar de insertar, para no duplicarla en cada arranque.
-        if worksheet.col_count < len(headers):
-            worksheet.add_cols(len(headers) - worksheet.col_count)
-        _retry(worksheet.update, [headers], f"A1:{rowcol_to_a1(1, len(headers))}")
-
-    _worksheets[title] = worksheet
-    return worksheet
+        return
+    # La fila 1 ya es un encabezado (posiblemente de un esquema anterior): se
+    # reescribe en lugar de insertar, para no duplicarla en cada arranque.
+    if worksheet.col_count < len(headers):
+        worksheet.add_cols(len(headers) - worksheet.col_count)
+    _retry(worksheet.update, [headers], f"A1:{rowcol_to_a1(1, len(headers))}")
 
 
 def get_inventory_worksheet():
@@ -128,9 +157,10 @@ def get_catas_worksheet():
     return _get_worksheet(CATAS_TAB, CATAS_HEADERS)
 
 
-def _rows_from(worksheet) -> List[Dict[str, Any]]:
+def _rows_from(worksheet, expected_headers: List[str]) -> List[Dict[str, Any]]:
     """Lee una pestaña completa como dicts, salteando las filas vacías."""
     values = _retry(worksheet.get_all_values)
+    _ensure_headers(worksheet, expected_headers, values[0] if values else [])
     if len(values) <= 1:
         return []
 
@@ -144,11 +174,11 @@ def _rows_from(worksheet) -> List[Dict[str, Any]]:
 
 
 def get_inventory_rows() -> List[Dict[str, Any]]:
-    return _rows_from(get_inventory_worksheet())
+    return _rows_from(get_inventory_worksheet(), INVENTORY_HEADERS)
 
 
 def get_catas_rows() -> List[Dict[str, Any]]:
-    return _rows_from(get_catas_worksheet())
+    return _rows_from(get_catas_worksheet(), CATAS_HEADERS)
 
 
 def append_inventory_row(row: Dict[str, Any]):
@@ -170,9 +200,21 @@ def _find_row_number(values: List[List[str]], key_column: str, key: str) -> int:
     return 0
 
 
-def _update_inventory_cell(codigo_vino: str, column: str, value: Any, missing: str):
+def _update_inventory_cell(
+    codigo_vino: str,
+    column: str,
+    value: Any,
+    missing: str,
+    values: List[List[str]] | None = None,
+):
+    """Escribe una celda del inventario.
+
+    `values` deja pasar la planilla que quien llama YA leyo. Sin eso, descorchar
+    leia el inventario entero dos veces seguidas —una para encontrar el vino y
+    otra aca adentro para saber en que fila esta— y cada lectura cuesta ~0,35s.
+    """
     worksheet = get_inventory_worksheet()
-    rows = _retry(worksheet.get_all_values)
+    rows = values if values is not None else _retry(worksheet.get_all_values)
     if len(rows) <= 1:
         raise ValueError("El inventario está vacío.")
 
@@ -183,12 +225,20 @@ def _update_inventory_cell(codigo_vino: str, column: str, value: Any, missing: s
     _retry(worksheet.update_cell, row_number, rows[0].index(column) + 1, value)
 
 
-def update_inventory_quantity(codigo_vino: str, quantity: int):
+def get_inventory_values() -> List[List[str]]:
+    """La planilla cruda, para quien despues va a escribir sobre ella."""
+    return _retry(get_inventory_worksheet().get_all_values)
+
+
+def update_inventory_quantity(
+    codigo_vino: str, quantity: int, values: List[List[str]] | None = None
+):
     _update_inventory_cell(
         codigo_vino,
         "cantidad",
         quantity,
         "No se encontró el vino solicitado para actualizar el stock.",
+        values=values,
     )
 
 

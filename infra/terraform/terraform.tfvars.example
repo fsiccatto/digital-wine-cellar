@@ -21,6 +21,15 @@ sheets_service_account_email = "your-sa@your-project.iam.gserviceaccount.com"
 # GEMINI_API_KEY, GOOGLE_SHEETS_CREDENTIALS_FILE y GCS_BUCKET_NAME los inyecta
 # Terraform (los dos primeros desde Secret Manager): no van aca.
 environment_variables = {
-  GOOGLE_SHEET_NAME    = "Mi_Cava_Virtual"
+  GOOGLE_SHEET_NAME = "Mi_Cava_Virtual"
+
+  # Opcional pero recomendado: el id que sale de la URL de la planilla,
+  # docs.google.com/spreadsheets/d/<ESTO>/edit
+  #
+  # Con el id la planilla se abre directo. Sin el hay que buscarla por nombre
+  # en Drive, que medido cuesta ~1,6s contra ~0,8s, y con min-instances=0 eso
+  # se paga en casi cada uso real de la app.
+  GOOGLE_SHEET_ID = "1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
+
   MAX_IMAGE_SIZE_BYTES = "10485760"
 }

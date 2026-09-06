@@ -90,7 +90,7 @@ class TestQueSeReintentaYQueNo:
             [sheets_service.INVENTORY_HEADERS, ["1"] * len(sheets_service.INVENTORY_HEADERS)],
         ]
 
-        filas = sheets_service._rows_from(worksheet)
+        filas = sheets_service._rows_from(worksheet, sheets_service.INVENTORY_HEADERS)
 
         assert len(filas) == 1
         assert worksheet.get_all_values.call_count == 2

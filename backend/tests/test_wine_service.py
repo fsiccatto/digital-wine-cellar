@@ -32,20 +32,48 @@ def test_create_wine_generates_code_and_system_date():
     assert persisted["precio_estimado"] == ""
 
 
-def test_consume_wine_uses_code_and_system_date():
-    rows = [{"id": "internal-uuid", "codigo_vino": "VINO-ABCD1234", "cantidad": "1"}]
+CONSUME_VALUES = [
+    ["id", "codigo_vino", "cantidad"],
+    ["internal-uuid", "VINO-ABCD1234", "1"],
+]
+
+
+def test_consume_wine_apunta_al_uuid_y_usa_la_fecha_del_sistema():
+    """La cata guarda el uuid del vino, no su codigo.
+
+    El codigo se puede repetir: si se borra un vino, el siguiente de la misma
+    bodega, uva y añada vuelve a tomar esa secuencia, y la cata vieja quedaria
+    colgada del vino nuevo. El uuid no se reusa nunca.
+    """
     with (
-        patch.object(wine_service, "get_inventory_rows", return_value=rows),
-        patch.object(wine_service, "update_inventory_quantity") as update_quantity,
+        patch.object(wine_service, "get_inventory_values", return_value=CONSUME_VALUES),
+        patch.object(wine_service, "update_inventory_quantity"),
         patch.object(wine_service, "append_cata_record") as append_cata,
     ):
         result = wine_service.consume_wine("VINO-ABCD1234", WineConsumeInput(puntuacion=5))
 
     assert result == {"status": "ok", "stock_restante": 0}
-    update_quantity.assert_called_once_with("VINO-ABCD1234", 0)
     cata = append_cata.call_args.args[0]
-    assert cata["vino_id"] == "VINO-ABCD1234"
+    assert cata["vino_id"] == "internal-uuid"
     datetime.fromisoformat(cata["fecha_consumo"])
+
+
+def test_consume_wine_no_relee_el_inventario_para_escribir():
+    """La planilla ya leida se le pasa a la escritura.
+
+    Sin esto se leia el inventario entero dos veces por descorche —una para
+    encontrar el vino y otra adentro de update_inventory_quantity para saber en
+    que fila cae— y cada viaje a Sheets cuesta ~0,35s.
+    """
+    with (
+        patch.object(wine_service, "get_inventory_values", return_value=CONSUME_VALUES) as leer,
+        patch.object(wine_service, "update_inventory_quantity") as update_quantity,
+        patch.object(wine_service, "append_cata_record"),
+    ):
+        wine_service.consume_wine("VINO-ABCD1234", WineConsumeInput(puntuacion=5))
+
+    assert leer.call_count == 1
+    update_quantity.assert_called_once_with("VINO-ABCD1234", 0, CONSUME_VALUES)
 
 def inventory_row(codigo="TRA-MAL-2020-0001", **overrides):
     row = {

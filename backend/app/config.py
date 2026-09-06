@@ -6,6 +6,9 @@ load_dotenv()
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GOOGLE_SHEETS_CREDENTIALS_FILE = os.getenv("GOOGLE_SHEETS_CREDENTIALS_FILE", "credentials.json")
 GOOGLE_SHEET_NAME = os.getenv("GOOGLE_SHEET_NAME", "Mi_Cava_Virtual")
+# Opcional. Con el id se abre la planilla directo; sin el hay que buscarla por
+# nombre en Drive, que medido cuesta el doble y se paga en cada arranque en frio.
+GOOGLE_SHEET_ID = os.getenv("GOOGLE_SHEET_ID", "")
 MAX_IMAGE_SIZE_BYTES = int(os.getenv("MAX_IMAGE_SIZE_BYTES", str(10 * 1024 * 1024)))
 
 # Fotos de etiqueta. Sin GCS_BUCKET_NAME la app funciona igual, sin fotos.

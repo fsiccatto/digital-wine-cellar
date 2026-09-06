@@ -21,6 +21,11 @@ Hay una alerta de facturación de USD 1/mes que **avisa pero no corta**.
 `GOOGLE_SHEET_NAME` elige la planilla: `Mi_Cava_Virtual_DEV` en local,
 `Mi_Cava_Virtual` en producción. Probar en local no toca producción.
 
+`GOOGLE_SHEET_ID` es opcional y conviene ponerlo: abrir por id cuesta la mitad
+que buscar por nombre en Drive (~0,8s contra ~1,6s medidos), y con
+`min-instances=0` eso se paga en casi cada uso. Sin él se sigue abriendo por
+nombre, así que no rompe nada si falta.
+
 Quien lee la planilla es el `client_email` del `credentials.json`, **no** la
 Service Account con la que corre Cloud Run. Son dos identidades distintas y es
 el error más fácil de cometer: compartir el Sheet con la cuenta equivocada deja
@@ -86,6 +91,42 @@ La foto la elige el usuario y el modelo lee lo que diga la etiqueta. Una
 etiqueta preparada puede pedirle párrafos enteros, que terminan en el Sheet. La
 defensa real es el **truncado a 200 caracteres** en el validador: un modelo
 puede desobedecer una instrucción del prompt, no puede escaparse de un `[:200]`.
+
+### Cada viaje a Sheets cuesta
+
+Medido contra la planilla real: una lectura de pestaña ~0,35s, una escritura de
+celda ~0,48s, abrir por nombre ~1,6s. Nada de esto es CPU, es latencia de red, y
+es de lo único que está hecho el tiempo de respuesta de la app.
+
+Por eso el código cuenta viajes, no líneas:
+
+- `consume_wine` lee el inventario **una vez** y le pasa esa lectura a la
+  escritura del stock. Antes lo leía de nuevo adentro para saber en qué fila
+  caía.
+- Sus dos escrituras (stock en `Inventario`, cata en `Historico_Catas`) van en
+  paralelo: son pestañas distintas y no se pisan. Descorchar pasó de ~2,2s a
+  ~0,95s entre las dos cosas.
+- El encabezado no se valida con una llamada aparte. La fila 1 ya viene en el
+  `get_all_values()` que igual se pide, así que se valida ahí.
+- Las dos pestañas se resuelven con un solo `worksheets()`.
+- `list_catas` corta antes de leer el inventario si no hay una sola cata.
+
+Si tocás algo de esto, medí. Es fácil agregar un viaje sin notarlo.
+
+### La cata apunta al vino por uuid
+
+En `Historico_Catas`, `vino_id` guarda el **`id` del vino** (uuid), no su
+`codigo_vino`. El código se puede repetir: si borrás un vino, el siguiente de la
+misma bodega, uva y añada vuelve a tomar esa secuencia, y las catas viejas
+quedarían colgadas del vino equivocado.
+
+Las filas anteriores al cambio guardan el código, así que el join indexa el
+inventario **por las dos claves** y las resuelve igual. No hace falta migrar
+para que funcione; si migrás, el código sigue andando.
+
+`CataRecord` expone las dos cosas: `vino_id` (el uuid) y `codigo_vino`, que sale
+del join. El frontend navega por `codigo_vino`, porque es lo que aceptan las
+rutas `/api/wines/{}`.
 
 ### Sheets devuelve 503 de vez en cuando
 
