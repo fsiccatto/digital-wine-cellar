@@ -99,6 +99,9 @@ class TestQueSeReintentaYQueNo:
         # Un 503 puede llegar con la fila ya escrita: reintentar cargaria el
         # vino dos veces.
         worksheet = Mock()
+        worksheet.title = "Inventario"
+        # Encabezado al dia: este test mira el reintento, no la reparacion.
+        worksheet.row_values.return_value = list(sheets_service.INVENTORY_HEADERS)
         worksheet.append_row.side_effect = api_error(503)
 
         with (

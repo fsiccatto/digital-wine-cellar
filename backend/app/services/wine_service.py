@@ -158,6 +158,9 @@ def consume_wine(codigo_vino: str, payload: WineConsumeInput):
         # se borra y se carga otro parecido, y ahi la cata vieja se colgaria del
         # vino equivocado. El uuid no se repite nunca.
         "vino_id": celda("id"),
+        # Copia legible, para poder leer la hoja sin cruzarla contra Inventario.
+        # No se lee nunca de vuelta: el join va por vino_id.
+        "codigo_vino": codigo_vino,
         "fecha_consumo": datetime.now().isoformat(timespec="seconds"),
         "puntuacion": payload.puntuacion,
         "notas_cata": payload.notas_cata,
@@ -211,6 +214,9 @@ def list_catas(codigo_vino: str | None = None) -> list[CataRecord]:
     catas = []
     for row in rows:
         wine = index.get(row.get("vino_id"))
+        # El `codigo_vino` de la fila es una copia para leer la hoja y puede
+        # estar vieja; el que sale por la API se resuelve por el join.
+        row = {key: value for key, value in row.items() if key != "codigo_vino"}
         try:
             catas.append(
                 CataRecord(
@@ -307,6 +313,7 @@ def add_cata(codigo_vino: str, payload: CataCreateInput) -> CataRecord:
         "id_cata": str(uuid.uuid4()),
         # El uuid del vino, igual que al descorchar. Ver `consume_wine`.
         "vino_id": wine.id,
+        "codigo_vino": wine.codigo_vino,
         "fecha_consumo": payload.fecha_consumo
         or datetime.now().isoformat(timespec="seconds"),
         "puntuacion": payload.puntuacion,
@@ -318,7 +325,6 @@ def add_cata(codigo_vino: str, payload: CataCreateInput) -> CataRecord:
     return CataRecord(
         **{key: "" if value is None else value for key, value in row.items()},
         vino_existe=True,
-        codigo_vino=wine.codigo_vino,
         bodega=wine.bodega,
         nombre_vino=wine.nombre_vino,
         anada=wine.anada,
@@ -337,6 +343,8 @@ def update_cata(id_cata: str, payload: CataUpdateInput) -> CataRecord:
 
     fusionada = {**row, **{k: ("" if v is None else v) for k, v in cambios.items()}}
     referencia = fusionada.get("vino_id")
+    # Igual que en `list_catas`: la copia de la hoja no decide.
+    fusionada.pop("codigo_vino", None)
     # Por uuid o por codigo, como en `list_catas`: una cata vieja sin migrar
     # tiene que seguir mostrando su vino despues de corregirla.
     wine = next(

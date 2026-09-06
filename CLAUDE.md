@@ -128,6 +128,20 @@ para que funcione; si migrás, el código sigue andando.
 del join. El frontend navega por `codigo_vino`, porque es lo que aceptan las
 rutas `/api/wines/{}`.
 
+La hoja tiene además una columna `codigo_vino`, que es **una copia para poder
+leerla a ojo, no una referencia**. Se escribe al crear la cata y queda
+congelada: si el vino se renombra, esa celda no se entera. El join la descarta a
+propósito y resuelve siempre por `vino_id`, así que lo que ve el usuario sale
+del inventario vivo. Refrescarla costaría una escritura por cata en cada
+edición de un vino, y no compra nada que se vea.
+
+**`append_row` escribe por posición.** Si la fila 1 quedó con un esquema
+anterior, cada valor cae una celda corrida y la fila entera queda mal — pasó al
+agregar `codigo_vino`. Como el encabezado se repara al *leer*, y descorchar
+escribe en `Historico_Catas` sin haberla leído, los dos `append_` verifican el
+encabezado antes de escribir. Cuesta una llamada la primera vez en el proceso, y
+nada si ya hubo una lectura de esa pestaña.
+
 ### Sheets devuelve 503 de vez en cuando
 
 Se reintenta hasta tres veces con backoff, pero **solo lo idempotente**:

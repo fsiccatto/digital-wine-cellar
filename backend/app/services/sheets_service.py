@@ -58,9 +58,14 @@ INVENTORY_HEADERS = [
     "codigo_vino",
 ]
 
+# `codigo_vino` va DESPUES de `vino_id` y es solo para poder leer la hoja a ojo:
+# la referencia de verdad es el uuid. Es un dato duplicado a proposito, y como
+# tal puede quedar viejo — el join del backend nunca lo usa para resolver el
+# vino, siempre va por `vino_id`.
 CATAS_HEADERS = [
     "id_cata",
     "vino_id",
+    "codigo_vino",
     "fecha_consumo",
     "puntuacion",
     "notas_cata",
@@ -78,6 +83,9 @@ CATAS_TAB = "Historico_Catas"
 
 _spreadsheet = None
 _worksheets: Dict[str, Any] = {}
+# Pestañas cuyo encabezado ya se verifico en este proceso. Ver `_ensure_headers`
+# y `_ensure_headers_before_append`.
+_headers_ok: set = set()
 
 
 def get_spreadsheet():
@@ -137,6 +145,8 @@ def _ensure_headers(worksheet, headers: List[str], first_row: List[str]):
     Recibe la fila ya leida en vez de pedirla: quien llama acaba de traer la
     pestaña entera y la fila 1 viene incluida.
     """
+    _headers_ok.add(worksheet.title)
+
     if first_row == headers:
         return
     if not first_row:
@@ -147,6 +157,24 @@ def _ensure_headers(worksheet, headers: List[str], first_row: List[str]):
     if worksheet.col_count < len(headers):
         worksheet.add_cols(len(headers) - worksheet.col_count)
     _retry(worksheet.update, [headers], f"A1:{rowcol_to_a1(1, len(headers))}")
+
+
+def _ensure_headers_before_append(worksheet, headers: List[str]):
+    """Garantiza el encabezado antes de agregar una fila.
+
+    `append_row` escribe POR POSICION, siguiendo el orden de `headers`. Si la
+    fila 1 del Sheet quedo con un esquema viejo —una columna menos, por
+    ejemplo— cada valor cae una celda corrida y la fila entera queda mal.
+
+    Hace falta porque el encabezado se repara al LEER (ver `_rows_from`), y hay
+    caminos que escriben sin haber leido antes esa pestaña: descorchar lee
+    Inventario y agrega en Historico_Catas sin tocarla. La primera vez en cada
+    proceso cuesta una llamada; despues, ninguna. Si ya hubo una lectura de esa
+    pestaña, sale gratis siempre.
+    """
+    if worksheet.title in _headers_ok:
+        return
+    _ensure_headers(worksheet, headers, _retry(worksheet.row_values, 1))
 
 
 def get_inventory_worksheet():
@@ -183,6 +211,7 @@ def get_catas_rows() -> List[Dict[str, Any]]:
 
 def append_inventory_row(row: Dict[str, Any]):
     worksheet = get_inventory_worksheet()
+    _ensure_headers_before_append(worksheet, INVENTORY_HEADERS)
     # Sin _retry a proposito: un 503 puede llegar con la fila ya agregada, y el
     # reintento cargaria el vino dos veces.
     worksheet.append_row([row.get(header, "") for header in INVENTORY_HEADERS])
@@ -320,6 +349,7 @@ def delete_inventory_row(codigo_vino: str):
 
 def append_cata_record(row: Dict[str, Any]):
     worksheet = get_catas_worksheet()
+    _ensure_headers_before_append(worksheet, CATAS_HEADERS)
     worksheet.append_row([row.get(header, "") for header in CATAS_HEADERS])
 
 

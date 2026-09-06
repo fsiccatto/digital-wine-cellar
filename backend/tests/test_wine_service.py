@@ -246,3 +246,79 @@ def test_list_catas_filters_by_wine_without_reading_inventory_when_empty():
         assert wine_service.list_catas("TRA-MAL-2020-0001") == []
 
     get_rows.assert_not_called()
+
+def test_la_copia_legible_no_decide_el_join():
+    """`codigo_vino` en la hoja de catas es un espejo, no una referencia.
+
+    Se escribe para poder leer la planilla a ojo, pero puede quedar viejo: si el
+    vino se renombra, o si alguien lo edita a mano, esa celda miente. El join
+    tiene que ignorarla y resolver siempre por `vino_id`, que es el uuid.
+    """
+    catas = [
+        {
+            "id_cata": "c1",
+            "vino_id": "uuid-real",
+            # La copia apunta a otro vino: no debe ganarle al uuid.
+            "codigo_vino": "CODIGO-VIEJO-0001",
+            "fecha_consumo": "2026-02-01T21:00:00",
+            "puntuacion": "4",
+            "notas_cata": "",
+            "maridaje": "",
+        }
+    ]
+    inventario = [
+        {
+            "id": "uuid-real",
+            "codigo_vino": "CODIGO-NUEVO-0002",
+            "bodega": "Trapiche",
+            "nombre_vino": "Fond de Cave",
+            "anada": "2020",
+        }
+    ]
+
+    with (
+        patch.object(wine_service, "get_catas_rows", return_value=catas),
+        patch.object(wine_service, "get_inventory_rows", return_value=inventario),
+    ):
+        resultado = wine_service.list_catas()
+
+    assert len(resultado) == 1
+    assert resultado[0].codigo_vino == "CODIGO-NUEVO-0002"
+    assert resultado[0].nombre_vino == "Fond de Cave"
+
+
+def test_una_cata_vieja_sin_migrar_sigue_encontrando_su_vino():
+    """Las filas previas al cambio guardan el codigo en `vino_id`.
+
+    El indice va por las dos claves justamente para que sigan andando sin
+    obligar a migrar la planilla.
+    """
+    catas = [
+        {
+            "id_cata": "c1",
+            "vino_id": "TRA-MAL-2020-0001",
+            "fecha_consumo": "2026-02-01T21:00:00",
+            "puntuacion": "4",
+            "notas_cata": "",
+            "maridaje": "",
+        }
+    ]
+    inventario = [
+        {
+            "id": "uuid-real",
+            "codigo_vino": "TRA-MAL-2020-0001",
+            "bodega": "Trapiche",
+            "nombre_vino": "Fond de Cave",
+            "anada": "2020",
+        }
+    ]
+
+    with (
+        patch.object(wine_service, "get_catas_rows", return_value=catas),
+        patch.object(wine_service, "get_inventory_rows", return_value=inventario),
+    ):
+        resultado = wine_service.list_catas("TRA-MAL-2020-0001")
+
+    assert len(resultado) == 1
+    assert resultado[0].vino_existe is True
+    assert resultado[0].codigo_vino == "TRA-MAL-2020-0001"
