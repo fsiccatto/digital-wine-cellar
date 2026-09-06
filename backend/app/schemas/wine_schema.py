@@ -20,6 +20,31 @@ def normalize_optional_text(value):
     return value or None
 
 
+def coerce_scanned_scalar(value):
+    """Lleva a texto lo que el modelo devolvio con otro tipo.
+
+    El prompt pide strings pero el modelo no esta obligado a obedecer: manda
+    `13.5` sin comillas, o `["Malbec", "Cabernet"]` cuando el vino es un corte.
+    Antes eso reventaba el pedido ENTERO con un ValidationError, y se perdian
+    los cinco campos que si habian salido bien.
+
+    Un dict no se aplana: no hay una forma obvia de volverlo una linea de
+    etiqueta, y `str(dict)` guardaria las llaves en el Sheet. Ese va a None,
+    que es el caso "no se pudo leer" que el formulario ya sabe completar.
+    """
+    if value is None or isinstance(value, str):
+        return value
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return str(value)
+    # Un corte que vuelve como lista se une con el mismo " & " que pide el prompt.
+    if isinstance(value, (list, tuple)):
+        partes = [str(x).strip() for x in value if x is not None and str(x).strip()]
+        return " & ".join(partes) or None
+    return None
+
+
 def normalize_alcohol(value):
     """Deja la graduacion como un numero con punto y sin el simbolo: "13.5".
 
@@ -69,10 +94,34 @@ def truncate_scanned_text(value):
     y eso termina escrito en el Sheet. Ningun campo real de una etiqueta pasa
     de 200 caracteres.
     """
-    value = normalize_optional_text(value)
+    value = normalize_optional_text(coerce_scanned_scalar(value))
     if isinstance(value, str) and len(value) > MAX_SCAN_TEXT_LENGTH:
         return value[:MAX_SCAN_TEXT_LENGTH]
     return value
+
+
+def coerce_scanned_year(value):
+    """Una añada que no se entiende vale None, no un pedido roto.
+
+    `anada` es el campo mas facil de que salga raro: un espumante sin añada
+    devuelve "N/V", y un 2021 mal leido puede salir 2027. Como el resto del
+    escaneo suele estar bien, tirar ValidationError acá costaba los otros cinco
+    campos y obligaba a cargar la botella entera a mano.
+
+    Ojo que esto es solo para el escaneo: `WineCreateInput` sigue exigiendo una
+    añada valida, porque ahi el dato lo confirmo el usuario.
+    """
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
+    if isinstance(value, bool):
+        return None
+    try:
+        anada = int(value)
+    except (TypeError, ValueError):
+        return None
+    return anada if 1900 <= anada <= CURRENT_YEAR else None
 
 
 class WineScanResult(BaseModel):
@@ -85,9 +134,15 @@ class WineScanResult(BaseModel):
     _normalize_text = field_validator(
         "bodega", "nombre_vino", "varietal", "region", mode="before"
     )(truncate_scanned_text)
-    _normalize_alcohol = field_validator("alcohol", mode="before")(normalize_alcohol)
+    _normalize_alcohol = field_validator("alcohol", mode="before")(
+        lambda value: normalize_alcohol(coerce_scanned_scalar(value))
+    )
 
-    anada: Optional[int] = Field(default=None, ge=1900, le=CURRENT_YEAR)
+    # Sin ge/le: el rango lo aplica `coerce_scanned_year`, que en vez de
+    # rechazar devuelve None. Ver el docstring de esa funcion.
+    anada: Optional[int] = None
+
+    _normalize_anada = field_validator("anada", mode="before")(coerce_scanned_year)
 
 
 class WineCreateInput(BaseModel):
