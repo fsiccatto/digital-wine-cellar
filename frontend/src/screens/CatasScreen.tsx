@@ -233,10 +233,10 @@ function NotesSheet({
         </button>
         {/* La correccion vive en la ficha del vino, junto al resto de sus catas;
             duplicar el formulario aca serian dos lugares que mantener. */}
-        {cata.vino_existe && (
+        {cata.vino_existe && cata.codigo_vino && (
           <button
             type="button"
-            onClick={() => onSelect(cata.vino_id)}
+            onClick={() => onSelect(cata.codigo_vino!)}
             className="h-13 shrink-0 rounded-xl border border-borde-claro px-5 text-[14px] font-semibold text-oro"
           >
             Ver el vino

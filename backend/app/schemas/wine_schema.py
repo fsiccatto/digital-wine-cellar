@@ -326,6 +326,9 @@ class CataRecord(BaseModel):
     maridaje: Optional[str] = None
 
     # Datos del join contra el inventario.
+    # `vino_id` es el uuid del vino; el codigo legible sale de aca, y es por el
+    # que navega el frontend porque es lo que aceptan las rutas /api/wines/{}.
+    codigo_vino: Optional[str] = None
     bodega: Optional[str] = None
     nombre_vino: Optional[str] = None
     anada: Optional[int] = None

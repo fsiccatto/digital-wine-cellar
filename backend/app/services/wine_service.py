@@ -1,5 +1,6 @@
 import logging
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from pydantic import ValidationError
@@ -21,6 +22,7 @@ from app.services.sheets_service import (
     delete_inventory_row,
     get_catas_rows,
     get_inventory_rows,
+    get_inventory_values,
     update_cata_row,
     update_inventory_photo,
     update_inventory_quantity,
@@ -114,26 +116,63 @@ def create_wine(payload: WineCreateInput) -> WineRecord:
 
 
 def consume_wine(codigo_vino: str, payload: WineConsumeInput):
-    rows = get_inventory_rows()
-    wine = next((item for item in rows if item.get("codigo_vino") == codigo_vino), None)
-    if wine is None:
+    """Descuenta una botella y registra la cata.
+
+    Descorchar medido tardaba ~2,2s, y casi todo eran viajes a Sheets: se leia
+    el inventario entero DOS veces (una aca y otra adentro de la escritura, para
+    saber en que fila cae) y despues se escribia dos veces en serie.
+
+    Ahora se lee una sola vez y esa lectura se le pasa a la escritura. Las dos
+    escrituras van en paralelo porque caen en pestañas distintas —el stock en
+    Inventario, la cata en Historico_Catas— asi que no se pisan.
+    """
+    values = get_inventory_values()
+    if len(values) <= 1:
         raise ValueError("No se encontró el vino solicitado.")
 
-    current_quantity = int(wine.get("cantidad") or 0)
+    headers = values[0]
+    fila = next(
+        (
+            row
+            for row in values[1:]
+            if len(row) > headers.index("codigo_vino")
+            and row[headers.index("codigo_vino")] == codigo_vino
+        ),
+        None,
+    )
+    if fila is None:
+        raise ValueError("No se encontró el vino solicitado.")
+
+    def celda(columna: str) -> str:
+        indice = headers.index(columna)
+        return fila[indice] if indice < len(fila) else ""
+
+    current_quantity = int(celda("cantidad") or 0)
     if current_quantity <= 0:
         raise ValueError("No hay stock disponible para consumir.")
 
     updated_quantity = current_quantity - 1
-    update_inventory_quantity(codigo_vino, updated_quantity)
-
-    append_cata_record({
+    cata = {
         "id_cata": str(uuid.uuid4()),
-        "vino_id": codigo_vino,
+        # El uuid del vino, no su codigo: el codigo se puede reusar si el vino
+        # se borra y se carga otro parecido, y ahi la cata vieja se colgaria del
+        # vino equivocado. El uuid no se repite nunca.
+        "vino_id": celda("id"),
         "fecha_consumo": datetime.now().isoformat(timespec="seconds"),
         "puntuacion": payload.puntuacion,
         "notas_cata": payload.notas_cata,
         "maridaje": payload.maridaje,
-    })
+    }
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        escrituras = [
+            pool.submit(update_inventory_quantity, codigo_vino, updated_quantity, values),
+            pool.submit(append_cata_record, cata),
+        ]
+        # `result()` re-lanza lo que haya fallado, asi que un error de Sheets
+        # sigue llegando como error y no se traga en el hilo.
+        for escritura in escrituras:
+            escritura.result()
 
     return {"status": "ok", "stock_restante": updated_quantity}
 
@@ -146,16 +185,28 @@ def list_catas(codigo_vino: str | None = None) -> list[CataRecord]:
     foto — trabajo tirado acá.
     """
     rows = get_catas_rows()
-    if codigo_vino is not None:
-        rows = [row for row in rows if row.get("vino_id") == codigo_vino]
+    # Antes de tocar el inventario: sin una sola cata no hay nada que unir, y
+    # esa lectura de mas cuesta ~0,35s contra Sheets.
     if not rows:
         return []
 
-    index = {
-        row.get("codigo_vino"): row
-        for row in get_inventory_rows()
-        if row.get("codigo_vino")
-    }
+    # El indice va por las dos claves a proposito. Las catas nuevas guardan el
+    # uuid del vino; las viejas guardan su codigo, y tienen que seguir
+    # encontrando su vino sin obligar a migrar la planilla.
+    index = {}
+    for wine_row in get_inventory_rows():
+        for clave in (wine_row.get("id"), wine_row.get("codigo_vino")):
+            if clave:
+                index[clave] = wine_row
+
+    if codigo_vino is not None:
+        objetivo = index.get(codigo_vino)
+        claves = {codigo_vino}
+        if objetivo and objetivo.get("id"):
+            claves.add(objetivo["id"])
+        rows = [row for row in rows if row.get("vino_id") in claves]
+        if not rows:
+            return []
 
     catas = []
     for row in rows:
@@ -165,6 +216,7 @@ def list_catas(codigo_vino: str | None = None) -> list[CataRecord]:
                 CataRecord(
                     **row,
                     vino_existe=wine is not None,
+                    codigo_vino=wine.get("codigo_vino") if wine else None,
                     bodega=wine.get("bodega") if wine else None,
                     nombre_vino=wine.get("nombre_vino") if wine else None,
                     anada=wine.get("anada") if wine else None,
@@ -253,7 +305,8 @@ def add_cata(codigo_vino: str, payload: CataCreateInput) -> CataRecord:
 
     row = {
         "id_cata": str(uuid.uuid4()),
-        "vino_id": codigo_vino,
+        # El uuid del vino, igual que al descorchar. Ver `consume_wine`.
+        "vino_id": wine.id,
         "fecha_consumo": payload.fecha_consumo
         or datetime.now().isoformat(timespec="seconds"),
         "puntuacion": payload.puntuacion,
@@ -265,6 +318,7 @@ def add_cata(codigo_vino: str, payload: CataCreateInput) -> CataRecord:
     return CataRecord(
         **{key: "" if value is None else value for key, value in row.items()},
         vino_existe=True,
+        codigo_vino=wine.codigo_vino,
         bodega=wine.bodega,
         nombre_vino=wine.nombre_vino,
         anada=wine.anada,
@@ -282,17 +336,21 @@ def update_cata(id_cata: str, payload: CataUpdateInput) -> CataRecord:
     )
 
     fusionada = {**row, **{k: ("" if v is None else v) for k, v in cambios.items()}}
+    referencia = fusionada.get("vino_id")
+    # Por uuid o por codigo, como en `list_catas`: una cata vieja sin migrar
+    # tiene que seguir mostrando su vino despues de corregirla.
     wine = next(
         (
             item
             for item in get_inventory_rows()
-            if item.get("codigo_vino") == fusionada.get("vino_id")
+            if referencia in (item.get("id"), item.get("codigo_vino"))
         ),
         None,
     )
     return CataRecord(
         **fusionada,
         vino_existe=wine is not None,
+        codigo_vino=wine.get("codigo_vino") if wine else None,
         bodega=wine.get("bodega") if wine else None,
         nombre_vino=wine.get("nombre_vino") if wine else None,
         anada=wine.get("anada") if wine else None,

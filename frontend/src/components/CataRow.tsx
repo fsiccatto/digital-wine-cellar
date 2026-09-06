@@ -53,6 +53,7 @@ export function CataRow({
           <span className="cifra truncate font-serif text-[15px] leading-[1.15] font-semibold text-tenue-400">
             {cata.vino_id}
           </span>
+
         )}
 
         <div className="flex items-center gap-[6px]">
@@ -96,8 +97,14 @@ export function CataRow({
         <button type="button" onClick={() => onOpen(cata)} className={shell}>
           {body}
         </button>
-      ) : cata.vino_existe ? (
-        <button type="button" onClick={() => onSelect(cata.vino_id)} className={shell}>
+      ) : cata.vino_existe && cata.codigo_vino ? (
+        // Por el codigo y no por `vino_id`: desde que la cata guarda el uuid
+        // del vino, `vino_id` ya no es lo que aceptan las rutas de la API.
+        <button
+          type="button"
+          onClick={() => onSelect(cata.codigo_vino!)}
+          className={shell}
+        >
           {body}
         </button>
       ) : (

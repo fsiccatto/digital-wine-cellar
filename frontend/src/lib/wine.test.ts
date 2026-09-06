@@ -197,7 +197,8 @@ describe('groupByMonth', () => {
   function cata(fecha: string, id = fecha): CataRecord {
     return {
       id_cata: id,
-      vino_id: 'TRA-MAL-2020-0001',
+      vino_id: 'a1b2c3d4-0000-4000-8000-000000000001',
+      codigo_vino: 'TRA-MAL-2020-0001',
       fecha_consumo: fecha,
       puntuacion: 4,
       notas_cata: null,
@@ -231,7 +232,8 @@ describe('averageScore', () => {
   function cata(puntuacion: number | null): CataRecord {
     return {
       id_cata: String(Math.random()),
-      vino_id: 'TRA-MAL-2020-0001',
+      vino_id: 'a1b2c3d4-0000-4000-8000-000000000001',
+      codigo_vino: 'TRA-MAL-2020-0001',
       fecha_consumo: '2026-02-01T21:00:00',
       puntuacion,
       notas_cata: null,
@@ -346,7 +348,8 @@ describe('urgentes', () => {
 describe('matchesCataSearch', () => {
   const cata = (overrides: Partial<CataRecord> = {}): CataRecord => ({
     id_cata: 'c1',
-    vino_id: 'TRA-MAL-2020-0001',
+    vino_id: 'a1b2c3d4-0000-4000-8000-000000000001',
+    codigo_vino: 'TRA-MAL-2020-0001',
     fecha_consumo: '2026-08-01T21:00:00',
     puntuacion: 4,
     notas_cata: 'Ciruela y violetas',
@@ -374,13 +377,20 @@ describe('matchesCataSearch', () => {
     expect(matchesCataSearch(cata({ maridaje: 'Lomo al Malbéc' }), 'malbec')).toBe(true)
   })
 
-  it('a una cata huerfana la encuentra por su codigo', () => {
-    const huerfana = cata({
+  it('a una cata huerfana la encuentra por su referencia al vino', () => {
+    // Sin vino no queda ni bodega ni nombre: lo unico por lo que se la puede
+    // buscar es la referencia. Una cata vieja guarda ahi el codigo y una nueva
+    // el uuid, asi que las dos tienen que servir.
+    const sinVino = {
       bodega: null, nombre_vino: null, anada: null, maridaje: null,
       notas_cata: null, vino_existe: false,
-    })
-    expect(matchesCataSearch(huerfana, 'TRA-MAL')).toBe(true)
-    expect(matchesCataSearch(huerfana, 'trapiche')).toBe(false)
+    }
+    const vieja = cata({ ...sinVino, vino_id: 'TRA-MAL-2020-0001', codigo_vino: null })
+    expect(matchesCataSearch(vieja, 'TRA-MAL')).toBe(true)
+    expect(matchesCataSearch(vieja, 'trapiche')).toBe(false)
+
+    const nueva = cata({ ...sinVino, vino_id: 'a1b2c3d4-0000-4000-8000-000000000001' })
+    expect(matchesCataSearch(nueva, 'a1b2c3d4')).toBe(true)
   })
 
   it('no inventa coincidencias', () => {

@@ -65,6 +65,9 @@ export interface WineUpdateInput {
 
 export interface CataRecord {
   id_cata: string
+  /** El uuid del vino catado. NO sirve para pedir /api/wines/{}: para eso va
+   *  `codigo_vino`, que sale del join. Las catas viejas todavia guardan aca el
+   *  codigo, y el backend las resuelve igual. */
   vino_id: string
   fecha_consumo: string
   /** Una fila cargada a mano en el Sheet puede no tener nota. */
@@ -72,6 +75,7 @@ export interface CataRecord {
   notas_cata: string | null
   maridaje: string | null
   /** Del join contra el inventario; null si el vino ya no existe. */
+  codigo_vino: string | null
   bodega: string | null
   nombre_vino: string | null
   anada: number | null

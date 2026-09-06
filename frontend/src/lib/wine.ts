@@ -465,8 +465,9 @@ export function urgentes(wines: WineRecord[], hoy = new Date()): WineRecord[] {
  * recuerda de verdad una cata: no por el nombre del vino sino por "aquel que
  * tomamos con cordero".
  *
- * Una cata huerfana no tiene bodega ni nombre; queda su codigo, que es lo unico
- * por lo que se la puede encontrar.
+ * Una cata huerfana no tiene bodega ni nombre. Le queda su referencia al vino,
+ * que es lo unico por lo que se la puede encontrar: el uuid en las nuevas, el
+ * codigo en las que todavia no se migraron. Se miran las dos.
  */
 export function matchesCataSearch(cata: CataRecord, term: string): boolean {
   const q = normalize(term)
@@ -476,6 +477,7 @@ export function matchesCataSearch(cata: CataRecord, term: string): boolean {
     cata.bodega,
     cata.maridaje,
     cata.notas_cata,
+    cata.codigo_vino,
     cata.vino_id,
     cata.anada === null ? '' : String(cata.anada),
   ].some((field) => normalize(field ?? '').includes(q))
