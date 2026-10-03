@@ -12,11 +12,9 @@ import { useBackToClose } from '../lib/useBackToClose'
 export function Sheet({
   onClose,
   children,
-  className = '',
 }: {
   onClose: () => void
   children: React.ReactNode
-  className?: string
 }) {
   // El gesto de "atras" cierra la hoja en vez de salir de la app. Va aca para
   // que lo hereden las cinco hojas de una sola vez.
@@ -38,7 +36,7 @@ export function Sheet({
       <div
         // El tap dentro del panel no debe cerrar: solo el velo cierra.
         onClick={(event) => event.stopPropagation()}
-        className={`hoja-cata w-full max-w-[430px] rounded-t-2xl border-t border-borde bg-madera-600 px-5 pt-6 pb-[30px] shadow-[0_-8px_30px_rgba(70,52,30,0.18)] ${className}`}
+        className="hoja-cata sin-barra max-h-[85dvh] w-full max-w-[430px] overflow-y-auto rounded-t-2xl border-t border-borde bg-madera-600 px-5 pt-6 pb-[calc(30px+env(safe-area-inset-bottom))] shadow-[0_-8px_30px_rgba(70,52,30,0.18)]"
       >
         {children}
       </div>

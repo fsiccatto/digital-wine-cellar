@@ -1,5 +1,5 @@
 import type { CataRecord } from '../lib/types'
-import { formatDayMonth, formatYear } from '../lib/wine'
+import { formatDate, formatDayMonth, formatYear } from '../lib/wine'
 import { formatPuntuacion } from '../lib/puntuacion'
 import { InfoIcon, PairingIcon, RatingGlassIcon } from './icons'
 
@@ -38,48 +38,35 @@ export function CataRow({
 
       <div className="flex min-w-0 grow flex-col gap-px">
         <div className="flex items-baseline gap-[5px]">
-          <span className="truncate text-[8px] font-bold tracking-[0.12em] text-tenue-500 uppercase">
+          <span className="truncate text-[10px] font-bold tracking-[0.12em] text-tenue-500 uppercase">
             {cata.vino_existe ? cata.bodega : 'Vino eliminado'}
           </span>
-          {day && <span className="cifra text-[8px] font-medium text-tenue-600">{day}</span>}
+          {day && <span className="cifra text-[10.5px] font-medium text-tenue-600">{day}</span>}
         </div>
 
-        {cata.vino_existe ? (
-          <span className="truncate font-serif text-[15px] leading-[1.15] font-semibold text-crema">
-            {cata.nombre_vino}
-          </span>
-        ) : (
-          // Sin vino no hay nombre que mostrar: queda el codigo crudo.
-          <span className="cifra truncate font-serif text-[15px] leading-[1.15] font-semibold text-tenue-400">
-            {cata.vino_id}
-          </span>
-
-        )}
+        <span
+          className={`truncate font-serif text-[15px] leading-[1.15] font-semibold ${
+            cata.vino_existe ? 'text-crema' : 'cifra text-tenue-400'
+          }`}
+        >
+          {cata.vino_existe ? cata.nombre_vino : (cata.codigo_vino ?? 'Sin datos del vino')}
+        </span>
 
         <div className="flex items-center gap-[6px]">
-          {year && <span className="cifra shrink-0 text-[9.5px] text-tenue-400">{year}</span>}
+          {year && <span className="cifra shrink-0 text-[10.5px] text-tenue-400">{year}</span>}
           {cata.maridaje && (
             <>
               {year && (
                 <div className="h-[2.5px] w-[2.5px] shrink-0 rounded-full bg-borde-claro" />
               )}
               <PairingIcon size={10} className="shrink-0 text-tenue-600" />
-              <span className="truncate text-[9.5px] text-tenue-600">{cata.maridaje}</span>
+              <span className="truncate text-[10.5px] text-tenue-600">{cata.maridaje}</span>
             </>
           )}
         </div>
       </div>
 
-      {cata.puntuacion !== null && (
-        <span
-          className={`cifra flex shrink-0 items-center gap-[4px] font-serif text-[16px] leading-none font-semibold ${
-            cata.vino_existe ? 'text-oro' : 'text-tenue-600'
-          }`}
-        >
-          <RatingGlassIcon size={13} filled />
-          {formatPuntuacion(cata.puntuacion)}
-        </span>
-      )}
+      <Puntaje cata={cata} />
     </>
   )
 
@@ -108,21 +95,80 @@ export function CataRow({
           {body}
         </button>
       ) : (
-        // Un vino borrado no se puede abrir, asi que no es un boton: un boton
-        // que no hace nada es justo el bug que estamos arreglando.
+        // Un vino borrado no se puede abrir, asi que no es un boton.
         <div className={shell}>{body}</div>
       )}
 
-      {cata.notas_cata && onNotes && (
-        <button
-          type="button"
-          onClick={() => onNotes(cata)}
-          aria-label="Ver notas de la cata"
-          className="flex w-[34px] shrink-0 items-center justify-center rounded-[7px] border border-borde bg-madera-700 text-tenue-500"
-        >
-          <InfoIcon size={13} />
-        </button>
-      )}
+      {/* El hueco queda aunque no haya notas: si no, la columna del puntaje
+          se corre fila por fila. */}
+      {onNotes &&
+        (cata.notas_cata ? (
+          <button
+            type="button"
+            onClick={() => onNotes(cata)}
+            aria-label="Ver notas de la cata"
+            className="flex w-[34px] shrink-0 items-center justify-center rounded-[7px] border border-borde bg-madera-700 text-tenue-500"
+          >
+            <InfoIcon size={13} />
+          </button>
+        ) : (
+          <div aria-hidden className="w-[34px] shrink-0" />
+        ))}
     </div>
+  )
+}
+
+/**
+ * La cata dentro de la ficha de su vino: bodega, nombre y añada ya estan
+ * arriba, asi que la fila cuenta lo propio de esa noche.
+ */
+export function CataRowCompacta({
+  cata,
+  onOpen,
+}: {
+  cata: CataRecord
+  onOpen: (cata: CataRecord) => void
+}) {
+  const fecha = formatDate(cata.fecha_consumo)
+
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(cata)}
+      className="tarjeta flex w-full items-center gap-[12px] rounded-[7px] border border-borde bg-madera-700 px-[13px] py-[10px] text-left"
+    >
+      <div className="flex min-w-0 grow flex-col gap-[3px]">
+        <span className="cifra text-[11px] font-semibold tracking-[0.04em] text-tenue-500">
+          {fecha ?? 'Sin fecha'}
+        </span>
+        {cata.notas_cata && (
+          <span className="line-clamp-2 font-serif text-[14.5px] leading-snug text-crema-300 italic">
+            {cata.notas_cata}
+          </span>
+        )}
+        {cata.maridaje && (
+          <span className="flex min-w-0 items-center gap-[5px] text-[11px] text-tenue-600">
+            <PairingIcon size={11} className="shrink-0" />
+            <span className="truncate">{cata.maridaje}</span>
+          </span>
+        )}
+      </div>
+
+      <Puntaje cata={cata} />
+    </button>
+  )
+}
+
+function Puntaje({ cata }: { cata: CataRecord }) {
+  if (cata.puntuacion === null) return null
+  return (
+    <span
+      className={`cifra flex shrink-0 items-center gap-[4px] font-serif text-[16px] leading-none font-semibold ${
+        cata.vino_existe ? 'text-oro' : 'text-tenue-600'
+      }`}
+    >
+      <RatingGlassIcon size={13} filled />
+      {formatPuntuacion(cata.puntuacion)}
+    </span>
   )
 }

@@ -76,21 +76,22 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
   // Sobre TODA la cava y no sobre lo visible: el destacado avisa lo que hay,
   // no lo que quedo despues de filtrar.
   const piden = useMemo(() => urgentes(wines), [wines])
+  const botellasPiden = piden.reduce((total, wine) => total + wine.cantidad, 0)
 
   // El esqueleto solo cuando no hay nada que mostrar. Al recargar con la lista
   // ya cargada, la lista se queda y el aviso lo da el disco de arriba.
   const cargandoVacio = loading && wines.length === 0
-  const { tiron, alcanzo } = usePullToRefresh(onRetry, !loading)
+  const { tiron, alcanzo } = usePullToRefresh(onRetry, !loading && !filtrando)
 
   return (
     <div className="vetas relative flex min-h-full flex-col">
-      <IndicadorRecarga tiron={tiron} alcanzo={alcanzo} refrescando={loading} />
+      <IndicadorRecarga tiron={tiron} alcanzo={alcanzo} refrescando={loading && !cargandoVacio} />
 
       <header className="relative px-5 pt-8 pb-3">
         <div className="flex items-end justify-between gap-4">
           <div className="flex items-end gap-[7px]">
             <div className="flex flex-col gap-[2px]">
-              <span className="text-[8.5px] font-bold tracking-[0.24em] text-tenue-500 uppercase">
+              <span className="text-[10px] font-bold tracking-[0.24em] text-tenue-500 uppercase">
                 Mi Cava
               </span>
               <h1 className="font-serif text-[24px] leading-none font-semibold text-crema">
@@ -109,14 +110,14 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
                 <span className="cifra font-serif text-[19px] leading-none font-semibold text-oro">
                   {totalBottles(visible)}
                 </span>
-                <span className="text-[8.5px] font-semibold tracking-[0.14em] text-tenue-500 uppercase">
+                <span className="text-[10px] font-semibold tracking-[0.14em] text-tenue-500 uppercase">
                   bot.
                 </span>
               </div>
             )}
             {/* Solo si hay precios cargados: un "$ 0" no dice nada. */}
             {valor > 0 && (
-              <span className="cifra text-[9px] font-medium text-tenue-600">
+              <span className="cifra text-[10.5px] font-medium text-tenue-600">
                 {formatMoney(valor)}
               </span>
             )}
@@ -125,14 +126,14 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
       </header>
 
       <div className="relative flex gap-[7px] px-5 pb-[10px]">
-        <label className="flex h-[34px] grow items-center gap-2 rounded-lg border border-borde bg-madera-700 px-[11px]">
+        <label className="flex h-[38px] grow items-center gap-2 rounded-lg border border-borde bg-madera-700 px-[11px]">
           <SearchIcon size={12} className="shrink-0 text-tenue-600" />
           <input
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Buscar"
-            className="w-full bg-transparent text-[11.5px] placeholder:text-tenue-600 focus:outline-none"
+            className="w-full bg-transparent text-base placeholder:text-[13px] placeholder:text-tenue-600 focus:outline-none"
           />
           {/* Borrar a mano un campo de busqueda en el telefono es tedioso, y es
               lo que hay que hacer para volver a ver la cava entera. */}
@@ -162,7 +163,7 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
           {/* Un filtro puesto se tiene que ver desde la cava: si no, la lista
               queda corta y no se sabe por que. */}
           {puestos > 0 && (
-            <span className="cifra absolute -top-[5px] -right-[5px] flex h-[15px] min-w-[15px] items-center justify-center rounded-full border border-madera-900 bg-crema px-[3px] text-[8.5px] font-bold text-madera-700">
+            <span className="cifra absolute -top-[5px] -right-[5px] flex h-[15px] min-w-[15px] items-center justify-center rounded-full border border-madera-900 bg-crema px-[3px] text-[10px] font-bold text-madera-700">
               {puestos}
             </span>
           )}
@@ -189,7 +190,7 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
         </div>
       )}
 
-      <div className="relative flex grow flex-col gap-4 px-5 pb-27">
+      <div className="relative flex grow flex-col gap-4 px-5 pb-barra">
         {cargandoVacio && <ListaSkeleton aviso="Abriendo la cava…" estante />}
 
         {error && !cargandoVacio && (
@@ -245,9 +246,9 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
             <GlassIcon size={16} className="shrink-0 text-oro" />
             <span className="flex min-w-0 grow flex-col gap-[1px]">
               <span className="text-[12.5px] font-semibold text-oro">
-                {piden.length === 1
+                {botellasPiden === 1
                   ? 'Una botella pide turno'
-                  : `${piden.length} botellas piden turno`}
+                  : `${botellasPiden} botellas piden turno`}
               </span>
               <span className="truncate text-[10.5px] text-tenue-500">
                 {piden
@@ -268,11 +269,11 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
             style={{ animationDelay: `${Math.min(index, 6) * 70}ms` }}
           >
             <div className="flex items-center gap-2 pb-[7px]">
-              <span className="text-[8px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+              <span className="text-[10px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
                 {shelf.label}
               </span>
               <div className="h-px grow bg-borde" />
-              <span className="text-[8px] font-medium text-tenue-600">
+              <span className="text-[10px] font-medium text-tenue-600">
                 {shelf.bottles} {shelf.bottles === 1 ? 'botella' : 'botellas'}
               </span>
             </div>
@@ -308,7 +309,7 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
 
 /** Los estados de guarda, con el nombre que usa quien mira la cava. */
 const GUARDAS: { estado: FiltroGuarda; label: string; detalle: string }[] = [
-  { estado: 'urgente', label: 'Piden turno', detalle: 'Se les esta yendo la ventana' },
+  { estado: 'urgente', label: 'Piden turno', detalle: 'Se les está yendo la ventana' },
   { estado: 'listo', label: 'En su punto', detalle: 'Se pueden abrir ya' },
   { estado: 'pasando', label: 'Tomalos este año', detalle: 'Les queda poca ventana' },
   { estado: 'joven', label: 'Para guardar', detalle: 'Todavía les falta' },
@@ -333,7 +334,7 @@ function FiltersSheet({
   return (
     <Sheet onClose={onClose}>
       <div className="mb-5 flex flex-col gap-1">
-        <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+        <span className="text-[10.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
           Filtros
         </span>
         <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
@@ -358,7 +359,7 @@ function FiltersSheet({
           <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
             Guarda
           </span>
-          <span className="text-[9.5px] text-tenue-600">estimada por varietal</span>
+          <span className="text-[10.5px] text-tenue-600">estimada por varietal</span>
         </div>
         <div className="flex flex-col gap-[6px]">
           {GUARDAS.map((item) => (
@@ -461,8 +462,8 @@ function Chip({
       <span
         className={
           active
-            ? 'block rounded-full bg-borra-600 px-[10px] py-[3px] text-[9px] font-bold text-madera-700'
-            : 'block rounded-full border border-borde bg-madera-700 px-[10px] py-[3px] text-[9px] font-medium text-tenue-400'
+            ? 'block rounded-full bg-borra-600 px-[10px] py-[3px] text-[10.5px] font-bold text-madera-700'
+            : 'block rounded-full border border-borde bg-madera-700 px-[10px] py-[3px] text-[10.5px] font-medium text-tenue-400'
         }
       >
         {children}
@@ -505,16 +506,16 @@ function WineRow({
 
       <div className="flex min-w-0 grow flex-col gap-px">
         <div className="flex items-baseline gap-[5px]">
-          <span className="truncate text-[8px] font-bold tracking-[0.12em] text-tenue-500 uppercase">
+          <span className="truncate text-[10px] font-bold tracking-[0.12em] text-tenue-500 uppercase">
             {wine.bodega}
           </span>
           {year && (
-            <span className="cifra text-[8px] font-medium text-tenue-600">{year}</span>
+            <span className="cifra text-[10px] font-medium text-tenue-600">{year}</span>
           )}
           {/* Solo lo que urge lleva marca: si todo avisa, nada avisa. */}
           {urge && (
             <span
-              className="text-[8px] font-bold text-oro"
+              className="text-[10px] font-bold text-oro"
               title={guarda?.detalle}
               aria-label={guarda?.detalle}
             >
@@ -530,11 +531,11 @@ function WineRow({
           {wine.nombre_vino}
         </span>
         <div className="flex items-center gap-[6px]">
-          <span className="shrink-0 text-[9.5px] text-tenue-400">{wine.varietal}</span>
+          <span className="shrink-0 text-[10.5px] text-tenue-400">{wine.varietal}</span>
           {wine.ubicacion && (
             <>
               <div className="h-[2.5px] w-[2.5px] shrink-0 rounded-full bg-borde-claro" />
-              <span className="truncate text-[9.5px] text-tenue-600">
+              <span className="truncate text-[10.5px] text-tenue-600">
                 {wine.ubicacion}
               </span>
             </>

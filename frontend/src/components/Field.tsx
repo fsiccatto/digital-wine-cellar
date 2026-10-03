@@ -10,7 +10,7 @@ export function SectionLabel({
 }) {
   return (
     <div className={`flex items-center gap-[11px] ${className}`}>
-      <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+      <span className="text-[10.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
         {children}
       </span>
       <div className="h-px grow bg-gradient-to-r from-borde to-transparent" />
@@ -49,17 +49,22 @@ export function Field({
   inputMode,
   invalid,
   hint,
+  opcional,
+  prefijo,
 }: {
   label: string
   value: string
   read?: boolean
+  /** Vacio no pide completarse, y lo dice. */
+  opcional?: boolean
+  prefijo?: string
   onChange: (value: string) => void
   placeholder?: string
   inputMode?: 'numeric' | 'decimal'
   invalid?: boolean
   hint?: string
 }) {
-  const missing = !read && value.trim() === ''
+  const missing = !read && !opcional && value.trim() === ''
   // Un id propio por instancia: dos campos con el mismo id rompen la relacion
   // con el rotulo y el foco se va siempre al primero.
   const id = useId()
@@ -70,28 +75,36 @@ export function Field({
       <div className="flex items-center gap-[7px]">
         <FieldLabel htmlFor={id}>{label}</FieldLabel>
         {read && <CheckIcon size={12} className="text-vina" />}
+        {opcional && (
+          <span className="text-[10.5px] font-medium text-tenue-700">· opcional</span>
+        )}
         {missing && (
-          <span className="text-[9.5px] font-bold tracking-[0.06em] text-oro">
+          <span className="text-[10.5px] font-bold tracking-[0.06em] text-oro">
             · completar
           </span>
         )}
       </div>
-      <input
-        id={id}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        inputMode={inputMode}
-        aria-invalid={invalid || undefined}
-        aria-describedby={invalid && hint ? idPista : undefined}
-        className={`h-[46px] rounded-[9px] border bg-madera-950/55 px-[14px] text-[15px] font-medium placeholder:font-normal placeholder:text-tenue-700 focus:outline-none ${
+      <div
+        className={`flex h-[46px] items-center gap-2 rounded-[9px] border bg-madera-950/55 px-[14px] ${
           invalid
             ? 'border-borra-600'
             : missing
-              ? 'border-oro/34 focus:border-oro/60'
-              : 'border-borde focus:border-oro/40'
+              ? 'border-oro/34 focus-within:border-oro/60'
+              : 'border-borde focus-within:border-oro/40'
         }`}
-      />
+      >
+        {prefijo && <span className="text-base text-tenue-700">{prefijo}</span>}
+        <input
+          id={id}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder={placeholder}
+          inputMode={inputMode}
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid && hint ? idPista : undefined}
+          className="h-full w-full bg-transparent text-base font-medium placeholder:font-normal placeholder:text-tenue-700 focus:outline-none"
+        />
+      </div>
       {invalid && hint && (
         <span id={idPista} className="text-[10.5px] text-borra-600">
           {hint}

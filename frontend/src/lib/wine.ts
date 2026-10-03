@@ -314,6 +314,26 @@ export function formatDate(iso: string): string | null {
   })
 }
 
+/**
+ * Un precio como se escribe en es-AR: "15.000" son quince mil y "12,5" doce y
+ * medio. `Number()` leia "15.000" como 15. Devuelve NaN si no es un numero.
+ */
+export function parsePrecio(texto: string): number | null {
+  const limpio = texto.replace(/[$\s]/g, '')
+  if (limpio === '') return null
+  if (!/^\d[\d.,]*$/.test(limpio)) return Number.NaN
+
+  const [entero, decimal, ...sobra] = limpio.split(',')
+  if (sobra.length > 0) return Number.NaN
+  if (decimal !== undefined) {
+    // Con coma, los puntos solo pueden agrupar miles.
+    if (entero.includes('.') && !/^\d{1,3}(\.\d{3})+$/.test(entero)) return Number.NaN
+    return Number(`${entero.replace(/\./g, '')}.${decimal}`)
+  }
+  if (/^\d{1,3}(\.\d{3})+$/.test(entero)) return Number(entero.replace(/\./g, ''))
+  return Number(entero)
+}
+
 /** El backend acepta anada >= 1900, pero una fila vieja del Sheet puede traer 0. */
 export function formatYear(anada: number): string | null {
   return anada >= 1900 ? String(anada) : null

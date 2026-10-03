@@ -14,7 +14,7 @@ type View =
   | { name: 'cellar' }
   | { name: 'catas' }
   | { name: 'scan' }
-  | { name: 'wine'; codigoVino: string }
+  | { name: 'wine'; codigoVino: string; desde?: 'catas'; aviso?: string }
 
 export default function App() {
   const [view, setView] = useState<View>({ name: 'cellar' })
@@ -28,6 +28,10 @@ export default function App() {
   const [catasError, setCatasError] = useState<string | null>(null)
   // Se asume desbloqueada si ya hay clave guardada; un 401 la vuelve a pedir.
   const [unlocked, setUnlocked] = useState(() => getToken() !== '')
+  // Desbloquear ya trae la lista para validar la clave: no se pide dos veces.
+  const listaDelDesbloqueo = useRef<WineRecord[] | null>(null)
+  // Solo cuenta la respuesta del ultimo pedido: una lenta no pisa a una nueva.
+  const ultimoPedido = useRef(0)
 
   /**
    * El gesto de "atras" del telefono. Sin esto, instalada como PWA la app se
@@ -35,8 +39,8 @@ export default function App() {
    * en un useState y el navegador no tiene nada que desandar.
    *
    * Cada pantalla que no es la cava empuja una entrada al historial; el atras
-   * la consume y vuelve a la cava. Desde la cava, sale de la app, que es lo
-   * que corresponde.
+   * la consume y vuelve a la cava (o a Catas, si el vino se abrio desde ahi).
+   * Desde la cava, sale de la app, que es lo que corresponde.
    */
   const enHistorial = useRef(false)
 
@@ -59,7 +63,7 @@ export default function App() {
       if (estado?.cava || estado?.capa) return
 
       enHistorial.current = false
-      setView({ name: 'cellar' })
+      setView(view.name === 'wine' && view.desde ? { name: view.desde } : { name: 'cellar' })
     }
 
     window.addEventListener('popstate', alVolver)
@@ -67,11 +71,16 @@ export default function App() {
   }, [view])
 
   const load = useCallback(() => {
+    const pedido = ++ultimoPedido.current
+    const vigente = () => pedido === ultimoPedido.current
     setLoading(true)
     setError(null)
     listWines()
-      .then(setWines)
+      .then((lista) => {
+        if (vigente()) setWines(lista)
+      })
       .catch((cause: unknown) => {
+        if (!vigente()) return
         if (cause instanceof ApiError && cause.status === 401) {
           setUnlocked(false)
           return
@@ -80,7 +89,9 @@ export default function App() {
           cause instanceof Error ? cause.message : 'No se pudo cargar el inventario.',
         )
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (vigente()) setLoading(false)
+      })
   }, [])
 
   const loadCatas = useCallback(() => {
@@ -103,20 +114,47 @@ export default function App() {
   /** Al mutar un vino el histórico queda viejo: borrarlo deja catas huérfanas. */
   const invalidateCatas = useCallback(() => {
     setCatas(null)
+    setCatasError(null)
   }, [])
 
   useEffect(() => {
-    if (unlocked) load()
+    if (!unlocked) return
+    if (listaDelDesbloqueo.current) {
+      setWines(listaDelDesbloqueo.current)
+      setLoading(false)
+      listaDelDesbloqueo.current = null
+      return
+    }
+    load()
   }, [unlocked, load])
 
   useEffect(() => {
-    if (unlocked && view.name === 'catas' && catas === null && !catasLoading) {
+    // Sin mirar el error, un fallo dejaba `catas` en null y el efecto volvia a
+    // pedir en loop. Despues de un error se reintenta solo a mano.
+    if (
+      unlocked &&
+      view.name === 'catas' &&
+      catas === null &&
+      !catasLoading &&
+      catasError === null
+    ) {
       loadCatas()
     }
-  }, [unlocked, view, catas, catasLoading, loadCatas])
+  }, [unlocked, view, catas, catasLoading, catasError, loadCatas])
 
-  /** Volver a la cava desde la UI, dejando el historial como lo encontro. */
-  function volverACava() {
+  /** Volver desde la UI, dejando el historial como lo encontro. */
+  function volver() {
+    // Con una hoja abierta su entrada esta arriba de todo: se consume primero,
+    // si no el `back` de abajo la cierra a ella y la pantalla no se mueve.
+    if (window.history.state?.capa) {
+      window.addEventListener('popstate', volver, { once: true })
+      window.history.back()
+      return
+    }
+    if (view.name === 'wine' && view.desde) {
+      setView({ name: view.desde })
+      return
+    }
     if (enHistorial.current) {
       enHistorial.current = false
       // Consume la entrada propia en vez de dejarla colgada.
@@ -129,7 +167,8 @@ export default function App() {
   if (!unlocked) {
     return (
       <UnlockScreen
-        onUnlocked={() => {
+        onUnlocked={(lista) => {
+          listaDelDesbloqueo.current = lista
           setUnlocked(true)
           setView({ name: 'cellar' })
         }}
@@ -155,7 +194,7 @@ export default function App() {
           loading={catasLoading}
           error={catasError}
           onRetry={loadCatas}
-          onSelect={(codigoVino) => setView({ name: 'wine', codigoVino })}
+          onSelect={(codigoVino) => setView({ name: 'wine', codigoVino, desde: 'catas' })}
         />
       )}
 
@@ -163,10 +202,10 @@ export default function App() {
         <ScanScreen
           // Para avisar si la etiqueta que se acaba de leer ya esta en la cava.
           wines={wines}
-          onCancel={volverACava}
-          onSaved={(codigoVino) => {
+          onCancel={volver}
+          onSaved={(codigoVino, aviso) => {
             load()
-            setView({ name: 'wine', codigoVino })
+            setView({ name: 'wine', codigoVino, aviso })
           }}
         />
       )}
@@ -174,7 +213,8 @@ export default function App() {
       {view.name === 'wine' && (
         <WineScreen
           codigoVino={view.codigoVino}
-          onBack={volverACava}
+          aviso={view.aviso}
+          onBack={volver}
           onConsumed={() => {
             load()
             invalidateCatas()
@@ -192,7 +232,7 @@ export default function App() {
 
       {/* La barra estorba en el escaneo, que tiene su propia acción abajo. */}
       {view.name !== 'scan' && (
-        <nav className="fixed inset-x-0 bottom-0 mx-auto flex max-w-[430px] items-center justify-between border-t border-borde bg-madera-900/95 px-[30px] pt-[13px] pb-[26px] backdrop-blur-sm">
+        <nav className="fixed inset-x-0 bottom-0 mx-auto flex max-w-[430px] items-center justify-between border-t border-borde bg-madera-900/95 px-[30px] pt-[13px] pb-seguro backdrop-blur-sm">
           <button
             type="button"
             onClick={() => setView({ name: 'cellar' })}
@@ -203,7 +243,7 @@ export default function App() {
           >
             <CellarIcon className={view.name === 'cellar' ? 'text-oro' : 'text-tenue-600'} />
             <span
-              className={`text-[8.5px] tracking-[0.1em] uppercase ${
+              className={`text-[10px] tracking-[0.1em] uppercase ${
                 view.name === 'cellar' ? 'font-bold text-oro' : 'font-semibold text-tenue-600'
               }`}
             >
@@ -229,7 +269,7 @@ export default function App() {
           >
             <GlassIcon className={view.name === 'catas' ? 'text-oro' : 'text-tenue-600'} />
             <span
-              className={`text-[8.5px] tracking-[0.1em] uppercase ${
+              className={`text-[10px] tracking-[0.1em] uppercase ${
                 view.name === 'catas' ? 'font-bold text-oro' : 'font-semibold text-tenue-600'
               }`}
             >

@@ -68,6 +68,16 @@ input[type='search']::-webkit-search-cancel-button {
   display: none;
 }
 
+/* Lo que queda debajo de la barra fija, contando el indicador de inicio del
+   iPhone: el viewport usa viewport-fit=cover y sin esto queda tapado. */
+@utility pb-barra {
+  padding-bottom: calc(6.75rem + env(safe-area-inset-bottom));
+}
+
+@utility pb-seguro {
+  padding-bottom: calc(26px + env(safe-area-inset-bottom));
+}
+
 /* Scroll horizontal sin la barra a la vista: el gesto tactil se conserva, lo
    que se va es el riel gris que en desktop parte el diseño al medio. */
 .sin-barra {
@@ -103,21 +113,15 @@ body {
     radial-gradient(115% 50% at 50% 0%, rgba(124, 35, 56, 0.05) 0%, transparent 68%);
 }
 
-/* Los controles no heredan la tipografía por defecto. El color va en @layer
-   base para que cualquier utilidad (text-oro, text-tenue-500) lo pise: suelto
-   en la hoja le ganaba a Tailwind y todos los botones salían color crema. */
-input,
-textarea,
-select,
-button {
-  font: inherit;
-}
-
+/* Los controles no heredan la tipografía por defecto. Va en @layer base para
+   que las utilidades lo pisen: suelto en la hoja le ganaba a Tailwind, y todos
+   los botones e inputs salían en 16px, peso normal y color crema. */
 @layer base {
   input,
   textarea,
   select,
   button {
+    font: inherit;
     color: inherit;
   }
 }

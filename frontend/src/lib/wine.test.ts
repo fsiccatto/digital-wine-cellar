@@ -12,6 +12,7 @@ import {
   candidatoDuplicado,
   matchesCataSearch,
   matchesFilters,
+  parsePrecio,
   SIN_FILTROS,
   urgentes,
   splitVarietals,
@@ -440,5 +441,26 @@ describe('candidatoDuplicado', () => {
     expect(
       candidatoDuplicado(enCava, { bodega: 'Trapiche', varietal: 'Malbec', anada: NaN }),
     ).toBeNull()
+  })
+})
+
+describe('parsePrecio', () => {
+  it('lee el punto de miles y la coma decimal de es-AR', () => {
+    expect(parsePrecio('15.000')).toBe(15000)
+    expect(parsePrecio('$ 1.250.000')).toBe(1250000)
+    expect(parsePrecio('12,5')).toBe(12.5)
+    expect(parsePrecio('12.500,50')).toBe(12500.5)
+  })
+
+  it('acepta el numero pelado y el punto decimal', () => {
+    expect(parsePrecio('32000')).toBe(32000)
+    expect(parsePrecio('15.5')).toBe(15.5)
+  })
+
+  it('vacio es sin precio, y lo ilegible es NaN', () => {
+    expect(parsePrecio('  ')).toBeNull()
+    expect(parsePrecio('quince')).toBeNaN()
+    expect(parsePrecio('1,2,3')).toBeNaN()
+    expect(parsePrecio('1.50,5')).toBeNaN()
   })
 })

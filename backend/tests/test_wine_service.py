@@ -261,6 +261,8 @@ def test_cata_of_a_deleted_wine_stays_visible_as_orphan():
     orphan = result[0]
     assert orphan.vino_existe is False
     assert orphan.nombre_vino is None
+    # Sin vino, el codigo viejo es lo unico que lo nombra.
+    assert orphan.codigo_vino == "BORRADO-VIN-2019-0001"
 
     joined = result[1]
     assert joined.vino_existe is True
@@ -354,3 +356,29 @@ def test_una_cata_vieja_sin_migrar_sigue_encontrando_su_vino():
     assert len(resultado) == 1
     assert resultado[0].vino_existe is True
     assert resultado[0].codigo_vino == "TRA-MAL-2020-0001"
+
+
+def test_una_cata_huerfana_se_nombra_con_la_copia_y_nunca_con_el_uuid():
+    catas = [
+        {
+            "id_cata": "cata-1",
+            "vino_id": "8f3c2a1e-77b4-4c1e-9a55-2b7f0d6e1a90",
+            "codigo_vino": "BOR-MAL-2019-0001",
+            "fecha_consumo": "2026-03-01T21:00:00",
+            "puntuacion": "4",
+        },
+        {
+            "id_cata": "cata-2",
+            "vino_id": "1d2c3b4a-0000-4000-8000-000000000002",
+            "codigo_vino": "",
+            "fecha_consumo": "2026-02-01T21:00:00",
+            "puntuacion": "3",
+        },
+    ]
+    with (
+        patch.object(wine_service, "get_catas_rows", return_value=catas),
+        patch.object(wine_service, "get_inventory_rows", return_value=[]),
+    ):
+        result = wine_service.list_catas()
+
+    assert [cata.codigo_vino for cata in result] == ["BOR-MAL-2019-0001", None]

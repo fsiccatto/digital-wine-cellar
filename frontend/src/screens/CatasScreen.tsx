@@ -39,17 +39,17 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
   const months = useMemo(() => groupByMonth(visibles), [visibles])
 
   const cargandoVacio = loading && catas.length === 0
-  const { tiron, alcanzo } = usePullToRefresh(onRetry, !loading)
+  const { tiron, alcanzo } = usePullToRefresh(onRetry, !loading && notes === null)
 
   return (
     <div className="vetas relative flex min-h-full flex-col">
-      <IndicadorRecarga tiron={tiron} alcanzo={alcanzo} refrescando={loading} />
+      <IndicadorRecarga tiron={tiron} alcanzo={alcanzo} refrescando={loading && !cargandoVacio} />
 
       <header className="relative px-5 pt-8 pb-3">
         <div className="flex items-end justify-between gap-4">
           <div className="flex items-end gap-[7px]">
             <div className="flex flex-col gap-[2px]">
-              <span className="text-[8.5px] font-bold tracking-[0.24em] text-tenue-500 uppercase">
+              <span className="text-[10px] font-bold tracking-[0.24em] text-tenue-500 uppercase">
                 Mi Cava
               </span>
               <h1 className="font-serif text-[24px] leading-none font-semibold text-crema">
@@ -66,7 +66,7 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
               <span className="cifra font-serif text-[19px] leading-none font-semibold text-oro">
                 {visibles.length}
               </span>
-              <span className="text-[8.5px] font-semibold tracking-[0.14em] text-tenue-500 uppercase">
+              <span className="text-[10px] font-semibold tracking-[0.14em] text-tenue-500 uppercase">
                 {visibles.length === 1 ? 'cata' : 'catas'}
               </span>
             </div>
@@ -79,14 +79,14 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
           suficientes como para que haga falta. */}
       {(catas.length > 6 || search !== '') && (
         <div className="relative px-5 pb-[10px]">
-          <label className="flex h-[34px] items-center gap-2 rounded-lg border border-borde bg-madera-700 px-[11px]">
+          <label className="flex h-[38px] items-center gap-2 rounded-lg border border-borde bg-madera-700 px-[11px]">
             <SearchIcon size={12} className="shrink-0 text-tenue-600" />
             <input
               type="search"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Buscar por vino, maridaje o notas"
-              className="w-full bg-transparent text-[11.5px] placeholder:text-tenue-600 focus:outline-none"
+              className="w-full bg-transparent text-base placeholder:text-[13px] placeholder:text-tenue-600 focus:outline-none"
             />
             {search !== '' && (
               <button
@@ -102,7 +102,7 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
         </div>
       )}
 
-      <div className="relative flex grow flex-col gap-4 px-5 pt-2 pb-27">
+      <div className="relative flex grow flex-col gap-4 px-5 pt-2 pb-barra">
         {cargandoVacio && <ListaSkeleton aviso="Abriendo el libro…" />}
 
         {error && !cargandoVacio && (
@@ -148,11 +148,11 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
             style={{ animationDelay: `${Math.min(index, 6) * 70}ms` }}
           >
             <div className="flex items-center gap-2 pb-[7px]">
-              <span className="text-[8px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+              <span className="text-[10px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
                 {month.label}
               </span>
               <div className="h-px grow bg-borde" />
-              <span className="text-[8px] font-medium text-tenue-600">
+              <span className="text-[10px] font-medium text-tenue-600">
                 {month.catas.length} {month.catas.length === 1 ? 'cata' : 'catas'}
               </span>
             </div>
@@ -190,11 +190,11 @@ function NotesSheet({
   return (
     <Sheet onClose={onClose}>
       <div className="mb-5 flex flex-col gap-1">
-        <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+        <span className="text-[10.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
           Notas de cata
         </span>
         <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
-          {cata.vino_existe ? cata.nombre_vino : cata.vino_id}
+          {cata.vino_existe ? cata.nombre_vino : `Vino eliminado${cata.codigo_vino ? ` · ${cata.codigo_vino}` : ''}`}
         </h2>
         {date && <span className="cifra text-[11px] text-tenue-500">{date}</span>}
       </div>

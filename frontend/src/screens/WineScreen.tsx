@@ -19,6 +19,7 @@ import {
   formatYear,
   glassTint,
   guardaDe,
+  parsePrecio,
 } from '../lib/wine'
 import {
   BottleIcon,
@@ -35,7 +36,7 @@ import {
   TrashIcon,
 } from '../components/icons'
 import { alTocar, formatPuntuacion, rellenoDe } from '../lib/puntuacion'
-import { CataRow } from '../components/CataRow'
+import { CataRowCompacta } from '../components/CataRow'
 import { CopaCargando } from '../components/CopaCargando'
 import { PhotoViewer } from '../components/PhotoViewer'
 import { Field, Stepper } from '../components/Field'
@@ -47,6 +48,8 @@ interface Props {
   onConsumed: () => void
   onChanged: () => void
   onDeleted: () => void
+  /** Algo que quedo a medias al guardar, como la foto que no subio. */
+  aviso?: string
 }
 
 /** Un solo estado: dos hojas abiertas a la vez es un bug esperando. */
@@ -58,6 +61,7 @@ export function WineScreen({
   onConsumed,
   onChanged,
   onDeleted,
+  aviso,
 }: Props) {
   const [wine, setWine] = useState<WineRecord | null>(null)
   const [catas, setCatas] = useState<CataRecord[]>([])
@@ -145,7 +149,7 @@ export function WineScreen({
   const photo = wine.foto_url?.startsWith('http') ? wine.foto_url : null
 
   return (
-    <div className="relative flex min-h-full flex-col">
+    <div className="relative flex min-h-full flex-col pb-barra">
       <div
         className="vetas relative px-[22px] pt-13 pb-[26px]"
         style={{
@@ -243,7 +247,7 @@ export function WineScreen({
 
       <div className="relative mx-[22px] mb-5 flex items-center gap-[14px] rounded-xl border border-borde bg-gradient-to-br from-madera-700/90 to-madera-800/90 px-[18px] py-4">
         <div className="flex flex-col gap-[2px]">
-          <span className="text-[9px] font-bold tracking-[0.16em] text-tenue-500 uppercase">
+          <span className="text-[10.5px] font-bold tracking-[0.16em] text-tenue-500 uppercase">
             En cava
           </span>
           <div className="flex items-baseline gap-[6px]">
@@ -275,6 +279,15 @@ export function WineScreen({
         </dl>
       </div>
 
+      {aviso && (
+        <p
+          role="alert"
+          className="relative mx-[22px] mb-5 rounded-[9px] border border-oro/30 bg-oro/5 p-3 text-[12px] leading-relaxed text-oro"
+        >
+          {aviso}
+        </p>
+      )}
+
       {guarda && <GuardaBand guarda={guarda} />}
 
       {wine.cantidad > 0 ? (
@@ -295,7 +308,7 @@ export function WineScreen({
       {catas.length > 0 && (
         <section className="relative mx-[22px] mb-8 flex flex-col">
           <div className="flex items-center gap-2 pb-[9px]">
-            <span className="text-[9px] font-bold tracking-[0.16em] text-tenue-500 uppercase">
+            <span className="text-[10.5px] font-bold tracking-[0.16em] text-tenue-500 uppercase">
               Catas anteriores
             </span>
             <div className="h-px grow bg-borde" />
@@ -305,20 +318,14 @@ export function WineScreen({
                 <span className="cifra text-[10px] font-semibold">{formatPuntuacion(promedio)}</span>
               </span>
             )}
-            <span className="cifra text-[9px] font-medium text-tenue-600">
+            <span className="cifra text-[10.5px] font-medium text-tenue-600">
               {catas.length}
             </span>
           </div>
           <ul className="flex flex-col gap-[5px]">
             {catas.map((cata) => (
               <li key={cata.id_cata}>
-                {/* Ya estamos en la ficha de este vino: la fila no navega, y el
-                    tap abre la correccion de esa cata. */}
-                <CataRow
-                  cata={cata}
-                  onSelect={() => {}}
-                  onOpen={() => setEditando(cata)}
-                />
+                <CataRowCompacta cata={cata} onOpen={() => setEditando(cata)} />
               </li>
             ))}
           </ul>
@@ -484,7 +491,7 @@ function GuardaBand({ guarda }: { guarda: Guarda }) {
       <GlassIcon size={15} className="shrink-0" />
       <div className="flex min-w-0 grow flex-col gap-[1px]">
         <span className="text-[12.5px] font-semibold">{guarda.detalle}</span>
-        <span className="text-[9.5px] text-tenue-600">
+        <span className="text-[10.5px] text-tenue-600">
           Estimado por varietal · <span className="cifra">{guarda.ventana.desde}</span>–
           <span className="cifra">{guarda.ventana.hasta}</span> años de guarda
         </span>
@@ -604,7 +611,7 @@ function TastingSheet({
   return (
     <Sheet onClose={onClose}>
       <div className="mb-5 flex flex-col gap-1">
-        <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+        <span className="text-[10.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
           {textos.rotulo}
         </span>
         <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
@@ -623,7 +630,7 @@ function TastingSheet({
           <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
             Puntuación
           </span>
-          <span className="text-[9.5px] text-tenue-600">
+          <span className="text-[10.5px] text-tenue-600">
             tocá dos veces para media copa
           </span>
         </div>
@@ -665,7 +672,7 @@ function TastingSheet({
           onChange={(event) => setNotes(event.target.value)}
           rows={3}
           placeholder="Aromas, taninos, cómo se abrió…"
-          className="resize-none rounded-[9px] border border-borde bg-madera-950/55 p-[14px] text-[14px] leading-relaxed placeholder:text-tenue-700 focus:border-oro/40 focus:outline-none"
+          className="resize-none rounded-[9px] border border-borde bg-madera-950/55 p-[14px] text-base leading-relaxed placeholder:text-tenue-700 focus:border-oro/40 focus:outline-none"
         />
       </div>
 
@@ -795,7 +802,11 @@ function EditSheet({
     region: wine.region,
     alcohol: wine.alcohol,
     ubicacion: wine.ubicacion ?? '',
-    precio_estimado: wine.precio_estimado == null ? '' : String(wine.precio_estimado),
+    // Escrito como se lee aca, para que vuelva a parsearse igual.
+    precio_estimado:
+      wine.precio_estimado == null
+        ? ''
+        : wine.precio_estimado.toLocaleString('es-AR', { maximumFractionDigits: 2 }),
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -808,7 +819,8 @@ function EditSheet({
   const yearInvalid = !Number.isInteger(year) || year < 1900 || year > yearNow
 
   const price = form.precio_estimado.trim()
-  const priceInvalid = price !== '' && Number.isNaN(Number(price))
+  const priceValue = parsePrecio(price)
+  const priceInvalid = Number.isNaN(priceValue)
 
   const incomplete = [
     form.bodega,
@@ -829,7 +841,7 @@ function EditSheet({
       region: form.region.trim(),
       alcohol: form.alcohol.trim(),
       ubicacion: form.ubicacion.trim() || null,
-      precio_estimado: price === '' ? null : Number(price),
+      precio_estimado: priceValue,
     }
     try {
       onSaved(await updateWine(wine.codigo_vino, payload))
@@ -840,10 +852,9 @@ function EditSheet({
   }
 
   return (
-    // Ocho campos pasan la altura de pantalla, así que la hoja scrollea.
-    <Sheet onClose={onClose} className="sin-barra max-h-[85dvh] overflow-y-auto">
+    <Sheet onClose={onClose}>
       <div className="mb-5 flex flex-col gap-1">
-        <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+        <span className="text-[10.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
           Editar
         </span>
         <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
@@ -872,22 +883,23 @@ function EditSheet({
           inputMode="decimal"
           placeholder="13,5"
         />
-        {/* `read` marca los opcionales: vacíos no piden completarse. */}
         <Field
           label="Estante"
           value={form.ubicacion}
           onChange={set('ubicacion')}
-          read
+          opcional
           placeholder="A1"
         />
         <Field
           label="Precio"
           value={form.precio_estimado}
           onChange={set('precio_estimado')}
-          read
+          opcional
+          prefijo="$"
           inputMode="decimal"
+          placeholder="15.000"
           invalid={priceInvalid}
-          hint="Solo números."
+          hint="Un número, como 15.000 o 12.500,50."
         />
 
         {/* La inmutabilidad del código tiene que verse, no deducirse. */}
@@ -978,7 +990,7 @@ function StockSheet({
   return (
     <Sheet onClose={onClose}>
       <div className="mb-5 flex flex-col gap-1">
-        <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+        <span className="text-[10.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
           Stock
         </span>
         <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
@@ -1082,7 +1094,7 @@ function DeleteSheet({
   return (
     <Sheet onClose={onClose}>
       <div className="mb-4 flex flex-col gap-1">
-        <span className="text-[9.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
+        <span className="text-[10.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
           Eliminar
         </span>
         <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">

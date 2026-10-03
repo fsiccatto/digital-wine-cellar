@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { listWines, setToken } from '../lib/api'
+import type { WineRecord } from '../lib/types'
 import { SpinnerIcon, VineSprigIcon } from '../components/icons'
 
 interface Props {
-  onUnlocked: () => void
+  onUnlocked: (wines: WineRecord[]) => void
 }
 
 /** Puerta de entrada: pide la clave y la valida contra el backend. */
@@ -22,8 +23,7 @@ export function UnlockScreen({ onUnlocked }: Props) {
 
     try {
       // Un pedido cualquiera alcanza: si la clave no sirve, responde 401.
-      await listWines()
-      onUnlocked()
+      onUnlocked(await listWines())
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : 'No se pudo verificar la clave.',
@@ -56,7 +56,7 @@ export function UnlockScreen({ onUnlocked }: Props) {
             placeholder="Clave"
             autoFocus
             autoComplete="current-password"
-            className="h-[46px] w-full rounded-[9px] border border-borde bg-madera-700 px-[14px] text-center text-[15px] tracking-wide placeholder:tracking-normal placeholder:text-tenue-600 focus:border-oro/50 focus:outline-none"
+            className="h-[46px] w-full rounded-[9px] border border-borde bg-madera-700 px-[14px] text-center text-base tracking-wide placeholder:tracking-normal placeholder:text-tenue-600 focus:border-oro/50 focus:outline-none"
           />
           {error && (
             <p

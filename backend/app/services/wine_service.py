@@ -205,6 +205,15 @@ def consume_wine(codigo_vino: str, payload: WineConsumeInput):
     return {"status": "ok", "stock_restante": updated_quantity}
 
 
+def _codigo_legado(vino_id: str) -> str | None:
+    """Las catas viejas guardaban el codigo en `vino_id`; las nuevas, el uuid."""
+    try:
+        uuid.UUID(vino_id)
+    except ValueError:
+        return vino_id or None
+    return None
+
+
 def list_catas(codigo_vino: str | None = None) -> list[CataRecord]:
     """Histórico de catas, opcionalmente filtrado por vino, más nuevas primero.
 
@@ -240,14 +249,15 @@ def list_catas(codigo_vino: str | None = None) -> list[CataRecord]:
     for row in rows:
         wine = index.get(row.get("vino_id"))
         # El `codigo_vino` de la fila es una copia para leer la hoja y puede
-        # estar vieja; el que sale por la API se resuelve por el join.
+        # estar vieja: solo se usa si el vino ya no existe, para nombrarlo.
+        copia = row.get("codigo_vino") or _codigo_legado(row.get("vino_id", ""))
         row = {key: value for key, value in row.items() if key != "codigo_vino"}
         try:
             catas.append(
                 CataRecord(
                     **row,
                     vino_existe=wine is not None,
-                    codigo_vino=wine.get("codigo_vino") if wine else None,
+                    codigo_vino=wine.get("codigo_vino") if wine else copia,
                     bodega=wine.get("bodega") if wine else None,
                     nombre_vino=wine.get("nombre_vino") if wine else None,
                     anada=wine.get("anada") if wine else None,
@@ -382,8 +392,8 @@ def update_cata(id_cata: str, payload: CataUpdateInput) -> CataRecord:
 
     fusionada = {**row, **{k: ("" if v is None else v) for k, v in cambios.items()}}
     referencia = fusionada.get("vino_id")
-    # Igual que en `list_catas`: la copia de la hoja no decide.
-    fusionada.pop("codigo_vino", None)
+    # Igual que en `list_catas`: la copia de la hoja solo nombra a un huerfano.
+    copia = fusionada.pop("codigo_vino", None) or _codigo_legado(referencia or "")
     # Por uuid o por codigo, como en `list_catas`: una cata vieja sin migrar
     # tiene que seguir mostrando su vino despues de corregirla.
     wine = next(
@@ -397,7 +407,7 @@ def update_cata(id_cata: str, payload: CataUpdateInput) -> CataRecord:
     return CataRecord(
         **fusionada,
         vino_existe=wine is not None,
-        codigo_vino=wine.get("codigo_vino") if wine else None,
+        codigo_vino=wine.get("codigo_vino") if wine else copia,
         bodega=wine.get("bodega") if wine else None,
         nombre_vino=wine.get("nombre_vino") if wine else None,
         anada=wine.get("anada") if wine else None,

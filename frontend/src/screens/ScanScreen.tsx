@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { adjustStock, createWine, scanLabel, uploadLabelPhoto } from '../lib/api'
 import type { WineRecord, WineScanResult } from '../lib/types'
-import { candidatoDuplicado, glassTint } from '../lib/wine'
+import { candidatoDuplicado, glassTint, parsePrecio } from '../lib/wine'
 import { PRESET_GUARDAR, PRESET_OCR, prepareLabelPhoto } from '../lib/image'
 import {
   BarcodeIcon,
@@ -50,7 +50,8 @@ interface Props {
   /** La cava entera, para reconocer una botella que ya esta cargada. */
   wines: WineRecord[]
   onCancel: () => void
-  onSaved: (codigoVino: string) => void
+  /** `aviso` llega a la ficha: esta pantalla se desmonta al guardar. */
+  onSaved: (codigoVino: string, aviso?: string) => void
 }
 
 export function ScanScreen({ wines, onCancel, onSaved }: Props) {
@@ -62,7 +63,6 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
   // El de guardar va aparte del de leer: se muestran en extremos opuestos de la
   // pantalla, y el de leer sigue siendo cierto mientras se intenta guardar.
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [photoWarning, setPhotoWarning] = useState<string | null>(null)
   // "Es otra": se descarta el aviso hasta que cambien los datos que lo dispararon.
   const [descartado, setDescartado] = useState<string | null>(null)
   const camara = useRef<HTMLInputElement>(null)
@@ -127,11 +127,9 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
 
   async function handleSave() {
     setSaveError(null)
-    setPhotoWarning(null)
     setStage('saving')
 
     const anada = Number.parseInt(form.anada, 10)
-    const precio = form.precio_estimado.trim()
 
     try {
       const created = await createWine({
@@ -143,10 +141,11 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
         alcohol: form.alcohol.trim(),
         cantidad: form.cantidad,
         ubicacion: form.ubicacion.trim() || null,
-        precio_estimado: precio ? Number(precio) : null,
+        precio_estimado: parsePrecio(form.precio_estimado),
       })
 
       // El vino ya está guardado: si la foto falla, no se pierde la carga.
+      let aviso: string | undefined
       if (photo) {
         try {
           // A la cava va la version de mostrar: ~120 KB en vez de 2,5 MB.
@@ -155,11 +154,11 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
             await prepareLabelPhoto(photo, PRESET_GUARDAR),
           )
         } catch {
-          setPhotoWarning('El vino se guardó, pero la foto no se pudo subir.')
+          aviso = 'El vino se guardó, pero la foto no se pudo subir.'
         }
       }
 
-      onSaved(created.codigo_vino)
+      onSaved(created.codigo_vino, aviso)
     } catch (cause) {
       setSaveError(
         cause instanceof Error ? cause.message : 'No se pudo guardar el vino.',
@@ -177,7 +176,6 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
   async function handleSumar() {
     if (!candidato) return
     setSaveError(null)
-    setPhotoWarning(null)
     setStage('saving')
 
     try {
@@ -185,6 +183,7 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
 
       // Si el que ya estaba no tenia foto, esta es una mejora gratis. Si ya
       // tenia, no se pisa: la vieja puede ser mejor que la de recien.
+      let aviso: string | undefined
       if (photo && !candidato.foto_url) {
         try {
           await uploadLabelPhoto(
@@ -192,11 +191,11 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
             await prepareLabelPhoto(photo, PRESET_GUARDAR),
           )
         } catch {
-          setPhotoWarning('Se sumó el stock, pero la foto no se pudo subir.')
+          aviso = 'Se sumó el stock, pero la foto no se pudo subir.'
         }
       }
 
-      onSaved(candidato.codigo_vino)
+      onSaved(candidato.codigo_vino, aviso)
     } catch (cause) {
       setSaveError(
         cause instanceof Error ? cause.message : 'No se pudo sumar al stock.',
@@ -233,6 +232,8 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
     ([campo]) => String(form[campo]).trim() === '',
   ).map(([, etiqueta]) => etiqueta)
   if (!anadaValid) faltan.push('Añada')
+  const precioInvalido = Number.isNaN(parsePrecio(form.precio_estimado))
+  if (precioInvalido) faltan.push('Precio')
 
   const complete = faltan.length === 0
 
@@ -326,7 +327,7 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
             {Object.values(read).some(Boolean) && (
               <div className="absolute bottom-[10px] left-[10px] z-2 flex items-center gap-[6px] rounded-full bg-[#1a1512]/90 py-[5px] pr-[11px] pl-2">
                 <CheckIcon size={11} className="text-[#9dba7c]" />
-                <span className="text-[9px] font-bold tracking-[0.1em] text-[#cfe0b8] uppercase">
+                <span className="text-[10.5px] font-bold tracking-[0.1em] text-[#cfe0b8] uppercase">
                   Etiqueta leída
                 </span>
               </div>
@@ -346,7 +347,7 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
                 className="flex items-center gap-[6px] rounded-full bg-[#1a1512]/85 py-[5px] pr-[11px] pl-2 text-[#e8c987]"
               >
                 <RetryIcon size={12} />
-                <span className="text-[9px] font-bold">Otra foto</span>
+                <span className="text-[10.5px] font-bold">Otra foto</span>
               </button>
             </div>
           </>
@@ -361,14 +362,6 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
           {error}
         </p>
       )}
-      {photoWarning && (
-        <p
-          role="alert"
-          className="mx-[22px] mb-4 rounded-[9px] border border-oro/30 bg-oro/5 p-3 text-[12px] leading-relaxed text-oro"
-        >
-          {photoWarning}
-        </p>
-      )}
 
       {(stage === 'form' || stage === 'saving') && (
         // La barra de abajo crece con el aviso de lo que falta y con el error de
@@ -378,7 +371,7 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
               sumar o guardar aparte cambia que boton se toca al final. */}
           {avisarDuplicado && candidato && (
             <div className="flex flex-col gap-[11px] rounded-[11px] border border-oro/35 bg-oro/6 p-[14px]">
-              <span className="text-[9px] font-bold tracking-[0.16em] text-oro uppercase">
+              <span className="text-[10.5px] font-bold tracking-[0.16em] text-oro uppercase">
                 Esto ya está en tu cava
               </span>
 
@@ -395,13 +388,13 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
                   />
                 </div>
                 <div className="flex min-w-0 grow flex-col gap-px">
-                  <span className="truncate text-[8px] font-bold tracking-[0.12em] text-tenue-500 uppercase">
+                  <span className="truncate text-[10px] font-bold tracking-[0.12em] text-tenue-500 uppercase">
                     {candidato.bodega}
                   </span>
                   <span className="truncate font-serif text-[15px] leading-[1.15] font-semibold text-crema">
                     {candidato.nombre_vino}
                   </span>
-                  <span className="cifra truncate text-[9.5px] text-tenue-500">
+                  <span className="cifra truncate text-[10.5px] text-tenue-500">
                     {candidato.varietal} · {candidato.anada}
                     {candidato.ubicacion ? ` · ${candidato.ubicacion}` : ''}
                   </span>
@@ -533,7 +526,7 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
                 value={form.ubicacion}
                 onChange={(event) => setForm({ ...form, ubicacion: event.target.value })}
                 placeholder="A2"
-                className="h-[46px] rounded-[9px] border border-borde bg-madera-950/55 px-[14px] text-[15px] font-semibold placeholder:font-normal placeholder:text-tenue-700 focus:border-oro/40 focus:outline-none"
+                className="h-[46px] rounded-[9px] border border-borde bg-madera-950/55 px-[14px] text-base font-semibold placeholder:font-normal placeholder:text-tenue-700 focus:border-oro/40 focus:outline-none"
               />
             </div>
           </div>
@@ -541,10 +534,14 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
           <div className="flex flex-col gap-[6px]">
             <div className="flex items-center gap-[7px]">
               <FieldLabel htmlFor="scan-precio">Precio</FieldLabel>
-              <span className="text-[9.5px] font-medium text-tenue-700">· opcional</span>
+              <span className="text-[10.5px] font-medium text-tenue-700">· opcional</span>
             </div>
-            <div className="flex h-[46px] items-center gap-2 rounded-[9px] border border-borde bg-madera-950/55 px-[14px] focus-within:border-oro/40">
-              <span className="text-[15px] text-tenue-700">$</span>
+            <div
+              className={`flex h-[46px] items-center gap-2 rounded-[9px] border bg-madera-950/55 px-[14px] ${
+                precioInvalido ? 'border-borra-600' : 'border-borde focus-within:border-oro/40'
+              }`}
+            >
+              <span className="text-base text-tenue-700">$</span>
               <input
                 id="scan-precio"
                 value={form.precio_estimado}
@@ -552,16 +549,22 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
                   setForm({ ...form, precio_estimado: event.target.value })
                 }
                 inputMode="decimal"
-                placeholder="—"
-                className="w-full bg-transparent text-[15px] placeholder:text-tenue-700 focus:outline-none"
+                placeholder="15.000"
+                aria-invalid={precioInvalido || undefined}
+                className="w-full bg-transparent text-base placeholder:text-tenue-700 focus:outline-none"
               />
             </div>
+            {precioInvalido && (
+              <span className="text-[10.5px] text-borra-600">
+                Un número, como 15.000 o 12.500,50.
+              </span>
+            )}
           </div>
 
-          <div className="mt-1 flex items-center gap-[11px] rounded-[9px] border border-dashed border-[#4a3a26] bg-oro/6 p-[13px]">
+          <div className="mt-1 flex items-center gap-[11px] rounded-[9px] border border-dashed border-borde-claro bg-oro/6 p-[13px]">
             <BarcodeIcon className="shrink-0 text-oro-oscuro" />
             <div className="flex flex-col gap-[2px]">
-              <span className="text-[9px] font-bold tracking-[0.14em] text-tenue-500 uppercase">
+              <span className="text-[10.5px] font-bold tracking-[0.14em] text-tenue-500 uppercase">
                 Código
               </span>
               <span className="text-[12.5px] leading-snug text-tenue-400">
@@ -573,7 +576,7 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
       )}
 
       {(stage === 'form' || stage === 'saving') && (
-        <div className="fixed inset-x-0 bottom-0 mx-auto flex max-w-[430px] flex-col gap-[9px] border-t border-borde bg-madera-900/95 px-5 pt-3 pb-[26px] backdrop-blur-sm">
+        <div className="fixed inset-x-0 bottom-0 mx-auto flex max-w-[430px] flex-col gap-[9px] border-t border-borde bg-madera-900/95 px-5 pt-3 pb-seguro backdrop-blur-sm">
           {/* El error de guardar aparece aca y no arriba: el dedo esta en este
               boton, y el formulario mide mas que la pantalla. */}
           {saveError && (
