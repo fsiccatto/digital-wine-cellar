@@ -296,10 +296,23 @@ export function matchesSearch(wine: WineRecord, term: string): boolean {
   ].some((field) => normalize(field ?? '').includes(q))
 }
 
+/**
+ * Solo fechas ISO, que es lo unico que escribe el servidor.
+ *
+ * `new Date()` solo no alcanza: Chrome acepta casi cualquier cosa y una
+ * puntuacion "3.5" caida en la columna de la fecha salia como 5 de marzo de
+ * 2001. Mejor omitirla que mostrar un dato inventado.
+ */
+export function parseFecha(valor: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}/.test(valor)) return null
+  const parsed = new Date(valor)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
 /** El Sheet se edita a mano: una fecha ilegible se omite en vez de mostrarse. */
 export function formatDate(iso: string): string | null {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) return null
+  const parsed = parseFecha(iso)
+  if (!parsed) return null
   return parsed.toLocaleDateString('es-AR', {
     day: 'numeric',
     month: 'short',
@@ -314,8 +327,8 @@ export function formatYear(anada: number): string | null {
 
 /** Dia y mes, para la fila de una cata: el año ya lo dice el rotulo del grupo. */
 export function formatDayMonth(iso: string): string | null {
-  const parsed = new Date(iso)
-  if (Number.isNaN(parsed.getTime())) return null
+  const parsed = parseFecha(iso)
+  if (!parsed) return null
   return parsed.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
 }
 
@@ -335,8 +348,8 @@ export function groupByMonth(catas: CataRecord[]): CataMonth[] {
   const months = new Map<string, CataRecord[]>()
 
   for (const cata of catas) {
-    const parsed = new Date(cata.fecha_consumo)
-    const key = Number.isNaN(parsed.getTime())
+    const parsed = parseFecha(cata.fecha_consumo)
+    const key = !parsed
       ? UNDATED
       : `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, '0')}`
     const existing = months.get(key)

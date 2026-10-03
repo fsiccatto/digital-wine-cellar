@@ -185,13 +185,10 @@ class FakeAppendWorksheet:
         self.appended = []
         self.updates = []
         self.col_count = len(header)
-        self.row_values_calls = 0
-
-    def row_values(self, _n):
-        self.row_values_calls += 1
-        return list(self.header)
+        self.lecturas = 0
 
     def get_all_values(self):
+        self.lecturas += 1
         return [list(self.header)]
 
     def append_row(self, values):
@@ -235,7 +232,7 @@ def test_el_encabezado_se_verifica_una_sola_vez_por_proceso():
         for _ in range(3):
             sheets_service.append_cata_record({"id_cata": "c", "vino_id": "u"})
 
-    assert worksheet.row_values_calls == 1
+    assert worksheet.lecturas == 1
     assert len(worksheet.appended) == 3
 
 
@@ -248,4 +245,100 @@ def test_una_lectura_previa_deja_el_append_sin_costo():
     with patch.object(sheets_service, "get_catas_worksheet", return_value=worksheet):
         sheets_service.append_cata_record({"id_cata": "c", "vino_id": "u"})
 
-    assert worksheet.row_values_calls == 0
+    assert worksheet.lecturas == 1, "el append no debia volver a leer"
+
+
+class FakeHojaCompleta:
+    """Una pestaña con datos, para ver que pasa con las filas y no solo la 1."""
+
+    def __init__(self, values, title="Historico_Catas"):
+        self.title = title
+        self.values = [list(fila) for fila in values]
+        self.col_count = max(len(fila) for fila in values)
+        self.updates = []
+        self.batches = []
+
+    def get_all_values(self):
+        return [list(fila) for fila in self.values]
+
+    def update(self, values, range_name):
+        self.updates.append((values, range_name))
+        self.values = [list(fila) for fila in values]
+
+    def batch_update(self, data):
+        self.batches.append(data)
+        for item in data:
+            numero = int(item["range"].split(":")[0][1:])
+            fila = item["values"][0]
+            self.values[numero - 1][: len(fila)] = fila
+
+    def add_cols(self, n):
+        self.col_count += n
+
+
+VIEJO = [h for h in CATAS_HEADERS if h != "codigo_vino"]
+# Una cata escrita con el esquema de seis columnas, en el orden de entonces.
+FILA_VIEJA = ["cata-1", "uuid-1", "2026-08-20T21:30:00", "3.5", "", "Asado"]
+
+
+def test_un_esquema_nuevo_reacomoda_los_datos_y_no_solo_el_encabezado():
+    """Sumar una columna en el medio no puede correr las filas que ya estaban."""
+    worksheet = FakeHojaCompleta([VIEJO, FILA_VIEJA])
+    sheets_service._headers_ok.discard(worksheet.title)
+
+    filas = sheets_service._rows_from(worksheet, CATAS_HEADERS)
+
+    assert worksheet.values[0] == CATAS_HEADERS
+    assert filas[0]["fecha_consumo"] == "2026-08-20T21:30:00"
+    assert filas[0]["puntuacion"] == "3.5"
+    assert filas[0]["maridaje"] == "Asado"
+    assert filas[0]["codigo_vino"] == ""
+    # Y queda escrito asi: la proxima lectura ya no tiene que reacomodar nada.
+    assert dict(zip(CATAS_HEADERS, worksheet.values[1]))["fecha_consumo"] == (
+        "2026-08-20T21:30:00"
+    )
+
+
+def test_una_columna_desconocida_se_conserva_al_final():
+    worksheet = FakeHojaCompleta([[*VIEJO, "comentario"], [*FILA_VIEJA, "a mano"]])
+
+    sheets_service._rows_from(worksheet, CATAS_HEADERS)
+
+    assert worksheet.values[0] == [*CATAS_HEADERS, "comentario"]
+    assert worksheet.values[1][-1] == "a mano"
+
+
+def test_las_catas_que_ya_quedaron_corridas_se_enderezan():
+    """El dato que se veia como "5 mar 2001": la puntuacion bajo fecha_consumo.
+
+    Es lo que dejo en produccion reescribir solo el encabezado: la hoja tiene
+    el esquema nuevo y la fila vieja sigue con sus seis valores en su lugar.
+    """
+    sana = cata_values("cata-2")
+    worksheet = FakeHojaCompleta([CATAS_HEADERS, [*FILA_VIEJA, ""], sana])
+
+    filas = sheets_service._rows_from(worksheet, CATAS_HEADERS)
+
+    corrida = next(f for f in filas if f["id_cata"] == "cata-1")
+    assert corrida["fecha_consumo"] == "2026-08-20T21:30:00"
+    assert corrida["puntuacion"] == "3.5"
+    assert corrida["maridaje"] == "Asado"
+    # Solo se escribe la fila rota, en una llamada.
+    assert len(worksheet.batches) == 1
+    assert [item["range"] for item in worksheet.batches[0]] == ["A2:G2"]
+    assert worksheet.values[2] == sana
+
+    # Arreglada una vez, no se vuelve a tocar.
+    sheets_service._rows_from(worksheet, CATAS_HEADERS)
+    assert len(worksheet.batches) == 1
+
+
+def test_no_se_corre_una_fila_que_tiene_la_ultima_celda_ocupada():
+    """Si la ultima celda tiene algo, no es una fila del esquema viejo."""
+    rara = ["cata-3", "uuid-1", "2026-08-20T21:30:00", "3.5", "", "Asado", "Algo"]
+    worksheet = FakeHojaCompleta([CATAS_HEADERS, rara])
+
+    sheets_service._rows_from(worksheet, CATAS_HEADERS)
+
+    assert worksheet.batches == []
+    assert worksheet.values[1] == rara

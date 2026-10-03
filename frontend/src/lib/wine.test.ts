@@ -4,6 +4,8 @@ import {
   activeFilterCount,
   averageScore,
   cellarValue,
+  formatDate,
+  formatDayMonth,
   glassTint,
   groupByMonth,
   guardaDe,
@@ -225,6 +227,14 @@ describe('groupByMonth', () => {
     const grupos = groupByMonth([cata('no es una fecha'), cata('2026-03-02T21:00:00')])
     expect(grupos[grupos.length - 1].label).toBe('Sin fecha')
     expect(grupos).toHaveLength(2)
+  })
+
+  it('una puntuacion caida en la fecha no se vuelve marzo de 2001', () => {
+    // Chrome lee "3.5" como el 5 de marzo de 2001. Paso con catas corridas.
+    const grupos = groupByMonth([cata('3.5'), cata('2026-03-02T21:00:00')])
+    expect(grupos.map((g) => g.key)).toEqual(['2026-03', '?'])
+    expect(formatDate('3.5')).toBeNull()
+    expect(formatDayMonth('4')).toBeNull()
   })
 })
 

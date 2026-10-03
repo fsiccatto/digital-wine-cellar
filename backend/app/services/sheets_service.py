@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+from datetime import datetime
 from typing import Any, Dict, List
 
 import gspread
@@ -139,24 +140,110 @@ def _get_worksheet(title: str, headers: List[str]):
     return worksheet
 
 
-def _ensure_headers(worksheet, headers: List[str], first_row: List[str]):
-    """Repara la fila 1 si no es el encabezado que espera el codigo.
+def _ensure_headers(
+    worksheet, headers: List[str], values: List[List[str]]
+) -> List[List[str]]:
+    """Deja la pestaña con el encabezado que espera el codigo, y la devuelve.
 
-    Recibe la fila ya leida en vez de pedirla: quien llama acaba de traer la
-    pestaña entera y la fila 1 viene incluida.
+    Recibe la pestaña ya leida en vez de pedirla: quien llama acaba de traerla
+    entera y la fila 1 viene incluida.
+
+    Si el encabezado es de un esquema anterior, se reacomodan TODAS las filas
+    por nombre de columna, no solo la fila 1. Reescribir solo el encabezado fue
+    lo que rompio el historico al sumar `codigo_vino` en el medio: las catas
+    viejas quedaron con la fecha bajo `codigo_vino` y la puntuacion bajo
+    `fecha_consumo`, y el navegador leia "3.5" como el 5 de marzo de 2001.
     """
     _headers_ok.add(worksheet.title)
 
+    first_row = values[0] if values else []
     if first_row == headers:
-        return
+        return values
     if not first_row:
         worksheet.append_row(headers)
-        return
-    # La fila 1 ya es un encabezado (posiblemente de un esquema anterior): se
-    # reescribe en lugar de insertar, para no duplicarla en cada arranque.
-    if worksheet.col_count < len(headers):
-        worksheet.add_cols(len(headers) - worksheet.col_count)
-    _retry(worksheet.update, [headers], f"A1:{rowcol_to_a1(1, len(headers))}")
+        return [list(headers), *values[1:]]
+
+    # Una columna que el codigo ya no conoce se conserva al final en vez de
+    # perderse: alguien la puede haber agregado a mano.
+    extras = [h for h in first_row if h and h not in headers]
+    nuevo = [*headers, *extras]
+    filas = [
+        [dict(zip(first_row, fila)).get(h, "") for h in nuevo] for fila in values[1:]
+    ]
+    realineado = [nuevo, *filas]
+
+    if worksheet.col_count < len(nuevo):
+        worksheet.add_cols(len(nuevo) - worksheet.col_count)
+    # Una sola escritura con la pestaña entera, y fija valores en direcciones
+    # concretas: se puede reintentar.
+    _retry(
+        worksheet.update,
+        realineado,
+        f"A1:{rowcol_to_a1(len(realineado), len(nuevo))}",
+    )
+    return realineado
+
+
+def _es_fecha(valor: str) -> bool:
+    try:
+        datetime.fromisoformat(valor)
+    except (TypeError, ValueError):
+        return False
+    return True
+
+
+def _reparar_catas_corridas(worksheet, values: List[List[str]]) -> List[List[str]]:
+    """Endereza las catas que quedaron corridas al sumar `codigo_vino`.
+
+    Antes de que `_ensure_headers` reacomodara las filas, el cambio de esquema
+    reescribio solo la fila 1. Las catas de antes quedaron con seis valores en
+    su lugar viejo: la fecha bajo `codigo_vino`, la puntuacion bajo
+    `fecha_consumo`, la nota bajo `puntuacion`.
+
+    La firma es inconfundible —un codigo de vino nunca es una fecha ISO—, asi
+    que se reconoce sola y se arregla una vez. Despues no vuelve a coincidir
+    ninguna fila y esto es solo un recorrido en memoria.
+    """
+    if not values or values[0][: len(CATAS_HEADERS)] != CATAS_HEADERS:
+        return values
+
+    col_codigo = CATAS_HEADERS.index("codigo_vino")
+    col_fecha = CATAS_HEADERS.index("fecha_consumo")
+    ultima = len(CATAS_HEADERS) - 1
+    arreglos = []
+    for numero, fila in enumerate(values[1:], start=2):
+        if len(fila) <= col_fecha:
+            continue
+        if not _es_fecha(fila[col_codigo]) or _es_fecha(fila[col_fecha]):
+            continue
+        # Una fila vieja tenia un valor menos, asi que la ultima celda esta
+        # vacia. Si no, no es la fila que se busca y correrla perderia un dato.
+        if len(fila) > ultima and fila[ultima]:
+            continue
+        # La columna nueva queda vacia: es una copia para leer a ojo y el join
+        # no la usa.
+        corrida = fila[col_codigo:ultima]
+        arreglada = [*fila[:col_codigo], "", *corrida]
+        values[numero - 1] = arreglada + fila[len(arreglada) :]
+        arreglos.append(
+            {
+                "range": f"A{numero}:{rowcol_to_a1(numero, len(arreglada))}",
+                "values": [arreglada],
+            }
+        )
+
+    if arreglos:
+        logger.warning("Reparando %s catas corridas en %s", len(arreglos), CATAS_TAB)
+        _retry(worksheet.batch_update, arreglos)
+    return values
+
+
+def _read_values(worksheet, headers: List[str]) -> List[List[str]]:
+    """Lee la pestaña entera, ya alineada con `headers`."""
+    values = _ensure_headers(worksheet, headers, _retry(worksheet.get_all_values))
+    if headers == CATAS_HEADERS:
+        values = _reparar_catas_corridas(worksheet, values)
+    return values
 
 
 def _ensure_headers_before_append(worksheet, headers: List[str]):
@@ -166,15 +253,18 @@ def _ensure_headers_before_append(worksheet, headers: List[str]):
     fila 1 del Sheet quedo con un esquema viejo —una columna menos, por
     ejemplo— cada valor cae una celda corrida y la fila entera queda mal.
 
-    Hace falta porque el encabezado se repara al LEER (ver `_rows_from`), y hay
-    caminos que escriben sin haber leido antes esa pestaña: descorchar lee
+    Hace falta porque el encabezado se repara al LEER (ver `_read_values`), y
+    hay caminos que escriben sin haber leido antes esa pestaña: descorchar lee
     Inventario y agrega en Historico_Catas sin tocarla. La primera vez en cada
     proceso cuesta una llamada; despues, ninguna. Si ya hubo una lectura de esa
     pestaña, sale gratis siempre.
+
+    Se lee la pestaña entera y no solo la fila 1: si el encabezado esta viejo
+    hay que reacomodar tambien los datos, y cuesta la misma llamada.
     """
     if worksheet.title in _headers_ok:
         return
-    _ensure_headers(worksheet, headers, _retry(worksheet.row_values, 1))
+    _read_values(worksheet, headers)
 
 
 def get_inventory_worksheet():
@@ -187,8 +277,7 @@ def get_catas_worksheet():
 
 def _rows_from(worksheet, expected_headers: List[str]) -> List[Dict[str, Any]]:
     """Lee una pestaña completa como dicts, salteando las filas vacías."""
-    values = _retry(worksheet.get_all_values)
-    _ensure_headers(worksheet, expected_headers, values[0] if values else [])
+    values = _read_values(worksheet, expected_headers)
     if len(values) <= 1:
         return []
 
@@ -256,7 +345,7 @@ def _update_inventory_cell(
 
 def get_inventory_values() -> List[List[str]]:
     """La planilla cruda, para quien despues va a escribir sobre ella."""
-    return _retry(get_inventory_worksheet().get_all_values)
+    return _read_values(get_inventory_worksheet(), INVENTORY_HEADERS)
 
 
 def update_inventory_quantity(
@@ -375,8 +464,12 @@ def append_cata_record(row: Dict[str, Any]):
 
 
 def get_catas_values() -> List[List[str]]:
-    """La pestaña de catas cruda, para quien despues va a escribir sobre ella."""
-    return _retry(get_catas_worksheet().get_all_values)
+    """La pestaña de catas cruda, para quien despues va a escribir sobre ella.
+
+    Pasa por la reparacion igual que la lectura: editar una cata corrida sin
+    enderezarla antes escribiria cada campo nuevo sobre la columna equivocada.
+    """
+    return _read_values(get_catas_worksheet(), CATAS_HEADERS)
 
 
 def update_cata_row(
