@@ -296,10 +296,13 @@ export function matchesSearch(wine: WineRecord, term: string): boolean {
   ].some((field) => normalize(field ?? '').includes(q))
 }
 
-/** Solo ISO: Chrome lee "3.5" como el 5 de marzo de 2001. */
+/**
+ * Solo ISO: Chrome lee "3.5" como el 5 de marzo de 2001. Con espacio en vez de
+ * T es como vuelve una fecha escrita a mano en Sheets, y Safari no la entiende.
+ */
 function parseFecha(valor: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}/.test(valor)) return null
-  const parsed = new Date(valor)
+  const parsed = new Date(valor.replace(' ', 'T'))
   return Number.isNaN(parsed.getTime()) ? null : parsed
 }
 

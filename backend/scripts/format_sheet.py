@@ -55,7 +55,8 @@ INVENTORY_WIDTHS = {
 
 CATAS_WIDTHS = {
     "id_cata": 60,
-    "vino_id": 165,
+    "vino_id": 60,
+    "codigo_vino": 165,
     "fecha_consumo": 145,
     "puntuacion": 90,
     "notas_cata": 320,
@@ -371,18 +372,19 @@ def _catas_extras(sheet_id: str):
     body = {"sheetId": sheet_id, "startRowIndex": 1}
 
     return [
-        # Puntuacion 1 a 5.
+        # Puntuacion hasta 5: van medias copas, asi que no es una lista. Los
+        # limites son enteros porque Sheets lee el decimal segun el idioma de
+        # la planilla, y "0.5" en una en español es invalido.
         {
             "setDataValidation": {
                 "range": {**body, "startColumnIndex": col("puntuacion"),
                           "endColumnIndex": col("puntuacion") + 1},
                 "rule": {
                     "condition": {
-                        "type": "ONE_OF_LIST",
-                        "values": [{"userEnteredValue": str(n)} for n in range(1, 6)],
+                        "type": "NUMBER_BETWEEN",
+                        "values": [{"userEnteredValue": "0"}, {"userEnteredValue": "5"}],
                     },
                     "strict": False,
-                    "showCustomUi": True,
                 },
             }
         },
@@ -441,26 +443,29 @@ def _catas_extras(sheet_id: str):
                 },
             }
         },
-        {
-            "repeatCell": {
-                "range": {**body, "startColumnIndex": col("id_cata"),
-                          "endColumnIndex": col("id_cata") + 1},
-                "cell": {
-                    "userEnteredFormat": {
-                        "textFormat": {
-                            "fontFamily": "Karla",
-                            "fontSize": 8,
-                            "foregroundColor": {"red": 0.64, "green": 0.57, "blue": 0.48},
+        *[
+            {
+                "repeatCell": {
+                    "range": {**body, "startColumnIndex": col(name),
+                              "endColumnIndex": col(name) + 1},
+                    "cell": {
+                        "userEnteredFormat": {
+                            "textFormat": {
+                                "fontFamily": "Karla",
+                                "fontSize": 8,
+                                "foregroundColor": {"red": 0.64, "green": 0.57, "blue": 0.48},
+                            }
                         }
-                    }
-                },
-                "fields": "userEnteredFormat.textFormat",
+                    },
+                    "fields": "userEnteredFormat.textFormat",
+                }
             }
-        },
+            for name in ("id_cata", "vino_id")
+        ],
         {
             "repeatCell": {
-                "range": {**body, "startColumnIndex": col("vino_id"),
-                          "endColumnIndex": col("vino_id") + 1},
+                "range": {**body, "startColumnIndex": col("codigo_vino"),
+                          "endColumnIndex": col("codigo_vino") + 1},
                 "cell": {
                     "userEnteredFormat": {
                         "textFormat": {
@@ -478,8 +483,13 @@ def _catas_extras(sheet_id: str):
 
 
 def _clear_existing(spreadsheet, sheet_id: str, last_col: int):
-    """Quita bandas y reglas previas para que el script sea idempotente."""
-    requests = []
+    """Quita bandas, reglas y validaciones previas para que sea idempotente.
+
+    Las validaciones van por posicion de columna: sin borrarlas, al sumar una
+    columna en el medio la de puntuacion quedo sobre fecha_consumo y marcaba
+    todas las fechas como invalidas.
+    """
+    requests = [{"setDataValidation": {"range": {"sheetId": sheet_id, "startRowIndex": 1}}}]
     meta = spreadsheet.fetch_sheet_metadata()
     for sheet in meta.get("sheets", []):
         if sheet["properties"]["sheetId"] != sheet_id:
@@ -520,7 +530,7 @@ def main() -> int:
         print(f"  {title}: {len(requests)} ajustes aplicados")
 
     print("\nListo. La planilla quedo con encabezado fijo, filtros, franjas,")
-    print("desplegables de varietal y puntuacion, y colores de la app.")
+    print("desplegable de varietal, puntuacion hasta 5 y colores de la app.")
     return 0
 
 

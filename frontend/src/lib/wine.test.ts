@@ -237,6 +237,10 @@ describe('groupByMonth', () => {
     expect(formatDate('3.5')).toBeNull()
     expect(formatDayMonth('4')).toBeNull()
   })
+
+  it('acepta la fecha con espacio que devuelve Sheets', () => {
+    expect(groupByMonth([cata('2026-09-06 13:20:17')]).map((g) => g.key)).toEqual(['2026-09'])
+  })
 })
 
 describe('averageScore', () => {
