@@ -82,7 +82,7 @@ def test_attach_photo_requires_bucket_configured():
             wine_service.attach_label_photo("TRA-MAL-2020-0001", b"x", "image/jpeg")
 
 
-def test_listing_signs_stored_object_names():
+def test_la_ficha_firma_la_foto():
     with (
         patch.object(storage_service, "is_configured", return_value=True),
         patch.object(
@@ -96,9 +96,27 @@ def test_listing_signs_stored_object_names():
             return_value=[inventory_row("etiquetas/TRA-MAL-2020-0001.jpg")],
         ),
     ):
+        wine = wine_service.get_wine("TRA-MAL-2020-0001")
+
+    assert wine.foto_url == "https://signed.example/etiqueta.jpg?sig=abc"
+
+
+def test_el_listado_no_firma_ninguna_foto():
+    """La lista no muestra fotos: firmar una por vino era tiempo tirado."""
+    with (
+        patch.object(storage_service, "is_configured", return_value=True),
+        patch.object(storage_service, "build_signed_url") as firmar,
+        patch.object(
+            wine_service,
+            "get_inventory_rows",
+            return_value=[inventory_row("etiquetas/TRA-MAL-2020-0001.jpg")],
+        ),
+    ):
         wines = wine_service.list_wines()
 
-    assert wines[0].foto_url == "https://signed.example/etiqueta.jpg?sig=abc"
+    firmar.assert_not_called()
+    # Sigue diciendo que hay foto: el escaneo lo usa para no pisarla.
+    assert wines[0].foto_url == "etiquetas/TRA-MAL-2020-0001.jpg"
 
 
 def test_listing_without_bucket_leaves_photo_untouched():

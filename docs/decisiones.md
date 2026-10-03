@@ -8,7 +8,7 @@ Las decisiones que no se deducen leyendo el código.
 |---|---|---|
 | `GET` | `/health` | Chequeo de vida (siempre abierto) |
 | `POST` | `/api/scan-label` | Sube una imagen y devuelve lo que Gemini pudo leer |
-| `GET` | `/api/wines` | Lista el inventario |
+| `GET` | `/api/wines` | Lista el inventario; `foto_url` viene sin firmar |
 | `GET` | `/api/wines/{codigo}` | Un vino, con su `foto_url` ya firmada |
 | `POST` | `/api/wines` | Crea un vino y le asigna código |
 | `PUT` | `/api/wines/{codigo}` | Edita sus datos; el código no cambia |

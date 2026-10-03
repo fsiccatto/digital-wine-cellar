@@ -27,8 +27,8 @@ from app.services import rate_limit_store
 _hits: dict[str, deque] = defaultdict(deque)
 _lock = Lock()
 
-# Se lee el estado guardado una sola vez, en el primer pedido: hacerlo al
-# importar rompe los tests y retrasa el arranque por algo que puede fallar.
+# Se lee el estado guardado una sola vez, en el primer pedido o al arrancar en
+# Cloud Run (ver app/warmup.py). Hacerlo al importar rompia los tests.
 _loaded = False
 
 # Cuantas claves distintas se recuerdan. Sin tope, un atacante que rota IPs
@@ -85,6 +85,11 @@ def check(
     # resto de los pedidos por eso. El store decide si toca escribir.
     rate_limit_store.save(instantanea, forzar=recien_agotado)
     return True, 0
+
+
+def precargar() -> None:
+    """Trae el estado guardado ya, sin esperar al primer pedido (app/warmup.py)."""
+    _ensure_loaded()
 
 
 def _ensure_loaded() -> None:

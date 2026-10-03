@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -6,15 +8,24 @@ from app.config import CORS_ALLOW_ORIGINS, ENABLE_DOCS
 from app.routes.health import router as health_router
 from app.routes.scan import router as scan_router
 from app.routes.wines import router as wines_router
+from app.warmup import precalentar
 
 # Antes de exponer nada: si falta el token en produccion, no se levanta.
 verify_token_is_configured()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    precalentar()
+    yield
+
 
 # Los docs ya viven detras del token, pero en produccion no hay motivo para
 # publicar el mapa de la API. En local siguen a mano.
 app = FastAPI(
     title="Mi Cava Virtual API",
     version="0.1.0",
+    lifespan=lifespan,
     docs_url="/docs" if ENABLE_DOCS else None,
     redoc_url="/redoc" if ENABLE_DOCS else None,
     openapi_url="/openapi.json" if ENABLE_DOCS else None,

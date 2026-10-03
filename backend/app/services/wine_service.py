@@ -67,10 +67,16 @@ def _with_photo_url(record: WineRecord) -> WineRecord:
 
 
 def list_wines() -> list[WineRecord]:
+    """El inventario, con `foto_url` tal como esta en el Sheet: sin firmar.
+
+    La lista no muestra fotos, y firmar una URL por vino en cada carga era
+    trabajo tirado justo en el pedido que mas se espera. La URL firmada la da
+    `get_wine`, que es lo que abre la ficha.
+    """
     wines = []
     for row in get_inventory_rows():
         try:
-            wines.append(_with_photo_url(WineRecord(**row)))
+            wines.append(WineRecord(**row))
         except ValidationError:
             # Filas editadas a mano en el Sheet no deben invalidar todo el inventario.
             continue
@@ -83,7 +89,7 @@ def get_wine(codigo_vino: str) -> WineRecord:
     )
     if wine is None:
         raise ValueError("No se encontró el vino solicitado.")
-    return wine
+    return _with_photo_url(wine)
 
 
 def attach_label_photo(

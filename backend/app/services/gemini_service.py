@@ -1,7 +1,5 @@
 import json
 
-import google.generativeai as genai
-
 from app.config import GEMINI_API_KEY
 
 MODEL_NAME = "gemini-3.6-flash"
@@ -41,6 +39,11 @@ Reglas:
 def extract_wine_data_from_image_bytes(image_bytes: bytes, mime_type: str = "image/jpeg") -> dict:
     if not GEMINI_API_KEY:
         raise RuntimeError("Falta GEMINI_API_KEY en el entorno. Configural el archivo .env.")
+
+    # Se importa recien aca: es la libreria mas pesada de la app y solo la usa
+    # el escaneo. Cargarla al arrancar se pagaba en cada arranque en frio,
+    # incluso para abrir la lista, que es lo que mas se hace.
+    import google.generativeai as genai
 
     genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel(MODEL_NAME)
