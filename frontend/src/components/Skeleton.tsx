@@ -1,10 +1,13 @@
+import { CopaCargando } from './CopaCargando'
+
 /**
  * La forma que va a tener la lista, mientras la lista llega.
  *
  * El backend corre con `min-instances=0`: el primer pedido del dia despierta la
  * instancia y puede tardar varios segundos. Una pantalla vacia con un spinner
  * en el medio se lee como colgada; esto adelanta el layout, asi que la espera
- * se siente parte de la carga y no un error.
+ * se siente parte de la carga y no un error. Arriba va la copa, que dice que
+ * esta pasando si la espera se alarga.
  *
  * Va aca y no en cada pantalla porque la cava y las catas comparten el mismo
  * rotulo con linea, las mismas filas y el mismo espaciado: dos copias se
@@ -16,7 +19,7 @@ export function ListaSkeleton({
   filas = 3,
   estante = false,
 }: {
-  /** Lo que escucha quien usa lector de pantalla, que no ve el esqueleto. */
+  /** Lo que dice la copa al empezar; tambien lo anuncia el lector de pantalla. */
   aviso: string
   grupos?: number
   filas?: number
@@ -25,9 +28,7 @@ export function ListaSkeleton({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <span role="status" className="sr-only">
-        {aviso}
-      </span>
+      <CopaCargando aviso={aviso} />
 
       {Array.from({ length: grupos }, (_, grupo) => (
         // Es decorado: quien no lo ve ya escucho el aviso de arriba.

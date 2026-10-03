@@ -36,6 +36,7 @@ import {
 } from '../components/icons'
 import { alTocar, formatPuntuacion, rellenoDe } from '../lib/puntuacion'
 import { CataRow } from '../components/CataRow'
+import { CopaCargando } from '../components/CopaCargando'
 import { PhotoViewer } from '../components/PhotoViewer'
 import { Field, Stepper } from '../components/Field'
 import { Sheet } from '../components/Sheet'
@@ -112,9 +113,8 @@ export function WineScreen({
   if (loading) {
     return (
       <Frame onBack={onBack}>
-        <div className="flex items-center justify-center gap-[10px] py-20 text-tenue-500">
-          <SpinnerIcon className="animate-spin" />
-          <span className="text-[13px]">Buscando la botella…</span>
+        <div className="py-14">
+          <CopaCargando aviso="Buscando la botella…" />
         </div>
       </Frame>
     )

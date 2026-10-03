@@ -192,6 +192,48 @@ button {
   animation: respira 1.6s ease-in-out infinite;
 }
 
+/* La copa de carga: el vino sube y baja despacio mientras la superficie se
+   mece. Son dos olas a contramano y a distinto ritmo, para que nunca se vea
+   el mismo dibujo dos veces seguidas. */
+@keyframes copa-nivel {
+  from {
+    transform: translateY(23px);
+  }
+  to {
+    transform: translateY(18px);
+  }
+}
+
+@keyframes copa-ola {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-16px);
+  }
+}
+
+@keyframes copa-ola-atras {
+  from {
+    transform: translate(0, -1.2px);
+  }
+  to {
+    transform: translate(16px, -1.2px);
+  }
+}
+
+.copa-nivel {
+  animation: copa-nivel 3.4s ease-in-out infinite alternate;
+}
+
+.copa-ola {
+  animation: copa-ola 2.2s linear infinite;
+}
+
+.copa-ola-atras {
+  animation: copa-ola-atras 3.1s linear infinite;
+}
+
 /* Al tocar una tarjeta se hunde apenas en el papel. */
 .tarjeta {
   transition:
@@ -221,8 +263,18 @@ button {
   .brota,
   .hoja-vaiven,
   .zarcillo,
-  .hoja-cata {
+  .hoja-cata,
+  .copa-ola {
     animation: none;
+  }
+  /* La copa queda servida a media altura, quieta. */
+  .copa-nivel {
+    animation: none;
+    transform: translateY(20px);
+  }
+  .copa-ola-atras {
+    animation: none;
+    transform: translateY(-1.2px);
   }
   /* El esqueleto se queda quieto, pero visible: sin animacion sigue diciendo
      que el contenido no llego. */
