@@ -10,13 +10,15 @@ Después del primer `apply`, los deploys salen solos por
 ## Qué crea
 
 - APIs: Run, Artifact Registry, Secret Manager, Storage, Cloud Build, Sheets,
-  Drive, Generative Language, IAM Credentials
+  Drive, Generative Language, IAM Credentials, Cloud Scheduler
 - El repositorio de Artifact Registry donde CI publica la imagen
 - El bucket privado de fotos de etiqueta, y el permiso de la app sobre él
 - La Service Account del backend
 - Los secretos `app-token`, `gemini-api-key` y `sheets-credentials` (los
   contenedores; los valores se cargan a mano, ver abajo)
 - El servicio de Cloud Run, con `max_instances = 1`
+- Un job de Cloud Scheduler que pide `/health` cada 10 minutos en horas de uso,
+  para que abrir la app no espere un arranque en frío
 - La federación (Workload Identity) que deja desplegar desde GitHub Actions
   sin guardar ninguna clave en el repo
 
@@ -102,7 +104,11 @@ terraform import google_storage_bucket.tfstate TU-PROYECTO/TU-PROYECTO-tfstate
 - `max_instances = 1` no es por costo: los límites de uso se cuentan en memoria
   del proceso, así que con dos instancias el tope real se duplicaría. Ver
   `backend/app/rate_limit.py`.
-- `container_image` es el punto de partida; después de eso la imagen la maneja
-  el workflow de deploy, así que `terraform plan` va a querer volver a la del
-  tfvars. Actualizala o usá `-refresh-only` para ignorar esa diferencia.
-- Para dejar la API privada de verdad: `allow_unauthenticated = false`.
+- `container_image` es solo el punto de partida; después la imagen la maneja
+  el workflow de deploy y Terraform la ignora. Si `terraform plan` propone
+  cambiarla, algo se rompió en ese reparto.
+- El ping de `keep_warm` es gratis porque con `cpu_idle` una instancia ociosa
+  no se factura, y Scheduler da 3 jobs gratis por cuenta de facturación. El
+  horario se cambia con `keep_warm_schedule`; vacío lo apaga.
+- Para dejar la API privada de verdad: `allow_unauthenticated = false`. El ping
+  de `keep_warm` va sin credenciales, así que también hay que apagarlo.

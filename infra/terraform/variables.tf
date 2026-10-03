@@ -66,6 +66,18 @@ variable "max_instances" {
   default     = 1
 }
 
+variable "keep_warm_schedule" {
+  description = "Cron for the /health ping that keeps the backend warm; empty disables it"
+  type        = string
+  default     = "*/10 9-23 * * *"
+}
+
+variable "keep_warm_time_zone" {
+  description = "Time zone for keep_warm_schedule"
+  type        = string
+  default     = "America/Argentina/Buenos_Aires"
+}
+
 variable "artifact_repository" {
   description = "Artifact Registry repo where CI publishes the backend image"
   type        = string
