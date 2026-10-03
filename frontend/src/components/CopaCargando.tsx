@@ -1,19 +1,12 @@
 import { useEffect, useId, useState } from 'react'
 import { avisoDeCarga, DESPERTANDO_MS, TARDANDO_MS } from '../lib/carga'
 
-/**
- * Una copa con vino que se mece, y debajo que esta pasando.
- *
- * Reemplaza al spinner: en una app de vinos una rueda girando no dice nada, y
- * el arranque en frio puede durar varios segundos. El texto cambia si tarda
- * (ver `avisoDeCarga`), y con movimiento reducido la copa queda quieta.
- */
+/** Copa con vino que se mece mientras carga; el texto cambia si tarda. */
 export function CopaCargando({ aviso }: { aviso: string }) {
   const [transcurrido, setTranscurrido] = useState(0)
 
   useEffect(() => {
     const inicio = Date.now()
-    // Solo hace falta re-renderizar cuando el texto cambia, no cada segundo.
     const timers = [DESPERTANDO_MS, TARDANDO_MS].map((ms) =>
       window.setTimeout(() => setTranscurrido(Date.now() - inicio), ms),
     )
@@ -30,12 +23,9 @@ export function CopaCargando({ aviso }: { aviso: string }) {
   )
 }
 
-// La ola se repite cada 16 unidades: correrla exactamente eso hace que el
-// loop no tenga costura. Arranca a la izquierda de la copa y termina a la
-// derecha con margen para el desplazamiento.
+// Periodo de 16: la animacion la corre exactamente eso para que no haya costura.
 const OLA = `M-24 0${' q4 -1.6 8 0 t8 0'.repeat(6)} V40 H-24 Z`
 
-// Copa de tulipa abierta arriba; el cierre es solo para recortar el vino.
 const CUENCO = 'M11 7C10.5 20 13 33 24 35.5C35 33 37.5 20 37 7'
 
 function Copa() {
@@ -58,7 +48,6 @@ function Copa() {
         </g>
       </g>
 
-      {/* Brillo del vidrio, por encima del vino. */}
       <path
         d="M15 11C14.6 18 15.8 25 18.6 29"
         stroke="white"

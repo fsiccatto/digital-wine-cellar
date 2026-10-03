@@ -145,14 +145,8 @@ def _ensure_headers(
 ) -> List[List[str]]:
     """Deja la pestaña con el encabezado que espera el codigo, y la devuelve.
 
-    Recibe la pestaña ya leida en vez de pedirla: quien llama acaba de traerla
-    entera y la fila 1 viene incluida.
-
-    Si el encabezado es de un esquema anterior, se reacomodan TODAS las filas
-    por nombre de columna, no solo la fila 1. Reescribir solo el encabezado fue
-    lo que rompio el historico al sumar `codigo_vino` en el medio: las catas
-    viejas quedaron con la fecha bajo `codigo_vino` y la puntuacion bajo
-    `fecha_consumo`, y el navegador leia "3.5" como el 5 de marzo de 2001.
+    Si el esquema cambio, reacomoda TODAS las filas por nombre de columna:
+    reescribir solo la fila 1 dejaba los datos viejos corridos.
     """
     _headers_ok.add(worksheet.title)
 
@@ -163,8 +157,7 @@ def _ensure_headers(
         worksheet.append_row(headers)
         return [list(headers), *values[1:]]
 
-    # Una columna que el codigo ya no conoce se conserva al final en vez de
-    # perderse: alguien la puede haber agregado a mano.
+    # Una columna desconocida pudo agregarse a mano: se conserva al final.
     extras = [h for h in first_row if h and h not in headers]
     nuevo = [*headers, *extras]
     filas = [
@@ -174,8 +167,6 @@ def _ensure_headers(
 
     if worksheet.col_count < len(nuevo):
         worksheet.add_cols(len(nuevo) - worksheet.col_count)
-    # Una sola escritura con la pestaña entera, y fija valores en direcciones
-    # concretas: se puede reintentar.
     _retry(
         worksheet.update,
         realineado,
@@ -195,14 +186,8 @@ def _es_fecha(valor: str) -> bool:
 def _reparar_catas_corridas(worksheet, values: List[List[str]]) -> List[List[str]]:
     """Endereza las catas que quedaron corridas al sumar `codigo_vino`.
 
-    Antes de que `_ensure_headers` reacomodara las filas, el cambio de esquema
-    reescribio solo la fila 1. Las catas de antes quedaron con seis valores en
-    su lugar viejo: la fecha bajo `codigo_vino`, la puntuacion bajo
-    `fecha_consumo`, la nota bajo `puntuacion`.
-
-    La firma es inconfundible —un codigo de vino nunca es una fecha ISO—, asi
-    que se reconoce sola y se arregla una vez. Despues no vuelve a coincidir
-    ninguna fila y esto es solo un recorrido en memoria.
+    Tienen la fecha bajo `codigo_vino` y la puntuacion bajo `fecha_consumo`.
+    Un codigo de vino nunca es una fecha ISO, asi que se reconocen solas.
     """
     if not values or values[0][: len(CATAS_HEADERS)] != CATAS_HEADERS:
         return values
@@ -216,12 +201,9 @@ def _reparar_catas_corridas(worksheet, values: List[List[str]]) -> List[List[str
             continue
         if not _es_fecha(fila[col_codigo]) or _es_fecha(fila[col_fecha]):
             continue
-        # Una fila vieja tenia un valor menos, asi que la ultima celda esta
-        # vacia. Si no, no es la fila que se busca y correrla perderia un dato.
+        # Las filas viejas tenian un valor menos: la ultima celda esta vacia.
         if len(fila) > ultima and fila[ultima]:
             continue
-        # La columna nueva queda vacia: es una copia para leer a ojo y el join
-        # no la usa.
         corrida = fila[col_codigo:ultima]
         arreglada = [*fila[:col_codigo], "", *corrida]
         values[numero - 1] = arreglada + fila[len(arreglada) :]
@@ -258,9 +240,6 @@ def _ensure_headers_before_append(worksheet, headers: List[str]):
     Inventario y agrega en Historico_Catas sin tocarla. La primera vez en cada
     proceso cuesta una llamada; despues, ninguna. Si ya hubo una lectura de esa
     pestaña, sale gratis siempre.
-
-    Se lee la pestaña entera y no solo la fila 1: si el encabezado esta viejo
-    hay que reacomodar tambien los datos, y cuesta la misma llamada.
     """
     if worksheet.title in _headers_ok:
         return
@@ -464,11 +443,7 @@ def append_cata_record(row: Dict[str, Any]):
 
 
 def get_catas_values() -> List[List[str]]:
-    """La pestaña de catas cruda, para quien despues va a escribir sobre ella.
-
-    Pasa por la reparacion igual que la lectura: editar una cata corrida sin
-    enderezarla antes escribiria cada campo nuevo sobre la columna equivocada.
-    """
+    """La pestaña de catas cruda, para quien despues va a escribir sobre ella."""
     return _read_values(get_catas_worksheet(), CATAS_HEADERS)
 
 

@@ -3,9 +3,7 @@
     { "file": "Main.dc.html", "x": 0, "y": 0, "w": 390, "h": 900, "title": "Mi cava" },
     { "file": "Escanear.dc.html", "x": 510, "y": 0, "w": 390, "h": 900, "title": "Escanear etiqueta" },
     { "file": "Ficha.dc.html", "x": 1020, "y": 0, "w": 390, "h": 900, "title": "Ficha del vino" },
-    { "file": "DirC.dc.html", "x": 1530, "y": 0, "w": 390, "h": 790, "title": "Pergamino · elegida" },
-    { "file": "DirA.dc.html", "x": 2040, "y": 0, "w": 390, "h": 790, "title": "A · descartada" },
-    { "file": "DirB.dc.html", "x": 2550, "y": 0, "w": 390, "h": 790, "title": "B · descartada" }
+    { "file": "DirC.dc.html", "x": 1530, "y": 0, "w": 390, "h": 790, "title": "Pergamino" }
   ],
   "annotations": [
     {
@@ -20,14 +18,7 @@
       "x": 1530,
       "y": -230,
       "w": 400,
-      "text": "Pergamino — la elegida.\n\nFondo papel de etiqueta, el vino como unico color saturado, y el verde\nvid solo para acentos. Se lee de dia y las cifras se leen mejor que\nsobre madera oscura.\n\nEn la app se sumo: hoja de vid con zarcillo que se dibuja al entrar,\nestantes que aparecen escalonados, y las tarjetas que se hunden al\ntocarlas. Todo se apaga con prefers-reduced-motion."
-    },
-    {
-      "id": "descartadas",
-      "x": 2040,
-      "y": -230,
-      "w": 400,
-      "text": "A y B quedaron descartadas.\n\nA era la penumbra afinada: cambiaba poco.\nB era pizarra y cobre: resolvia el contraste pero perdia el caracter\nde bodega."
+      "text": "Pergamino.\n\nFondo papel de etiqueta, el vino como unico color saturado, y el verde\nvid solo para acentos. Se lee de dia y las cifras se leen mejor que\nsobre madera oscura.\n\nEn la app se sumo: hoja de vid con zarcillo que se dibuja al entrar,\nestantes que aparecen escalonados, y las tarjetas que se hunden al\ntocarlas. Todo se apaga con prefers-reduced-motion."
     }
   ],
   "launch": { "view": "focused", "file": "DirC.dc.html" }

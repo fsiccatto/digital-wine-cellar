@@ -6,7 +6,7 @@
  * salir por ahi, sin cache. Un dato viejo en una cava que se edita desde el
  * telefono es peor que un error de red.
  */
-export type AccionSW = 'pasar' | 'shell' | 'cache'
+type AccionSW = 'pasar' | 'shell' | 'cache'
 
 export function accionPara(
   request: { method: string; url: string; mode?: string },

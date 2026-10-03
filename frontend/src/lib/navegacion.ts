@@ -10,7 +10,7 @@
  */
 
 /** Lo que el gesto de "atras" tiene que hacer en un momento dado. */
-export type PasoAtras =
+type PasoAtras =
   | { hacer: 'salir' }
   | { hacer: 'cerrar-capa' }
   | { hacer: 'ir-a-cava' }

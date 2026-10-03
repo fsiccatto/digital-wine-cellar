@@ -40,9 +40,7 @@ def extract_wine_data_from_image_bytes(image_bytes: bytes, mime_type: str = "ima
     if not GEMINI_API_KEY:
         raise RuntimeError("Falta GEMINI_API_KEY en el entorno. Configural el archivo .env.")
 
-    # Se importa recien aca: es la libreria mas pesada de la app y solo la usa
-    # el escaneo. Cargarla al arrancar se pagaba en cada arranque en frio,
-    # incluso para abrir la lista, que es lo que mas se hace.
+    # Aca y no arriba: es la libreria mas pesada y alargaba cada arranque en frio.
     import google.generativeai as genai
 
     genai.configure(api_key=GEMINI_API_KEY)

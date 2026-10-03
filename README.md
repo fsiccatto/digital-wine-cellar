@@ -93,7 +93,7 @@ backend/
     services/    gemini, sheets, storage, wine
     schemas/     validaciones Pydantic
     utils/       código de vino, validación de imágenes
-  scripts/       formato de la planilla, utilidades
+  scripts/       formato de la planilla
   tests/
 frontend/
   src/

@@ -67,12 +67,7 @@ def _with_photo_url(record: WineRecord) -> WineRecord:
 
 
 def list_wines() -> list[WineRecord]:
-    """El inventario, con `foto_url` tal como esta en el Sheet: sin firmar.
-
-    La lista no muestra fotos, y firmar una URL por vino en cada carga era
-    trabajo tirado justo en el pedido que mas se espera. La URL firmada la da
-    `get_wine`, que es lo que abre la ficha.
-    """
+    """El inventario con `foto_url` sin firmar: la lista no muestra fotos."""
     wines = []
     for row in get_inventory_rows():
         try:

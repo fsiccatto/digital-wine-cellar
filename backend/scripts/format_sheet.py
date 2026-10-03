@@ -33,7 +33,6 @@ VINO = {"red": 0.486, "green": 0.137, "blue": 0.220}       # #7c2338
 PAPEL = {"red": 0.984, "green": 0.969, "blue": 0.937}      # #fbf7ef
 PAPEL_ALT = {"red": 0.949, "green": 0.925, "blue": 0.882}  # #f2ece1
 CREMA = {"red": 0.969, "green": 0.949, "blue": 0.910}
-BORDE = {"red": 0.867, "green": 0.824, "blue": 0.745}      # #ddd2be
 VERDE = {"red": 0.361, "green": 0.439, "blue": 0.282}      # #5c7048
 TINTA = {"red": 0.169, "green": 0.129, "blue": 0.098}      # #2b2119
 

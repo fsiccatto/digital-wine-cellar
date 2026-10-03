@@ -1,7 +1,7 @@
 import type { CataRecord, WineRecord } from './types'
 
 /** Tinte del vidrio segun el tipo de vino, para distinguirlos en el estante. */
-export interface GlassTint {
+interface GlassTint {
   glass: string
   edge: string
 }
@@ -58,7 +58,7 @@ export function glassTint(varietal: string): GlassTint {
   return TINTO
 }
 
-export interface Shelf {
+interface Shelf {
   key: string
   label: string
   wines: WineRecord[]
@@ -296,14 +296,8 @@ export function matchesSearch(wine: WineRecord, term: string): boolean {
   ].some((field) => normalize(field ?? '').includes(q))
 }
 
-/**
- * Solo fechas ISO, que es lo unico que escribe el servidor.
- *
- * `new Date()` solo no alcanza: Chrome acepta casi cualquier cosa y una
- * puntuacion "3.5" caida en la columna de la fecha salia como 5 de marzo de
- * 2001. Mejor omitirla que mostrar un dato inventado.
- */
-export function parseFecha(valor: string): Date | null {
+/** Solo ISO: Chrome lee "3.5" como el 5 de marzo de 2001. */
+function parseFecha(valor: string): Date | null {
   if (!/^\d{4}-\d{2}-\d{2}/.test(valor)) return null
   const parsed = new Date(valor)
   return Number.isNaN(parsed.getTime()) ? null : parsed
@@ -332,7 +326,7 @@ export function formatDayMonth(iso: string): string | null {
   return parsed.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
 }
 
-export interface CataMonth {
+interface CataMonth {
   key: string
   label: string
   catas: CataRecord[]

@@ -16,7 +16,6 @@ resource "google_project_service" "required" {
     "sheets.googleapis.com",
     "drive.googleapis.com",
     "generativelanguage.googleapis.com",
-    # El ping que mantiene despierto al backend (ver keep_warm).
     "cloudscheduler.googleapis.com",
   ])
 
@@ -187,11 +186,8 @@ resource "google_cloud_run_v2_service" "backend" {
           memory = "512Mi"
         }
         # Sin CPU asignada mientras no atiende requests: el trabajo real es
-        # esperar a Sheets y Gemini. Es tambien lo que hace gratis el ping de
-        # keep_warm: una instancia ociosa no se factura.
-        cpu_idle = true
-        # Mas CPU solo mientras arranca, que es cuando se cargan las librerias
-        # y se abre la planilla (ver app/warmup.py). Son segundos por arranque.
+        # esperar a Sheets y Gemini.
+        cpu_idle          = true
         startup_cpu_boost = true
       }
 
@@ -274,15 +270,9 @@ resource "google_cloud_run_v2_service_iam_member" "public_invoker" {
 }
 
 # --- Mantener despierto el backend ------------------------------------------
-# Con min-instances=0 la app se apaga sola y cada apertura pagaba un arranque
-# en frio de varios segundos. Cloud Run deja vivo un rato al proceso ocioso, asi
-# que pedir /health cada 10 minutos lo mantiene despierto en las horas de uso.
-# No es min-instances=1: con cpu_idle una instancia que espera no se factura,
-# y Scheduler da 3 jobs gratis por cuenta de facturacion. Cloud Run igual
-# puede apagarla cuando quiera; esto lo hace raro, no imposible.
-#
-# /health no pide token, por eso alcanza un GET pelado. Si el servicio dejara
-# de ser publico, este job necesitaria un oidc_token.
+# Un ping a /health cada 10 minutos evita el arranque en frio en horas de uso.
+# Gratis: con cpu_idle la instancia ociosa no se factura, y Scheduler da 3 jobs.
+# Va sin credenciales porque /health es publico.
 resource "google_cloud_scheduler_job" "keep_warm" {
   count = var.keep_warm_schedule == "" ? 0 : 1
 
@@ -291,12 +281,10 @@ resource "google_cloud_scheduler_job" "keep_warm" {
   schedule  = var.keep_warm_schedule
   time_zone = var.keep_warm_time_zone
 
-  # Un ping perdido no importa: el proximo llega en minutos.
   retry_config {
     retry_count = 0
   }
 
-  # Si el ping cae en frio tiene que esperar el arranque entero.
   attempt_deadline = "60s"
 
   http_target {

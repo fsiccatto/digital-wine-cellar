@@ -17,7 +17,7 @@ export function alTocar(actual: number, copa: number): number {
 }
 
 /** Cuanto se pinta una copa concreta para una puntuacion dada. */
-export type Relleno = 'vacia' | 'media' | 'llena'
+type Relleno = 'vacia' | 'media' | 'llena'
 
 export function rellenoDe(copa: number, puntuacion: number): Relleno {
   if (puntuacion >= copa) return 'llena'

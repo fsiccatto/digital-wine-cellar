@@ -14,16 +14,6 @@ const base = {
   strokeLinejoin: 'round' as const,
 }
 
-export function VineLeafIcon({ size = 17, className }: IconProps) {
-  return (
-    <svg {...base} width={size} height={size} strokeWidth={1.6} className={className}>
-      <path d="M12 21v-6" />
-      <path d="M12 15c-4 0-7-2.6-7-6.4C5 5.5 8 3 12 3s7 2.5 7 5.6c0 3.8-3 6.4-7 6.4z" />
-      <path d="M12 15V5.5M9.2 9.2 12 11m2.8-1.8L12 11" />
-    </svg>
-  )
-}
-
 /**
  * Hoja de vid con su zarcillo, para el encabezado de la cava.
  * La hoja se balancea sola; el zarcillo se dibuja al entrar (ver index.css).

@@ -192,9 +192,7 @@ button {
   animation: respira 1.6s ease-in-out infinite;
 }
 
-/* La copa de carga: el vino sube y baja despacio mientras la superficie se
-   mece. Son dos olas a contramano y a distinto ritmo, para que nunca se vea
-   el mismo dibujo dos veces seguidas. */
+/* Copa de carga: dos olas a contramano y a distinto ritmo. */
 @keyframes copa-nivel {
   from {
     transform: translateY(23px);
@@ -267,7 +265,6 @@ button {
   .copa-ola {
     animation: none;
   }
-  /* La copa queda servida a media altura, quieta. */
   .copa-nivel {
     animation: none;
     transform: translateY(20px);

@@ -6,8 +6,7 @@ import { CopaCargando } from './CopaCargando'
  * El backend corre con `min-instances=0`: el primer pedido del dia despierta la
  * instancia y puede tardar varios segundos. Una pantalla vacia con un spinner
  * en el medio se lee como colgada; esto adelanta el layout, asi que la espera
- * se siente parte de la carga y no un error. Arriba va la copa, que dice que
- * esta pasando si la espera se alarga.
+ * se siente parte de la carga y no un error.
  *
  * Va aca y no en cada pantalla porque la cava y las catas comparten el mismo
  * rotulo con linea, las mismas filas y el mismo espaciado: dos copias se
