@@ -69,7 +69,7 @@ variable "max_instances" {
 variable "keep_warm_schedule" {
   description = "Cron for the /health ping that keeps the backend warm; empty disables it"
   type        = string
-  default     = "*/10 9-23 * * *"
+  default     = "*/10 19-23 * * *"
 }
 
 variable "keep_warm_time_zone" {
