@@ -13,13 +13,10 @@ import { CopaCargando } from './CopaCargando'
  * despegarian a la primera que alguien retoque una.
  */
 export function ListaSkeleton({
-  aviso,
   grupos = 2,
   filas = 3,
   estante = false,
 }: {
-  /** Lo que dice la copa al empezar; tambien lo anuncia el lector de pantalla. */
-  aviso: string
   grupos?: number
   filas?: number
   /** La cava cierra cada grupo con la madera del estante; las catas no. */
@@ -27,7 +24,7 @@ export function ListaSkeleton({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <CopaCargando aviso={aviso} />
+      <CopaCargando />
 
       {Array.from({ length: grupos }, (_, grupo) => (
         // Es decorado: quien no lo ve ya escucho el aviso de arriba.

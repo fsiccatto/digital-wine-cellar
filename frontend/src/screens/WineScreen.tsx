@@ -118,7 +118,7 @@ export function WineScreen({
     return (
       <Frame onBack={onBack}>
         <div className="py-14">
-          <CopaCargando aviso="Buscando la botella…" />
+          <CopaCargando />
         </div>
       </Frame>
     )

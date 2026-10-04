@@ -103,7 +103,7 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
       )}
 
       <div className="relative flex grow flex-col gap-4 px-5 pt-2 pb-barra">
-        {cargandoVacio && <ListaSkeleton aviso="Abriendo el libro…" />}
+        {cargandoVacio && <ListaSkeleton />}
 
         {error && !cargandoVacio && (
           <div

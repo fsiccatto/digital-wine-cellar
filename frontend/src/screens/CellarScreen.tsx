@@ -191,7 +191,7 @@ export function CellarScreen({ wines, loading, error, onRetry, onSelect }: Props
       )}
 
       <div className="relative flex grow flex-col gap-4 px-5 pb-barra">
-        {cargandoVacio && <ListaSkeleton aviso="Abriendo la cava…" estante />}
+        {cargandoVacio && <ListaSkeleton estante />}
 
         {error && !cargandoVacio && (
           <div

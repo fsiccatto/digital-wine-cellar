@@ -199,10 +199,10 @@ body {
 /* Copa de carga: dos olas a contramano y a distinto ritmo. */
 @keyframes copa-nivel {
   from {
-    transform: translateY(23px);
+    transform: translateY(8px);
   }
   to {
-    transform: translateY(18px);
+    transform: translateY(6.5px);
   }
 }
 
@@ -211,16 +211,16 @@ body {
     transform: translateX(0);
   }
   to {
-    transform: translateX(-16px);
+    transform: translateX(-8px);
   }
 }
 
 @keyframes copa-ola-atras {
   from {
-    transform: translate(0, -1.2px);
+    transform: translate(0, -0.5px);
   }
   to {
-    transform: translate(16px, -1.2px);
+    transform: translate(8px, -0.5px);
   }
 }
 
@@ -271,11 +271,11 @@ body {
   }
   .copa-nivel {
     animation: none;
-    transform: translateY(20px);
+    transform: translateY(7.2px);
   }
   .copa-ola-atras {
     animation: none;
-    transform: translateY(-1.2px);
+    transform: translateY(-0.5px);
   }
   /* El esqueleto se queda quieto, pero visible: sin animacion sigue diciendo
      que el contenido no llego. */

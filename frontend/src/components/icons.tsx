@@ -123,10 +123,13 @@ export function CellarIcon({ size = 21, className }: IconProps) {
   )
 }
 
+/** El caliz de la copa: lo comparten el icono, la puntuacion y la copa de carga. */
+export const CALIZ = 'M8 3h8l-1 7.5a4 4 0 0 1-6 0L8 3z'
+
 export function GlassIcon({ size = 21, className }: IconProps) {
   return (
     <svg {...base} width={size} height={size} strokeWidth={1.7} className={className}>
-      <path d="M8 3h8l-1 7.5a4 4 0 0 1-6 0L8 3z" />
+      <path d={CALIZ} />
       <path d="M12 14v6M8.5 20h7" />
     </svg>
   )
@@ -168,7 +171,7 @@ export function RatingGlassIcon({
 
       {(filled || half) && (
         <path
-          d="M8 3h8l-1 7.5a4 4 0 0 1-6 0L8 3z"
+          d={CALIZ}
           fill="currentColor"
           stroke="none"
           clipPath={half ? `url(#${clipId})` : undefined}
@@ -176,7 +179,7 @@ export function RatingGlassIcon({
       )}
 
       {/* El contorno va siempre, entera o no: es lo que da la silueta. */}
-      <path d="M8 3h8l-1 7.5a4 4 0 0 1-6 0L8 3z" />
+      <path d={CALIZ} />
       <path d="M12 14v6M9 20h6" />
     </svg>
   )
