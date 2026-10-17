@@ -61,9 +61,9 @@ def test_al_editar_la_coma_se_guarda_como_punto():
     assert WineUpdateInput(**wine_payload("13,5")).alcohol == "13.5"
 
 
-def test_al_crear_el_alcohol_sigue_siendo_obligatorio():
-    with pytest.raises(ValueError):
-        WineCreateInput(**wine_payload("  "))
+def test_sin_graduacion_queda_vacia():
+    # Un vino sin etiqueta no la dice en ningun lado.
+    assert WineCreateInput(**wine_payload("  ")).alcohol is None
 
 
 def test_lo_que_lee_gemini_tambien_se_normaliza():

@@ -51,6 +51,7 @@ INVENTORY_WIDTHS = {
     "precio_estimado": 110,
     "foto_url": 90,
     "codigo_vino": 165,
+    "distintivo": 160,
 }
 
 CATAS_WIDTHS = {

@@ -29,6 +29,7 @@ interface FormState {
   cantidad: number
   ubicacion: string
   precio_estimado: string
+  distintivo: string
 }
 
 const EMPTY: FormState = {
@@ -41,6 +42,7 @@ const EMPTY: FormState = {
   cantidad: 1,
   ubicacion: '',
   precio_estimado: '',
+  distintivo: '',
 }
 
 /** Campos que la IA leyó: se marcan con tilde, los vacíos piden completar. */
@@ -65,6 +67,9 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
   const [saveError, setSaveError] = useState<string | null>(null)
   // "Es otra": se descarta el aviso hasta que cambien los datos que lo dispararon.
   const [descartado, setDescartado] = useState<string | null>(null)
+  // Una caja comprada al productor: no hay foto que leer ni region o
+  // graduacion que copiar, y el distintivo pasa a ser lo que la reconoce.
+  const [sinEtiqueta, setSinEtiqueta] = useState(false)
   const camara = useRef<HTMLInputElement>(null)
   const galeria = useRef<HTMLInputElement>(null)
 
@@ -137,11 +142,12 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
         nombre_vino: form.nombre_vino.trim(),
         varietal: form.varietal.trim(),
         anada,
-        region: form.region.trim(),
-        alcohol: form.alcohol.trim(),
+        region: form.region.trim() || null,
+        alcohol: form.alcohol.trim() || null,
         cantidad: form.cantidad,
         ubicacion: form.ubicacion.trim() || null,
         precio_estimado: parsePrecio(form.precio_estimado),
+        distintivo: form.distintivo.trim() || null,
       })
 
       // El vino ya está guardado: si la foto falla, no se pierde la carga.
@@ -219,14 +225,14 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
   const anadaValid =
     Number.isInteger(anadaNumber) && anadaNumber >= 1900 && anadaNumber <= yearNow
 
-  // Los mismos campos que exige el backend, en el orden en que estan en pantalla.
+  // En el orden en que estan en pantalla. El backend no exige region ni
+  // graduacion, pero si la botella tiene etiqueta estan ahi: se piden igual.
   const OBLIGATORIOS: [keyof FormState, string][] = [
     ['bodega', 'Bodega'],
     ['nombre_vino', 'Vino'],
     ['varietal', 'Varietal'],
-    ['region', 'Región'],
-    ['alcohol', 'Alcohol'],
   ]
+  if (!sinEtiqueta) OBLIGATORIOS.push(['region', 'Región'], ['alcohol', 'Alcohol'])
 
   const faltan = OBLIGATORIOS.filter(
     ([campo]) => String(form[campo]).trim() === '',
@@ -253,11 +259,13 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
             Nueva botella
           </h1>
           <span className="text-[10px] font-semibold tracking-[0.14em] text-tenue-600 uppercase">
-            {stage === 'capture'
-              ? 'Sacale una foto a la etiqueta'
-              : stage === 'reading'
-                ? 'Leyendo la etiqueta…'
-                : 'Revisá y completá'}
+            {sinEtiqueta
+              ? 'Sin etiqueta, a mano'
+              : stage === 'capture'
+                ? 'Sacale una foto a la etiqueta'
+                : stage === 'reading'
+                  ? 'Leyendo la etiqueta…'
+                  : 'Revisá y completá'}
           </span>
         </div>
       </header>
@@ -283,76 +291,88 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
       />
 
       {/* La foto que sacó el usuario */}
-      <div className="relative mx-5 mb-4 flex h-[190px] items-center justify-center overflow-hidden rounded-xl border border-borde bg-madera-950">
-        {preview ? (
-          <img src={preview} alt="Etiqueta capturada" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex flex-col items-center gap-[14px] px-8 text-center">
-            <button
-              type="button"
-              onClick={() => camara.current?.click()}
-              className="flex flex-col items-center gap-3"
-            >
-              <span className="flex h-14 w-14 items-center justify-center rounded-full border border-borde-claro text-oro">
-                <CameraIcon size={22} />
-              </span>
-              <span className="text-[13px] leading-relaxed font-medium text-crema-300">
-                Tocá para sacar la foto
-              </span>
-            </button>
-            {/* La camara es el camino principal, pero la botella puede estar
-                fotografiada de antes: el carrete no puede quedar sin puerta. */}
-            <button
-              type="button"
-              onClick={() => galeria.current?.click()}
-              className="flex items-center gap-[6px] text-[11.5px] font-medium text-tenue-400"
-            >
-              <ImageIcon size={13} />
-              Elegir de la galería
-            </button>
-          </div>
-        )}
-
-        {stage === 'reading' && (
-          <div className="absolute inset-0 flex items-center justify-center gap-[10px] bg-madera-900/85 backdrop-blur-[1px]">
-            <SpinnerIcon className="animate-spin text-oro" />
-            <span className="text-[12.5px] text-crema-300">Leyendo la etiqueta…</span>
-          </div>
-        )}
-
-        {/* Los chips de abajo flotan sobre la foto, que siempre es oscura: se
-            quedan en tinta clara aunque el tema sea pergamino. */}
-        {preview && stage !== 'reading' && (
-          <>
-            {Object.values(read).some(Boolean) && (
-              <div className="absolute bottom-[10px] left-[10px] z-2 flex items-center gap-[6px] rounded-full bg-[#1a1512]/90 py-[5px] pr-[11px] pl-2">
-                <CheckIcon size={11} className="text-[#9dba7c]" />
-                <span className="text-[10.5px] font-bold tracking-[0.1em] text-[#cfe0b8] uppercase">
-                  Etiqueta leída
-                </span>
-              </div>
-            )}
-            <div className="absolute top-[10px] right-[10px] z-2 flex items-center gap-[6px]">
-              <button
-                type="button"
-                onClick={() => galeria.current?.click()}
-                aria-label="Elegir otra de la galería"
-                className="flex h-[25px] w-[25px] items-center justify-center rounded-full bg-[#1a1512]/85 text-[#e8c987]"
-              >
-                <ImageIcon size={13} />
-              </button>
+      {!sinEtiqueta && (
+        <div className="relative mx-5 mb-4 flex h-[190px] items-center justify-center overflow-hidden rounded-xl border border-borde bg-madera-950">
+          {preview ? (
+            <img src={preview} alt="Etiqueta capturada" className="h-full w-full object-cover" />
+          ) : (
+            <div className="flex flex-col items-center gap-[14px] px-8 text-center">
               <button
                 type="button"
                 onClick={() => camara.current?.click()}
-                className="flex items-center gap-[6px] rounded-full bg-[#1a1512]/85 py-[5px] pr-[11px] pl-2 text-[#e8c987]"
+                className="flex flex-col items-center gap-3"
               >
-                <RetryIcon size={12} />
-                <span className="text-[10.5px] font-bold">Otra foto</span>
+                <span className="flex h-14 w-14 items-center justify-center rounded-full border border-borde-claro text-oro">
+                  <CameraIcon size={22} />
+                </span>
+                <span className="text-[13px] leading-relaxed font-medium text-crema-300">
+                  Tocá para sacar la foto
+                </span>
+              </button>
+              {/* La camara es el camino principal, pero la botella puede estar
+                  fotografiada de antes: el carrete no puede quedar sin puerta. */}
+              <button
+                type="button"
+                onClick={() => galeria.current?.click()}
+                className="flex items-center gap-[6px] text-[11.5px] font-medium text-tenue-400"
+              >
+                <ImageIcon size={13} />
+                Elegir de la galería
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSinEtiqueta(true)
+                  setStage('form')
+                }}
+                className="text-[11.5px] font-medium text-tenue-500 underline decoration-borde-claro underline-offset-4"
+              >
+                No tiene etiqueta
               </button>
             </div>
-          </>
-        )}
-      </div>
+          )}
+
+          {stage === 'reading' && (
+            <div className="absolute inset-0 flex items-center justify-center gap-[10px] bg-madera-900/85 backdrop-blur-[1px]">
+              <SpinnerIcon className="animate-spin text-oro" />
+              <span className="text-[12.5px] text-crema-300">Leyendo la etiqueta…</span>
+            </div>
+          )}
+
+          {/* Los chips de abajo flotan sobre la foto, que siempre es oscura: se
+              quedan en tinta clara aunque el tema sea pergamino. */}
+          {preview && stage !== 'reading' && (
+            <>
+              {Object.values(read).some(Boolean) && (
+                <div className="absolute bottom-[10px] left-[10px] z-2 flex items-center gap-[6px] rounded-full bg-[#1a1512]/90 py-[5px] pr-[11px] pl-2">
+                  <CheckIcon size={11} className="text-[#9dba7c]" />
+                  <span className="text-[10.5px] font-bold tracking-[0.1em] text-[#cfe0b8] uppercase">
+                    Etiqueta leída
+                  </span>
+                </div>
+              )}
+              <div className="absolute top-[10px] right-[10px] z-2 flex items-center gap-[6px]">
+                <button
+                  type="button"
+                  onClick={() => galeria.current?.click()}
+                  aria-label="Elegir otra de la galería"
+                  className="flex h-[25px] w-[25px] items-center justify-center rounded-full bg-[#1a1512]/85 text-[#e8c987]"
+                >
+                  <ImageIcon size={13} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => camara.current?.click()}
+                  className="flex items-center gap-[6px] rounded-full bg-[#1a1512]/85 py-[5px] pr-[11px] pl-2 text-[#e8c987]"
+                >
+                  <RetryIcon size={12} />
+                  <span className="text-[10.5px] font-bold">Otra foto</span>
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {error && (
         <p
@@ -439,12 +459,14 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
               label="Bodega"
               value={form.bodega}
               read={read.bodega}
+              placeholder={sinEtiqueta ? 'O quién te lo vendió' : undefined}
               onChange={(bodega) => setForm({ ...form, bodega })}
             />
             <Field
               label="Vino"
               value={form.nombre_vino}
               read={read.nombre_vino}
+              placeholder={sinEtiqueta ? 'Un nombre para reconocerlo' : undefined}
               onChange={(nombre_vino) => setForm({ ...form, nombre_vino })}
             />
             <Field
@@ -466,6 +488,7 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
               label="Región"
               value={form.region}
               read={read.region}
+              opcional={sinEtiqueta}
               onChange={(region) => setForm({ ...form, region })}
             />
             {/* Coma o punto: el backend lo guarda con punto igual. */}
@@ -473,13 +496,14 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
               label="Alcohol"
               value={form.alcohol}
               read={read.alcohol}
+              opcional={sinEtiqueta}
               placeholder="13,5"
               inputMode="decimal"
               onChange={(alcohol) => setForm({ ...form, alcohol })}
             />
             {/* La graduacion casi nunca esta en la cara principal, asi que este
                 campo queda vacio de entrada y conviene decir por que. */}
-            {!read.alcohol && (
+            {!read.alcohol && !sinEtiqueta && (
               <span className="-mt-[8px] text-[10.5px] leading-relaxed text-tenue-600">
                 La graduación suele estar en la contraetiqueta.
               </span>
@@ -530,6 +554,16 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
               />
             </div>
           </div>
+
+          <Field
+            label="Distintivo"
+            value={form.distintivo}
+            opcional
+            placeholder={
+              sinEtiqueta ? 'Lo que le escribiste con fibra' : 'Una marca, una cinta…'
+            }
+            onChange={(distintivo) => setForm({ ...form, distintivo })}
+          />
 
           <div className="flex flex-col gap-[6px]">
             <div className="flex items-center gap-[7px]">

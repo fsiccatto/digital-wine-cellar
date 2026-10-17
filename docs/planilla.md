@@ -13,5 +13,5 @@ cd backend
 
 | Pestaña | Contenido |
 |---|---|
-| `Inventario` | Una fila por vino: bodega, nombre, varietal, añada, región, alcohol, stock, ubicación, precio y código |
+| `Inventario` | Una fila por vino: bodega, nombre, varietal, añada, región, alcohol, stock, ubicación, precio, código y distintivo |
 | `Historico_Catas` | Una fila por botella consumida: puntuación 1–5, notas y maridaje |

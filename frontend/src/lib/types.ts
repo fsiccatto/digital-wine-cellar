@@ -8,13 +8,16 @@ export interface WineRecord {
   nombre_vino: string
   varietal: string
   anada: number
-  region: string
-  alcohol: string
+  /** Null en un vino sin etiqueta: no hay de donde sacarlas. */
+  region: string | null
+  alcohol: string | null
   cantidad: number
   ubicacion: string | null
   precio_estimado: number | null
   /** Ya viene firmada desde el backend; caduca, no conviene cachearla. */
   foto_url: string | null
+  /** Como se la reconoce en el estante: lo escrito con fibra, una cinta. */
+  distintivo: string | null
 }
 
 /** Lo que Gemini pudo leer de la etiqueta: todo puede venir null. */
@@ -33,17 +36,20 @@ export interface WineCreateInput {
   nombre_vino: string
   varietal: string
   anada: number
-  region: string
-  alcohol: string
+  region?: string | null
+  alcohol?: string | null
   cantidad: number
   ubicacion?: string | null
   precio_estimado?: number | null
+  distintivo?: string | null
 }
 
 export interface WineConsumeInput {
   puntuacion: number
   notas_cata?: string | null
   maridaje?: string | null
+  /** Sin fecha, la pone el servidor. */
+  fecha_consumo?: string | null
 }
 
 export interface ConsumeResult {
@@ -57,10 +63,11 @@ export interface WineUpdateInput {
   nombre_vino: string
   varietal: string
   anada: number
-  region: string
-  alcohol: string
+  region?: string | null
+  alcohol?: string | null
   ubicacion?: string | null
   precio_estimado?: number | null
+  distintivo?: string | null
 }
 
 export interface CataRecord {
@@ -88,11 +95,13 @@ export interface DeleteResult {
   codigo_vino: string
 }
 
-/** Lo que se puede corregir de una cata: ni el vino ni la fecha. */
+/** Lo que se puede corregir de una cata: todo menos el vino. */
 export interface CataUpdateInput {
   puntuacion: number
   notas_cata?: string | null
   maridaje?: string | null
+  /** Sin fecha queda la que tenia. */
+  fecha_consumo?: string | null
 }
 
 /** Una cata suelta, sin descontar stock. Sin fecha, la pone el servidor. */

@@ -291,6 +291,7 @@ export function matchesSearch(wine: WineRecord, term: string): boolean {
     wine.nombre_vino,
     wine.varietal,
     wine.region,
+    wine.distintivo,
     wine.codigo_vino,
     String(wine.anada),
   ].some((field) => normalize(field ?? '').includes(q))
@@ -340,6 +341,17 @@ export function parsePrecio(texto: string): number | null {
 /** El backend acepta anada >= 1900, pero una fila vieja del Sheet puede traer 0. */
 export function formatYear(anada: number): string | null {
   return anada >= 1900 ? String(anada) : null
+}
+
+/**
+ * El dia de una fecha, como lo toma un <input type="date">: "2026-10-14".
+ * Sin fecha es hoy, y en la hora local: `toISOString` pasa a UTC, y despues de
+ * las nueve de la noche en Argentina ya devolvia mañana.
+ */
+export function diaDe(iso?: string, ahora: Date = new Date()): string {
+  if (iso && parseFecha(iso)) return iso.slice(0, 10)
+  const dos = (n: number) => String(n).padStart(2, '0')
+  return `${ahora.getFullYear()}-${dos(ahora.getMonth() + 1)}-${dos(ahora.getDate())}`
 }
 
 /** Dia y mes, para la fila de una cata: el año ya lo dice el rotulo del grupo. */

@@ -81,11 +81,6 @@ def normalize_required_text(value):
     return value
 
 
-def normalize_required_alcohol(value):
-    """Como normalize_alcohol, pero vacio no pasa: al cargar es obligatorio."""
-    return normalize_required_text(normalize_alcohol(value))
-
-
 def truncate_scanned_text(value):
     """Corta lo que devuelve el modelo a un largo de etiqueta razonable.
 
@@ -146,26 +141,35 @@ class WineScanResult(BaseModel):
 
 
 class WineCreateInput(BaseModel):
+    """Lo obligatorio es lo que arma el codigo, mas un nombre para mostrarlo.
+
+    Region y graduacion son opcionales por los vinos sin etiqueta: una caja
+    comprada al productor no dice ninguna de las dos. `distintivo` es como se
+    reconoce esa botella en el estante (lo escrito con fibra, una cinta).
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     bodega: str
     nombre_vino: str
     varietal: str
     anada: int = Field(ge=1900, le=CURRENT_YEAR)
-    region: str
-    alcohol: str
+    region: Optional[str] = None
+    alcohol: Optional[str] = None
     cantidad: int = Field(default=1, ge=0)
     ubicacion: Optional[str] = None
     precio_estimado: Optional[float] = None
+    distintivo: Optional[str] = None
     # foto_url no se acepta acá: la foto se sube a POST /wines/{codigo}/foto,
     # que es quien escribe el nombre del objeto en el Sheet.
 
     _normalize_required = field_validator(
-        "bodega", "nombre_vino", "varietal", "region", mode="before"
+        "bodega", "nombre_vino", "varietal", mode="before"
     )(normalize_required_text)
-    _normalize_alcohol = field_validator("alcohol", mode="before")(
-        normalize_required_alcohol
+    _normalize_optional = field_validator("region", "distintivo", mode="before")(
+        normalize_optional_text
     )
+    _normalize_alcohol = field_validator("alcohol", mode="before")(normalize_alcohol)
 
 
 class WineUpdateInput(BaseModel):
@@ -181,17 +185,19 @@ class WineUpdateInput(BaseModel):
     nombre_vino: str
     varietal: str
     anada: int = Field(ge=1900, le=CURRENT_YEAR)
-    region: str
-    alcohol: str
+    region: Optional[str] = None
+    alcohol: Optional[str] = None
     ubicacion: Optional[str] = None
     precio_estimado: Optional[float] = None
+    distintivo: Optional[str] = None
 
     _normalize_required = field_validator(
-        "bodega", "nombre_vino", "varietal", "region", mode="before"
+        "bodega", "nombre_vino", "varietal", mode="before"
     )(normalize_required_text)
-    _normalize_alcohol = field_validator("alcohol", mode="before")(
-        normalize_required_alcohol
+    _normalize_optional = field_validator("region", "distintivo", mode="before")(
+        normalize_optional_text
     )
+    _normalize_alcohol = field_validator("alcohol", mode="before")(normalize_alcohol)
 
 
 class WineStockInput(BaseModel):
@@ -226,31 +232,34 @@ def validar_media_copa(value):
     return float(numero)
 
 
+def validar_fecha_consumo(value):
+    """Una fecha ISO que no este en el futuro, o None para "ahora".
+
+    La cata se anota cuando uno se acuerda, que no siempre es la noche en que
+    se abrio la botella: por eso la fecha la puede elegir el cliente.
+    """
+    if value is None:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise ValueError("La fecha de consumo no tiene un formato válido.") from exc
+    # Con zona ("...Z", "+05:00") se pasa a la hora local: comparar una fecha
+    # con zona contra `now()` tira TypeError, que pydantic no atrapa y sale 500.
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone().replace(tzinfo=None)
+    # Una cata del futuro es siempre un error de carga.
+    if parsed > datetime.now():
+        raise ValueError("La fecha de consumo no puede estar en el futuro.")
+    return parsed.isoformat(timespec="seconds")
+
+
 class CataUpdateInput(BaseModel):
     """Lo que se puede corregir de una cata ya registrada.
 
-    No incluye `vino_id` ni `fecha_consumo`: mover una cata de vino la
-    convierte en otra cata, y la fecha la puso el servidor al descorchar.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    puntuacion: float = Field(ge=0.5, le=5)
-
-    _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
-    notas_cata: Optional[str] = None
-    maridaje: Optional[str] = None
-
-    _normalize_text = field_validator("notas_cata", "maridaje", mode="before")(
-        normalize_optional_text
-    )
-
-
-class CataCreateInput(BaseModel):
-    """Una cata suelta: se tomó la botella pero no sale del stock de la app.
-
-    Sirve para anotar algo abierto ayer, o probado afuera. Por eso lleva fecha
-    del cliente, a diferencia de descorchar, que siempre es "ahora".
+    No incluye `vino_id`: mover una cata de vino la convierte en otra cata.
+    `fecha_consumo` en None deja la que estaba, a diferencia de las notas, que
+    en None se vacian: una cata sin fecha no se ordena en el historico.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -265,20 +274,28 @@ class CataCreateInput(BaseModel):
     _normalize_text = field_validator("notas_cata", "maridaje", mode="before")(
         normalize_optional_text
     )
+    _fecha = field_validator("fecha_consumo")(validar_fecha_consumo)
 
-    @field_validator("fecha_consumo")
-    @classmethod
-    def _validar_fecha(cls, value):
-        if value is None:
-            return None
-        try:
-            parsed = datetime.fromisoformat(value)
-        except ValueError as exc:
-            raise ValueError("La fecha de consumo no tiene un formato válido.") from exc
-        # Una cata del futuro es siempre un error de carga.
-        if parsed > datetime.now():
-            raise ValueError("La fecha de consumo no puede estar en el futuro.")
-        return parsed.isoformat(timespec="seconds")
+
+class CataCreateInput(BaseModel):
+    """Una cata suelta: se tomó la botella pero no sale del stock de la app.
+
+    Sirve para anotar algo probado afuera, que nunca estuvo en la cava.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    puntuacion: float = Field(ge=0.5, le=5)
+
+    _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
+    notas_cata: Optional[str] = None
+    maridaje: Optional[str] = None
+    fecha_consumo: Optional[str] = None
+
+    _normalize_text = field_validator("notas_cata", "maridaje", mode="before")(
+        normalize_optional_text
+    )
+    _fecha = field_validator("fecha_consumo")(validar_fecha_consumo)
 
 
 class WineConsumeInput(BaseModel):
@@ -289,6 +306,10 @@ class WineConsumeInput(BaseModel):
     _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
     notas_cata: Optional[str] = None
     maridaje: Optional[str] = None
+    # La botella que se abrio hace tres dias y se anota hoy.
+    fecha_consumo: Optional[str] = None
+
+    _fecha = field_validator("fecha_consumo")(validar_fecha_consumo)
 
 
 def empty_to_none(value):
@@ -352,16 +373,22 @@ class WineRecord(BaseModel):
     nombre_vino: str
     varietal: str
     anada: int
-    region: str
-    alcohol: str
+    # Vacias en un vino sin etiqueta. Ver WineCreateInput.
+    region: Optional[str] = None
+    alcohol: Optional[str] = None
     cantidad: int
     ubicacion: Optional[str] = None
     precio_estimado: Optional[float] = None
     foto_url: Optional[str] = None
+    distintivo: Optional[str] = None
 
     # Las filas ya cargadas traen "14.2", "12,5" y "14" mezclados: se emparejan
     # al leer para que la app las muestre igual sin tocar el Sheet.
     _normalize_alcohol = field_validator("alcohol", mode="before")(normalize_alcohol)
+    # La celda vacia llega como "": se manda null, que es lo que mira la app.
+    _normalize_optional = field_validator("region", "distintivo", mode="before")(
+        normalize_optional_text
+    )
 
     # El Sheet devuelve las celdas con formato como texto ("$32.000").
     _parse_precio = field_validator("precio_estimado", mode="before")(parse_sheet_number)

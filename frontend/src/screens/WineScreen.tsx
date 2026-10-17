@@ -14,6 +14,7 @@ import type { CataRecord, WineRecord, WineUpdateInput } from '../lib/types'
 import type { Guarda } from '../lib/wine'
 import {
   averageScore,
+  diaDe,
   formatAlcohol,
   formatDate,
   formatYear,
@@ -235,12 +236,24 @@ export function WineScreen({
                   <span className="cifra text-[12.5px] text-tenue-400">{year}</span>
                 </>
               )}
-              <Dot />
-              <span className="cifra text-[12.5px] text-tenue-400">
-                {formatAlcohol(wine.alcohol)}
-              </span>
+              {wine.alcohol && (
+                <>
+                  <Dot />
+                  <span className="cifra text-[12.5px] text-tenue-400">
+                    {formatAlcohol(wine.alcohol)}
+                  </span>
+                </>
+              )}
             </div>
-            <span className="pt-[1px] text-[11.5px] text-tenue-600">{wine.region}</span>
+            {wine.region && (
+              <span className="pt-[1px] text-[11.5px] text-tenue-600">{wine.region}</span>
+            )}
+            {/* Sin etiqueta, es lo unico que la separa de la botella de al lado. */}
+            {wine.distintivo && (
+              <span className="pt-[3px] text-[11.5px] font-semibold text-oro-oscuro">
+                {wine.distintivo}
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -561,6 +574,10 @@ function TastingSheet({
   const [score, setScore] = useState(cata?.puntuacion ?? 4)
   const [notes, setNotes] = useState(cata?.notas_cata ?? '')
   const [pairing, setPairing] = useState(cata?.maridaje ?? '')
+  // Hoy al descorchar, el de la cata al editarla. Solo viaja si se cambio: asi
+  // la cata de hoy guarda la hora, y la editada no la pierde.
+  const [diaOriginal] = useState(() => diaDe(cata?.fecha_consumo))
+  const [dia, setDia] = useState(diaOriginal)
   const [saving, setSaving] = useState(false)
   const [borrando, setBorrando] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -578,6 +595,9 @@ function TastingSheet({
       puntuacion: score,
       notas_cata: notes.trim() || null,
       maridaje: pairing.trim() || null,
+      // La clave entera afuera, no en null: el backend anterior la rechaza, y
+      // el front se despliega unos minutos antes que el back.
+      ...(dia && dia !== diaOriginal ? { fecha_consumo: dia } : {}),
     }
     try {
       if (modo === 'descorchar') {
@@ -676,7 +696,7 @@ function TastingSheet({
         />
       </div>
 
-      <div className="mb-6 flex flex-col gap-[6px]">
+      <div className="mb-4 flex flex-col gap-[6px]">
         <label
           htmlFor="cata-maridaje"
           className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase"
@@ -693,6 +713,23 @@ function TastingSheet({
             className="w-full bg-transparent text-[14px] placeholder:text-tenue-700 focus:outline-none"
           />
         </div>
+      </div>
+
+      <div className="mb-6 flex flex-col gap-[6px]">
+        <label
+          htmlFor="cata-fecha"
+          className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase"
+        >
+          Cuándo lo tomaste
+        </label>
+        <input
+          id="cata-fecha"
+          type="date"
+          value={dia}
+          max={diaDe()}
+          onChange={(event) => setDia(event.target.value)}
+          className="cifra h-[46px] rounded-[9px] border border-borde bg-madera-950/55 px-[14px] text-[14px] focus:border-oro/40 focus:outline-none"
+        />
       </div>
 
       {error && (
@@ -799,9 +836,10 @@ function EditSheet({
     nombre_vino: wine.nombre_vino,
     varietal: wine.varietal,
     anada: String(wine.anada),
-    region: wine.region,
-    alcohol: wine.alcohol,
+    region: wine.region ?? '',
+    alcohol: wine.alcohol ?? '',
     ubicacion: wine.ubicacion ?? '',
+    distintivo: wine.distintivo ?? '',
     // Escrito como se lee aca, para que vuelva a parsearse igual.
     precio_estimado:
       wine.precio_estimado == null
@@ -822,13 +860,10 @@ function EditSheet({
   const priceValue = parsePrecio(price)
   const priceInvalid = Number.isNaN(priceValue)
 
-  const incomplete = [
-    form.bodega,
-    form.nombre_vino,
-    form.varietal,
-    form.region,
-    form.alcohol,
-  ].some((value) => value.trim() === '')
+  // Region y graduacion no: un vino sin etiqueta no las tiene.
+  const incomplete = [form.bodega, form.nombre_vino, form.varietal].some(
+    (value) => value.trim() === '',
+  )
 
   async function submit() {
     setSaving(true)
@@ -838,10 +873,11 @@ function EditSheet({
       nombre_vino: form.nombre_vino.trim(),
       varietal: form.varietal.trim(),
       anada: year,
-      region: form.region.trim(),
-      alcohol: form.alcohol.trim(),
+      region: form.region.trim() || null,
+      alcohol: form.alcohol.trim() || null,
       ubicacion: form.ubicacion.trim() || null,
       precio_estimado: priceValue,
+      distintivo: form.distintivo.trim() || null,
     }
     try {
       onSaved(await updateWine(wine.codigo_vino, payload))
@@ -874,12 +910,13 @@ function EditSheet({
           invalid={yearInvalid}
           hint={`Entre 1900 y ${yearNow}`}
         />
-        <Field label="Región" value={form.region} onChange={set('region')} />
+        <Field label="Región" value={form.region} onChange={set('region')} opcional />
         {/* Coma o punto: el backend lo guarda con punto igual. */}
         <Field
           label="Alcohol"
           value={form.alcohol}
           onChange={set('alcohol')}
+          opcional
           inputMode="decimal"
           placeholder="13,5"
         />
@@ -889,6 +926,13 @@ function EditSheet({
           onChange={set('ubicacion')}
           opcional
           placeholder="A1"
+        />
+        <Field
+          label="Distintivo"
+          value={form.distintivo}
+          onChange={set('distintivo')}
+          opcional
+          placeholder="Una marca con fibra, una cinta…"
         />
         <Field
           label="Precio"

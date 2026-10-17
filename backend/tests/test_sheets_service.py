@@ -26,6 +26,7 @@ def row_for(codigo: str, **overrides) -> list:
         "precio_estimado": "32000",
         "foto_url": "etiquetas/foto.jpg",
         "codigo_vino": codigo,
+        "distintivo": "",
     }
     base.update(overrides)
     return [base[header] for header in HEADERS]
@@ -61,7 +62,7 @@ def test_update_inventory_row_writes_once_and_keeps_absent_columns():
     values, range_name = worksheet.updates[0]
 
     # El vino buscado es el segundo: encabezado + una fila antes = fila 3.
-    assert range_name == "A3:M3"
+    assert range_name == "A3:N3"
 
     written = dict(zip(HEADERS, values[0]))
     assert written["bodega"] == "Catena"

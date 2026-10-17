@@ -186,7 +186,8 @@ def consume_wine(codigo_vino: str, payload: WineConsumeInput):
         # Copia legible, para poder leer la hoja sin cruzarla contra Inventario.
         # No se lee nunca de vuelta: el join va por vino_id.
         "codigo_vino": codigo_vino,
-        "fecha_consumo": datetime.now().isoformat(timespec="seconds"),
+        "fecha_consumo": payload.fecha_consumo
+        or datetime.now().isoformat(timespec="seconds"),
         "puntuacion": payload.puntuacion,
         "notas_cata": payload.notas_cata,
         "maridaje": payload.maridaje,
@@ -384,6 +385,9 @@ def update_cata(id_cata: str, payload: CataUpdateInput) -> CataRecord:
     row = _cata_por_id(values, id_cata)
 
     cambios = payload.model_dump()
+    # Sin fecha nueva queda la que estaba; vaciarla dejaria la cata sin orden.
+    if cambios["fecha_consumo"] is None:
+        del cambios["fecha_consumo"]
     update_cata_row(
         id_cata,
         {key: "" if value is None else value for key, value in cambios.items()},
