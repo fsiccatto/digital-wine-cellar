@@ -1,8 +1,12 @@
 FROM python:3.11-slim
 
+# Cloud Run corre en UTC, y la app muestra las fechas como hora local: una
+# botella descorchada despues de las 21 quedaba anotada al dia siguiente. La
+# imagen trae los datos de zona horaria, asi que alcanza con nombrarla.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    TZ=America/Argentina/Buenos_Aires
 
 WORKDIR /app
 
