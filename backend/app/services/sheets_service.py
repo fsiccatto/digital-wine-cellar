@@ -57,6 +57,9 @@ INVENTORY_HEADERS = [
     "precio_estimado",
     "foto_url",
     "codigo_vino",
+    # Al final y no junto a los datos del vino: `format_sheet.py` aplica las
+    # validaciones por posicion, y una columna en el medio las corre.
+    "distintivo",
 ]
 
 # `codigo_vino` va DESPUES de `vino_id` y es solo para poder leer la hoja a ojo:

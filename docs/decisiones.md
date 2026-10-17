@@ -38,8 +38,11 @@ arbitraria.
 y `credentials.json`; en Cloud Run se inyectan desde Secret Manager, el JSON
 montado como archivo y la API key como variable de entorno.
 
-**Las fechas las pone el servidor.** `fecha_ingreso` y `fecha_consumo` se
-generan server-side, nunca se aceptan del cliente.
+**La fecha de ingreso la pone el servidor; la de consumo, quien anota.**
+`fecha_ingreso` se genera server-side y nunca se acepta del cliente. La cata,
+en cambio, se anota cuando uno se acuerda: descorchar, anotar y editar aceptan
+un `fecha_consumo` opcional (sin futuro). Si no viene, es "ahora", y al editar
+queda la que estaba.
 
 **Las imágenes se validan de verdad.** No alcanza con el `content_type`
 declarado: se abre con Pillow para confirmar que sea una imagen, además del
@@ -53,6 +56,14 @@ parsea o una añada menor a 1900 se omiten en vez de mostrarse crudas.
 llega como `32000` sino como `"$32.000"`, y eso hacía desaparecer el vino entero
 del listado. `parse_sheet_number` los normaliza, distinguiendo el punto de miles
 del decimal: en `"32.000"` el punto agrupa, en `"32.5"` separa decimales.
+
+**Un vino sin etiqueta se carga igual.** Una caja comprada al productor no
+dice región ni graduación, así que las dos son opcionales en la API. Lo que
+sigue siendo obligatorio es lo que arma el código (bodega, varietal, añada) y un
+nombre para mostrarlo. La pantalla de carga las sigue pidiendo cuando hay
+etiqueta, porque ahí están escritas. `distintivo` es cómo se reconoce la botella
+en el estante: lo que se le escribió con fibra, una cinta. Sirve para cualquier
+vino, pero sin etiqueta es lo único que la separa de la de al lado.
 
 **La graduación se guarda como número.** Se acepta la coma al escribirla, porque
 es como se teclea en es-AR, pero se guarda con punto y sin el símbolo: `13.5`.

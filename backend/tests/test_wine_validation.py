@@ -31,8 +31,6 @@ def test_scan_result_normalizes_text_and_keeps_missing_values():
         ("bodega", "   "),
         ("nombre_vino", ""),
         ("varietal", "   "),
-        ("region", ""),
-        ("alcohol", "   "),
     ],
 )
 def test_create_input_rejects_empty_required_text(field, value):
@@ -41,6 +39,17 @@ def test_create_input_rejects_empty_required_text(field, value):
 
     with pytest.raises(ValidationError):
         WineCreateInput(**data)
+
+
+def test_un_vino_sin_etiqueta_se_carga_sin_region_ni_graduacion():
+    data = {**valid_wine_data(), "region": "  ", "alcohol": ""}
+    data.pop("nombre_vino")
+
+    wine = WineCreateInput(**data, nombre_vino="Malbec de la caja", distintivo=" M1 ")
+
+    assert wine.region is None
+    assert wine.alcohol is None
+    assert wine.distintivo == "M1"
 
 
 @pytest.mark.parametrize(
@@ -61,9 +70,7 @@ def test_consume_input_rejects_score_outside_range(score):
         WineConsumeInput(puntuacion=score)
 
 
-def test_client_cannot_set_system_dates():
+def test_client_cannot_set_fecha_ingreso():
+    # La de consumo si: una cata se anota cuando uno se acuerda.
     with pytest.raises(ValidationError):
         WineCreateInput(**{**valid_wine_data(), "fecha_ingreso": "2020-01-01"})
-
-    with pytest.raises(ValidationError):
-        WineConsumeInput(puntuacion=4, fecha_consumo="2020-01-01")

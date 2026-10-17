@@ -26,11 +26,13 @@ para que abrir la app no espere un arranque en frío.
 
 - **Cargar una botella** sacándole una foto a la etiqueta: Gemini completa
   bodega, varietal, añada, región y graduación, y lo que salga mal se corrige
-  antes de guardar.
+  antes de guardar. Una botella **sin etiqueta** se carga a mano, con un
+  distintivo para reconocerla en el estante.
 - **Ver la cava** agrupada por estante, con búsqueda y filtro por varietal. Un
   corte aparece bajo cada una de sus uvas, y las botellas agotadas caen al final.
 - **Descorchar una botella**: descuenta el stock y registra la cata con
-  puntuación, notas y maridaje.
+  puntuación, notas, maridaje y el día en que se tomó, que puede ser otro que
+  hoy.
 - **Anotar una cata suelta**, de algo abierto ayer o probado afuera, sin tocar
   el stock.
 - **Leer el histórico** de catas, agrupado por mes y con búsqueda por vino,

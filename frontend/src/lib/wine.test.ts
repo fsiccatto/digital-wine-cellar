@@ -4,6 +4,7 @@ import {
   activeFilterCount,
   averageScore,
   cellarValue,
+  diaDe,
   formatDate,
   formatDayMonth,
   glassTint,
@@ -12,6 +13,7 @@ import {
   candidatoDuplicado,
   matchesCataSearch,
   matchesFilters,
+  matchesSearch,
   parsePrecio,
   SIN_FILTROS,
   urgentes,
@@ -36,6 +38,7 @@ function wine(overrides: Partial<WineRecord> = {}): WineRecord {
     ubicacion: null,
     precio_estimado: null,
     foto_url: null,
+    distintivo: null,
     ...overrides,
   }
 }
@@ -240,6 +243,28 @@ describe('groupByMonth', () => {
 
   it('acepta la fecha con espacio que devuelve Sheets', () => {
     expect(groupByMonth([cata('2026-09-06 13:20:17')]).map((g) => g.key)).toEqual(['2026-09'])
+  })
+})
+
+describe('diaDe', () => {
+  it('toma el dia de la fecha guardada', () => {
+    expect(diaDe('2026-10-14T21:30:00')).toBe('2026-10-14')
+    expect(diaDe('2026-09-06 13:20:17')).toBe('2026-09-06')
+  })
+
+  it('sin fecha legible es hoy, en la hora local y no en UTC', () => {
+    // Las 23:30 del 17: en UTC ya seria el 18.
+    const noche = new Date(2026, 9, 17, 23, 30)
+    expect(diaDe(undefined, noche)).toBe('2026-10-17')
+    expect(diaDe('3.5', noche)).toBe('2026-10-17')
+  })
+})
+
+describe('matchesSearch', () => {
+  it('encuentra un vino sin etiqueta por lo que tiene escrito', () => {
+    const caja = wine({ region: null, alcohol: null, distintivo: 'M1 en fibra blanca' })
+    expect(matchesSearch(caja, 'fibra')).toBe(true)
+    expect(matchesSearch(caja, 'mendoza')).toBe(false)
   })
 })
 

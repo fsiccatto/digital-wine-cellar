@@ -532,6 +532,14 @@ function WineRow({
         </span>
         <div className="flex items-center gap-[6px]">
           <span className="shrink-0 text-[10.5px] text-tenue-400">{wine.varietal}</span>
+          {wine.distintivo && (
+            <>
+              <div className="h-[2.5px] w-[2.5px] shrink-0 rounded-full bg-borde-claro" />
+              <span className="truncate text-[10.5px] font-semibold text-oro-oscuro">
+                {wine.distintivo}
+              </span>
+            </>
+          )}
           {wine.ubicacion && (
             <>
               <div className="h-[2.5px] w-[2.5px] shrink-0 rounded-full bg-borde-claro" />

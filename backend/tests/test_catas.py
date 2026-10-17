@@ -105,6 +105,26 @@ class TestAgregarCataSuelta:
         with pytest.raises(ValueError):
             CataCreateInput(puntuacion=4, fecha_consumo=manana)
 
+    def test_una_fecha_con_zona_se_pasa_a_hora_local(self):
+        """Antes comparaba con zona contra sin zona: TypeError y un 500."""
+        cata = CataCreateInput(puntuacion=4, fecha_consumo="2026-05-10T20:00:00Z")
+        esperada = (
+            datetime.fromisoformat("2026-05-10T20:00:00+00:00")
+            .astimezone()
+            .replace(tzinfo=None)
+            .isoformat(timespec="seconds")
+        )
+        assert cata.fecha_consumo == esperada
+
+    def test_post_con_fecha_con_zona_futura_es_422(self):
+        manana = (datetime.now() + timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+        with patch.object(wine_service, "get_inventory_rows", return_value=[inventory_row()]):
+            response = client.post(
+                "/api/wines/TRA-MAL-2020-0001/catas",
+                json={"puntuacion": 4, "fecha_consumo": manana},
+            )
+        assert response.status_code == 422
+
     def test_rechaza_un_vino_inexistente(self):
         with (
             patch.object(wine_service, "get_inventory_rows", return_value=[]),
@@ -134,7 +154,7 @@ class TestEditarCata:
         # El maridaje no venía en el payload y se vacía: es un PUT, no un PATCH.
         assert update_row.call_args.args[1]["maridaje"] == ""
 
-    def test_no_cambia_de_vino_ni_de_fecha(self):
+    def test_no_cambia_de_vino_ni_de_fecha_si_no_se_pide(self):
         """Mover una cata de vino la convierte en otra cata."""
         with (
             patch.object(wine_service, "get_catas_values", return_value=como_planilla([cata_row()])),
@@ -148,6 +168,25 @@ class TestEditarCata:
         assert "fecha_consumo" not in escrito
         assert result.vino_id == "TRA-MAL-2020-0001"
         assert result.fecha_consumo == "2026-02-01T21:00:00"
+
+    def test_corrige_la_fecha(self):
+        """Se anoto el dia que uno se acordo, no el dia que se abrio."""
+        with (
+            patch.object(wine_service, "get_catas_values", return_value=como_planilla([cata_row()])),
+            patch.object(wine_service, "get_inventory_rows", return_value=[inventory_row()]),
+            patch.object(wine_service, "update_cata_row") as update_row,
+        ):
+            result = wine_service.update_cata(
+                "cata-1", CataUpdateInput(puntuacion=2, fecha_consumo="2026-01-28")
+            )
+
+        assert update_row.call_args.args[1]["fecha_consumo"] == "2026-01-28T00:00:00"
+        assert result.fecha_consumo == "2026-01-28T00:00:00"
+
+    def test_no_acepta_mover_la_fecha_al_futuro(self):
+        manana = (datetime.now() + timedelta(days=1)).date().isoformat()
+        with pytest.raises(ValueError):
+            CataUpdateInput(puntuacion=4, fecha_consumo=manana)
 
     def test_una_cata_huerfana_se_puede_editar(self):
         """El vino se borró pero la cata sigue siendo corregible."""

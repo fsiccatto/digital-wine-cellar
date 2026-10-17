@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import patch
 
 import pytest
@@ -32,6 +32,27 @@ def test_create_wine_generates_code_and_system_date():
     assert persisted["precio_estimado"] == ""
 
 
+def test_create_wine_sin_etiqueta_guarda_el_distintivo_y_deja_vacio_lo_que_no_se_sabe():
+    payload = WineCreateInput(
+        bodega="Juan Perez",
+        nombre_vino="Malbec de la caja",
+        varietal="Malbec",
+        anada=2022,
+        distintivo="M1 en fibra blanca",
+    )
+    with (
+        patch.object(wine_service, "get_inventory_rows", return_value=[]),
+        patch.object(wine_service, "append_inventory_row") as append_row,
+    ):
+        result = wine_service.create_wine(payload)
+
+    assert result.codigo_vino == "JUA-MAL-2022-0001"
+    persisted = append_row.call_args.args[0]
+    assert persisted["distintivo"] == "M1 en fibra blanca"
+    assert persisted["region"] == ""
+    assert persisted["alcohol"] == ""
+
+
 CONSUME_VALUES = [
     ["id", "codigo_vino", "cantidad"],
     ["internal-uuid", "VINO-ABCD1234", "1"],
@@ -56,6 +77,28 @@ def test_consume_wine_apunta_al_uuid_y_usa_la_fecha_del_sistema():
     cata = append_cata.call_args.args[0]
     assert cata["vino_id"] == "internal-uuid"
     datetime.fromisoformat(cata["fecha_consumo"])
+
+
+def test_consume_wine_acepta_una_fecha_pasada():
+    """La botella se abrio hace tres dias y se anota hoy: baja igual del stock."""
+    with (
+        patch.object(wine_service, "get_inventory_values", return_value=CONSUME_VALUES),
+        patch.object(wine_service, "update_inventory_quantity") as update_quantity,
+        patch.object(wine_service, "append_cata_record") as append_cata,
+    ):
+        wine_service.consume_wine(
+            "VINO-ABCD1234",
+            WineConsumeInput(puntuacion=4, fecha_consumo="2026-05-10"),
+        )
+
+    update_quantity.assert_called_once()
+    assert append_cata.call_args.args[0]["fecha_consumo"] == "2026-05-10T00:00:00"
+
+
+def test_consume_wine_rechaza_una_fecha_futura():
+    manana = (datetime.now() + timedelta(days=1)).date().isoformat()
+    with pytest.raises(ValueError):
+        WineConsumeInput(puntuacion=4, fecha_consumo=manana)
 
 
 def test_consume_wine_no_relee_el_inventario_para_escribir():
