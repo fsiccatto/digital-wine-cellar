@@ -15,3 +15,4 @@ cd backend
 |---|---|
 | `Inventario` | Una fila por vino: bodega, nombre, varietal, añada, región, alcohol, stock, ubicación, precio, código y distintivo |
 | `Historico_Catas` | Una fila por botella consumida: puntuación 1–5, notas y maridaje |
+| `Pendientes` | Los vinos que todavía no están en la cava: nombre, lo que se sepa, de dónde salió y, si se probó, su cata. `vino_id` se llena al comprarlo |

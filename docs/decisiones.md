@@ -18,6 +18,12 @@ Las decisiones que no se deducen leyendo el código.
 | `POST` | `/api/wines/{codigo}/consume` | Descuenta una botella y registra la cata |
 | `GET` | `/api/catas` | El histórico completo |
 | `GET` | `/api/wines/{codigo}/catas` | Las catas de un vino |
+| `GET` | `/api/pendientes` | Los vinos que no están en la cava, comprados incluidos |
+| `POST` | `/api/pendientes` | Anota uno; solo el nombre es obligatorio |
+| `PUT` | `/api/pendientes/{id}` | Edita sus datos |
+| `DELETE` | `/api/pendientes/{id}` | Lo borra, con su foto |
+| `POST` | `/api/pendientes/{id}/foto` | Sube la etiqueta al bucket |
+| `POST` | `/api/pendientes/{id}/comprado` | Lo cuelga del vino de la cava en que terminó |
 
 Una botella se carga en dos pasos: primero se crea el vino (JSON) y después se
 le sube la foto. Así el escaneo que alguien abandona no deja fotos huérfanas.
@@ -76,6 +82,19 @@ bucket y las rutas HTTP. Es un identificador, no un dato de negocio.
 
 **Borrar un vino conserva sus catas.** El histórico es la única memoria de que
 esas botellas se tomaron; las huérfanas se muestran con el código crudo.
+
+**Un pendiente no es un vino con stock 0.** Lo que se probó en una cena o
+alguien recomendó vive en su propia pestaña: casi nunca se sabe la añada o el
+varietal, así que no hay de dónde armar un código, y "se me acabó" no es lo
+mismo que "nunca lo tuve". Con puntuación se probó; sin ella, las notas son lo
+que contó quien lo recomendó.
+
+**Comprarlo pasa por la carga de siempre.** "Lo compré" abre la pantalla de
+nueva botella con los datos puestos, para no duplicar el alta ni el aviso de
+que ya está en la cava. Recién con el vino creado (o con stock sumado), el
+pendiente se cuelga de él por uuid: si se había probado, esa cata pasa al
+histórico con el día de la cena, y si tenía foto y el vino no, GCS la copia
+adentro del bucket. Marcarlo dos veces no escribe nada la segunda.
 
 ## Código de vino
 

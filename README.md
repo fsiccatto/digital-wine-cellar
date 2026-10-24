@@ -37,6 +37,9 @@ para que abrir la app no espere un arranque en frío.
   el stock.
 - **Leer el histórico** de catas, agrupado por mes y con búsqueda por vino,
   maridaje o notas.
+- **Anotar pendientes**: el vino que se probó en una cena o que alguien
+  recomendó, con el nombre como único dato obligatorio. Al comprarlo pasa a la
+  cava, y si se había probado su cata entra al histórico con la fecha de la cena.
 - **Editar, borrar o ajustar el stock** de un vino sin abrir la planilla. Borrar
   un vino conserva sus catas: son la única memoria de que esas botellas se
   tomaron.
@@ -50,7 +53,7 @@ Celular  ──foto──>  FastAPI  ──imagen──>  Gemini
                        │                    │
                        │  <──── JSON ───────┘
                        │
-                       ├──filas──>  Google Sheets   (inventario y catas)
+                       ├──filas──>  Google Sheets   (inventario, catas y pendientes)
                        └──jpg────>  Cloud Storage   (fotos, bucket privado)
 ```
 
@@ -98,15 +101,16 @@ probar no toca producción.
 backend/
   app/
     warmup.py    prepara la planilla mientras arranca el proceso
-    routes/      health, scan, wines
-    services/    gemini, sheets, storage, wine
+    routes/      health, scan, wines, pendientes
+    services/    gemini, sheets, storage, wine, pendiente
     schemas/     validaciones Pydantic
     utils/       código de vino, validación de imágenes
   scripts/       formato de la planilla
   tests/
 frontend/
   src/
-    screens/     UnlockScreen, CellarScreen, CatasScreen, ScanScreen, WineScreen
+    screens/     UnlockScreen, CellarScreen, CatasScreen, PendientesScreen,
+                 PendienteScreen, ScanScreen, WineScreen
     components/  íconos SVG, campos, hojas, fila de cata, copa de carga
     lib/         api, types, helpers de dominio
 infra/

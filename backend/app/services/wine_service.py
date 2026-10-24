@@ -109,7 +109,7 @@ def attach_label_photo(
         raise ValueError("No se encontró el vino solicitado.")
 
     object_name = storage_service.upload_label_photo(
-        codigo_vino=codigo_vino,
+        clave=codigo_vino,
         image_bytes=image_bytes,
         content_type=content_type,
     )

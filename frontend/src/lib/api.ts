@@ -4,7 +4,10 @@ import type {
   CataUpdateInput,
   ConsumeResult,
   DeleteCataResult,
+  DeletePendienteResult,
   DeleteResult,
+  PendienteInput,
+  PendienteRecord,
   WineConsumeInput,
   WineCreateInput,
   WineRecord,
@@ -200,5 +203,55 @@ export function updateCata(
 export function deleteCata(idCata: string): Promise<DeleteCataResult> {
   return request<DeleteCataResult>(`/api/catas/${encodeURIComponent(idCata)}`, {
     method: 'DELETE',
+  })
+}
+
+export function listPendientes(): Promise<PendienteRecord[]> {
+  return request<PendienteRecord[]>('/api/pendientes')
+}
+
+export function createPendiente(payload: PendienteInput): Promise<PendienteRecord> {
+  return request<PendienteRecord>('/api/pendientes', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function updatePendiente(
+  id: string,
+  payload: PendienteInput,
+): Promise<PendienteRecord> {
+  return request<PendienteRecord>(`/api/pendientes/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+}
+
+export function deletePendiente(id: string): Promise<DeletePendienteResult> {
+  return request<DeletePendienteResult>(`/api/pendientes/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+}
+
+export function uploadPendientePhoto(id: string, file: File): Promise<PendienteRecord> {
+  const body = new FormData()
+  body.append('file', file)
+  return request<PendienteRecord>(`/api/pendientes/${encodeURIComponent(id)}/foto`, {
+    method: 'POST',
+    body,
+  })
+}
+
+/**
+ * Lo cuelga del vino en el que termino, que ya se creo por el camino de
+ * siempre. Si se habia probado, el backend pasa esa cata al historico.
+ */
+export function marcarComprado(id: string, codigoVino: string): Promise<PendienteRecord> {
+  return request<PendienteRecord>(`/api/pendientes/${encodeURIComponent(id)}/comprado`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codigo_vino: codigoVino }),
   })
 }

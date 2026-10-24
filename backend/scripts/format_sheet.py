@@ -25,6 +25,8 @@ from app.services.sheets_service import (  # noqa: E402
     CATAS_TAB,
     INVENTORY_HEADERS,
     INVENTORY_TAB,
+    PENDIENTES_HEADERS,
+    PENDIENTES_TAB,
     get_spreadsheet,
 )
 
@@ -62,6 +64,24 @@ CATAS_WIDTHS = {
     "puntuacion": 90,
     "notas_cata": 320,
     "maridaje": 180,
+}
+
+PENDIENTES_WIDTHS = {
+    "id": 60,
+    "fecha_alta": 145,
+    "nombre_vino": 180,
+    "bodega": 130,
+    "varietal": 130,
+    "anada": 70,
+    "region": 140,
+    "alcohol": 75,
+    "origen": 170,
+    "puntuacion": 90,
+    "notas": 320,
+    "maridaje": 180,
+    "fecha_probado": 145,
+    "foto_url": 90,
+    "vino_id": 60,
 }
 
 VARIETALES = [
@@ -483,6 +503,101 @@ def _catas_extras(sheet_id: str):
     ]
 
 
+def _pendientes_extras(sheet_id: str):
+    col = lambda name: _column(PENDIENTES_HEADERS, name)  # noqa: E731
+    body = {"sheetId": sheet_id, "startRowIndex": 1}
+
+    def columna(name: str):
+        return {**body, "startColumnIndex": col(name), "endColumnIndex": col(name) + 1}
+
+    return [
+        # Como en las catas: hasta 5, con medias copas y limites enteros.
+        {
+            "setDataValidation": {
+                "range": columna("puntuacion"),
+                "rule": {
+                    "condition": {
+                        "type": "NUMBER_BETWEEN",
+                        "values": [{"userEnteredValue": "0"}, {"userEnteredValue": "5"}],
+                    },
+                    "strict": False,
+                },
+            }
+        },
+        {
+            "repeatCell": {
+                "range": columna("puntuacion"),
+                "cell": {
+                    "userEnteredFormat": {
+                        "horizontalAlignment": "CENTER",
+                        "textFormat": {"bold": True, "foregroundColor": VINO},
+                    }
+                },
+                "fields": "userEnteredFormat(horizontalAlignment,textFormat)",
+            }
+        },
+        {
+            "repeatCell": {
+                "range": columna("notas"),
+                "cell": {"userEnteredFormat": {"wrapStrategy": "WRAP"}},
+                "fields": "userEnteredFormat.wrapStrategy",
+            }
+        },
+        {
+            "repeatCell": {
+                "range": columna("maridaje"),
+                "cell": {
+                    "userEnteredFormat": {
+                        "textFormat": {"foregroundColor": VERDE, "italic": True}
+                    }
+                },
+                "fields": "userEnteredFormat.textFormat",
+            }
+        },
+        *[
+            {
+                "repeatCell": {
+                    "range": columna(name),
+                    "cell": {
+                        "userEnteredFormat": {
+                            "textFormat": {
+                                "fontFamily": "Karla",
+                                "fontSize": 8,
+                                "foregroundColor": {"red": 0.64, "green": 0.57, "blue": 0.48},
+                            }
+                        }
+                    },
+                    "fields": "userEnteredFormat.textFormat",
+                }
+            }
+            for name in ("id", "foto_url", "vino_id")
+        ],
+        # Ya comprado: la fila se apaga, como un vino sin stock.
+        {
+            "addConditionalFormatRule": {
+                "index": 0,
+                "rule": {
+                    "ranges": [{**body, "startColumnIndex": 0,
+                                "endColumnIndex": len(PENDIENTES_HEADERS)}],
+                    "booleanRule": {
+                        "condition": {
+                            "type": "CUSTOM_FORMULA",
+                            "values": [{"userEnteredValue": "=$O2<>\"\""}],
+                        },
+                        "format": {
+                            "backgroundColor": {"red": 0.93, "green": 0.91, "blue": 0.87},
+                            "textFormat": {
+                                "foregroundColor": {"red": 0.60, "green": 0.55, "blue": 0.47},
+                                "italic": True,
+                            },
+                        },
+                    },
+                },
+            }
+        },
+    ]
+
+
 def _clear_existing(spreadsheet, sheet_id: str, last_col: int):
     """Quita bandas, reglas y validaciones previas para que sea idempotente.
 
@@ -512,6 +627,7 @@ def main() -> int:
     tabs = [
         (INVENTORY_TAB, INVENTORY_HEADERS, INVENTORY_WIDTHS, _inventory_extras),
         (CATAS_TAB, CATAS_HEADERS, CATAS_WIDTHS, _catas_extras),
+        (PENDIENTES_TAB, PENDIENTES_HEADERS, PENDIENTES_WIDTHS, _pendientes_extras),
     ]
 
     for title, headers, widths, extras in tabs:

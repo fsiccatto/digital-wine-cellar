@@ -76,6 +76,28 @@ CATAS_HEADERS = [
     "maridaje",
 ]
 
+# Lo que todavia no esta en la cava: un vino probado afuera o recomendado de
+# palabra. Solo `nombre_vino` es seguro; el resto puede faltar. `vino_id` queda
+# vacio mientras esta pendiente y al comprarlo guarda el uuid del vino, igual
+# que una cata y por el mismo motivo: el codigo se reusa, el uuid no.
+PENDIENTES_HEADERS = [
+    "id",
+    "fecha_alta",
+    "nombre_vino",
+    "bodega",
+    "varietal",
+    "anada",
+    "region",
+    "alcohol",
+    "origen",
+    "puntuacion",
+    "notas",
+    "maridaje",
+    "fecha_probado",
+    "foto_url",
+    "vino_id",
+]
+
 # Nota sobre inyeccion de formulas: gspread 6.x escribe con value_input_option
 # RAW por default, asi que un valor que arranque con "=" se guarda como texto y
 # no como formula. Por eso NO se escapan los campos de texto libre. Verificado
@@ -84,6 +106,7 @@ CATAS_HEADERS = [
 
 INVENTORY_TAB = "Inventario"
 CATAS_TAB = "Historico_Catas"
+PENDIENTES_TAB = "Pendientes"
 
 _spreadsheet = None
 _worksheets: Dict[str, Any] = {}
@@ -118,8 +141,8 @@ def get_spreadsheet():
 def _get_worksheet(title: str, headers: List[str]):
     """Resuelve una pestaña una vez por proceso, creandola si no esta.
 
-    Las dos pestañas se piden juntas con `worksheets()`: una sola llamada trae
-    ambas, contra una por pestaña que costaba ~0,32s cada una.
+    Las pestañas se piden juntas con `worksheets()`: una sola llamada trae
+    todas, contra una por pestaña que costaba ~0,32s cada una.
 
     El encabezado NO se valida aca. Antes se leia con `row_values(1)`, ~0,4s por
     pestaña en cada arranque en frio, para comparar contra una lista fija. La
@@ -257,6 +280,10 @@ def get_catas_worksheet():
     return _get_worksheet(CATAS_TAB, CATAS_HEADERS)
 
 
+def get_pendientes_worksheet():
+    return _get_worksheet(PENDIENTES_TAB, PENDIENTES_HEADERS)
+
+
 def _rows_from(worksheet, expected_headers: List[str]) -> List[Dict[str, Any]]:
     """Lee una pestaña completa como dicts, salteando las filas vacías."""
     values = _read_values(worksheet, expected_headers)
@@ -278,6 +305,10 @@ def get_inventory_rows() -> List[Dict[str, Any]]:
 
 def get_catas_rows() -> List[Dict[str, Any]]:
     return _rows_from(get_catas_worksheet(), CATAS_HEADERS)
+
+
+def get_pendientes_rows() -> List[Dict[str, Any]]:
+    return _rows_from(get_pendientes_worksheet(), PENDIENTES_HEADERS)
 
 
 def append_inventory_row(row: Dict[str, Any]):
@@ -342,12 +373,15 @@ def update_inventory_quantity(
     )
 
 
-def update_inventory_photo(codigo_vino: str, object_name: str):
+def update_inventory_photo(
+    codigo_vino: str, object_name: str, values: List[List[str]] | None = None
+):
     _update_inventory_cell(
         codigo_vino,
         "foto_url",
         object_name,
         "No se encontró el vino solicitado para guardar la foto.",
+        values=values,
     )
 
 
@@ -469,5 +503,39 @@ def delete_cata_row(id_cata: str, values: List[List[str]] | None = None):
         "id_cata",
         id_cata,
         "No se encontró la cata solicitada para eliminar.",
+        values=values,
+    )
+
+
+def append_pendiente_row(row: Dict[str, Any]):
+    worksheet = get_pendientes_worksheet()
+    _ensure_headers_before_append(worksheet, PENDIENTES_HEADERS)
+    worksheet.append_row([row.get(header, "") for header in PENDIENTES_HEADERS])
+
+
+def get_pendientes_values() -> List[List[str]]:
+    """La pestaña de pendientes cruda, para quien despues va a escribir sobre ella."""
+    return _read_values(get_pendientes_worksheet(), PENDIENTES_HEADERS)
+
+
+def update_pendiente_row(
+    id_pendiente: str, row: Dict[str, Any], values: List[List[str]] | None = None
+):
+    _update_row(
+        get_pendientes_worksheet(),
+        "id",
+        id_pendiente,
+        row,
+        "No se encontró el vino pendiente para actualizar.",
+        values=values,
+    )
+
+
+def delete_pendiente_row(id_pendiente: str, values: List[List[str]] | None = None):
+    _delete_row(
+        get_pendientes_worksheet(),
+        "id",
+        id_pendiente,
+        "No se encontró el vino pendiente para eliminar.",
         values=values,
     )

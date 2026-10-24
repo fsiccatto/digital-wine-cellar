@@ -116,3 +116,48 @@ export interface DeleteCataResult {
   status: string
   id_cata: string
 }
+
+/** Un vino que todavia no esta en la cava: probado afuera o recomendado. */
+export interface PendienteRecord {
+  id: string
+  fecha_alta: string
+  /** Lo unico seguro: lo recomendado de palabra no trae mas. */
+  nombre_vino: string
+  bodega: string | null
+  varietal: string | null
+  anada: number | null
+  region: string | null
+  alcohol: string | null
+  /** Quien lo recomendo o donde se probo. */
+  origen: string | null
+  /** Con puntuacion se probo, y al comprarlo pasa a ser una cata. */
+  puntuacion: number | null
+  notas: string | null
+  maridaje: string | null
+  fecha_probado: string | null
+  /** Firmada solo mientras esta pendiente. */
+  foto_url: string | null
+  /** El uuid del vino de la cava; null mientras esta pendiente. */
+  vino_id: string | null
+}
+
+/** Crear y editar mandan lo mismo: editar reemplaza todos los campos. */
+export interface PendienteInput {
+  nombre_vino: string
+  bodega?: string | null
+  varietal?: string | null
+  anada?: number | null
+  region?: string | null
+  alcohol?: string | null
+  origen?: string | null
+  puntuacion?: number | null
+  notas?: string | null
+  maridaje?: string | null
+  /** Sin fecha y con puntuacion, la pone el servidor. */
+  fecha_probado?: string | null
+}
+
+export interface DeletePendienteResult {
+  status: string
+  id: string
+}

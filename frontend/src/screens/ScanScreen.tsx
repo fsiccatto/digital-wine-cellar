@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { adjustStock, createWine, scanLabel, uploadLabelPhoto } from '../lib/api'
-import type { WineRecord, WineScanResult } from '../lib/types'
+import { adjustStock, createWine, marcarComprado, scanLabel, uploadLabelPhoto } from '../lib/api'
+import type { PendienteRecord, WineRecord, WineScanResult } from '../lib/types'
 import { candidatoDuplicado, glassTint, parsePrecio } from '../lib/wine'
 import { PRESET_GUARDAR, PRESET_OCR, prepareLabelPhoto } from '../lib/image'
 import {
@@ -45,6 +45,19 @@ const EMPTY: FormState = {
   distintivo: '',
 }
 
+/** Lo que ya se sabe de un pendiente; cantidad, estante y precio son de la cava. */
+function formDePendiente(pendiente: PendienteRecord): FormState {
+  return {
+    ...EMPTY,
+    bodega: pendiente.bodega ?? '',
+    nombre_vino: pendiente.nombre_vino,
+    varietal: pendiente.varietal ?? '',
+    anada: pendiente.anada != null ? String(pendiente.anada) : '',
+    region: pendiente.region ?? '',
+    alcohol: pendiente.alcohol ?? '',
+  }
+}
+
 /** Campos que la IA leyó: se marcan con tilde, los vacíos piden completar. */
 type ReadFlags = Partial<Record<keyof WineScanResult, boolean>>
 
@@ -54,12 +67,16 @@ interface Props {
   onCancel: () => void
   /** `aviso` llega a la ficha: esta pantalla se desmonta al guardar. */
   onSaved: (codigoVino: string, aviso?: string) => void
+  /** "Lo compré" desde pendientes: arranca con sus datos cargados. */
+  pendiente?: PendienteRecord
 }
 
-export function ScanScreen({ wines, onCancel, onSaved }: Props) {
-  const [stage, setStage] = useState<Stage>('capture')
+export function ScanScreen({ wines, onCancel, onSaved, pendiente }: Props) {
+  const [stage, setStage] = useState<Stage>(pendiente ? 'form' : 'capture')
   const [photo, setPhoto] = useState<File | null>(null)
-  const [form, setForm] = useState<FormState>(EMPTY)
+  const [form, setForm] = useState<FormState>(() =>
+    pendiente ? formDePendiente(pendiente) : EMPTY,
+  )
   const [read, setRead] = useState<ReadFlags>({})
   const [error, setError] = useState<string | null>(null)
   // El de guardar va aparte del de leer: se muestran en extremos opuestos de la
@@ -82,6 +99,22 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
     if (!preview) return
     return () => URL.revokeObjectURL(preview)
   }, [preview])
+
+  // La del pendiente no se vuelve a subir: el backend la copia al marcarlo
+  // comprado, si el vino no tiene una propia.
+  const fotoPendiente = pendiente?.foto_url?.startsWith('http') ? pendiente.foto_url : null
+  const vista = preview ?? fotoPendiente
+
+  /** Despues de guardar en la cava: sacarlo de pendientes y pasar su cata. */
+  async function cerrarPendiente(codigoVino: string): Promise<string | undefined> {
+    if (!pendiente) return undefined
+    try {
+      await marcarComprado(pendiente.id, codigoVino)
+      return undefined
+    } catch {
+      return 'Sigue en tus pendientes: no se pudo marcar como comprado.'
+    }
+  }
 
   async function handleFile(file: File) {
     setPhoto(file)
@@ -163,6 +196,7 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
           aviso = 'El vino se guardó, pero la foto no se pudo subir.'
         }
       }
+      aviso = (await cerrarPendiente(created.codigo_vino)) ?? aviso
 
       onSaved(created.codigo_vino, aviso)
     } catch (cause) {
@@ -200,6 +234,7 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
           aviso = 'Se sumó el stock, pero la foto no se pudo subir.'
         }
       }
+      aviso = (await cerrarPendiente(candidato.codigo_vino)) ?? aviso
 
       onSaved(candidato.codigo_vino, aviso)
     } catch (cause) {
@@ -261,7 +296,9 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
           <span className="text-[10px] font-semibold tracking-[0.14em] text-tenue-600 uppercase">
             {sinEtiqueta
               ? 'Sin etiqueta, a mano'
-              : stage === 'capture'
+              : pendiente && stage === 'form'
+                ? 'De tus pendientes: completá lo que falta'
+                : stage === 'capture'
                 ? 'Sacale una foto a la etiqueta'
                 : stage === 'reading'
                   ? 'Leyendo la etiqueta…'
@@ -293,8 +330,8 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
       {/* La foto que sacó el usuario */}
       {!sinEtiqueta && (
         <div className="relative mx-5 mb-4 flex h-[190px] items-center justify-center overflow-hidden rounded-xl border border-borde bg-madera-950">
-          {preview ? (
-            <img src={preview} alt="Etiqueta capturada" className="h-full w-full object-cover" />
+          {vista ? (
+            <img src={vista} alt="Etiqueta capturada" className="h-full w-full object-cover" />
           ) : (
             <div className="flex flex-col items-center gap-[14px] px-8 text-center">
               <button
@@ -341,7 +378,7 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
 
           {/* Los chips de abajo flotan sobre la foto, que siempre es oscura: se
               quedan en tinta clara aunque el tema sea pergamino. */}
-          {preview && stage !== 'reading' && (
+          {vista && stage !== 'reading' && (
             <>
               {Object.values(read).some(Boolean) && (
                 <div className="absolute bottom-[10px] left-[10px] z-2 flex items-center gap-[6px] rounded-full bg-[#1a1512]/90 py-[5px] pr-[11px] pl-2">

@@ -1,20 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ApiError, getToken, listCatas, listWines } from './lib/api'
-import type { CataRecord, WineRecord } from './lib/types'
+import { ApiError, getToken, listCatas, listPendientes, listWines } from './lib/api'
+import type { CataRecord, PendienteRecord, WineRecord } from './lib/types'
 import { CatasScreen } from './screens/CatasScreen'
 import { CellarScreen } from './screens/CellarScreen'
+import { PendienteScreen } from './screens/PendienteScreen'
+import { PendientesScreen } from './screens/PendientesScreen'
 import { ScanScreen } from './screens/ScanScreen'
 import { UnlockScreen } from './screens/UnlockScreen'
 import { WineScreen } from './screens/WineScreen'
-import { CameraIcon, CellarIcon, GlassIcon } from './components/icons'
+import { BookmarkIcon, CameraIcon, CellarIcon, GlassIcon } from './components/icons'
 
 // Editar, borrar y ajustar stock no entran acá: son estado local de
 // WineScreen, igual que la hoja de cata.
 type View =
   | { name: 'cellar' }
   | { name: 'catas' }
-  | { name: 'scan' }
-  | { name: 'wine'; codigoVino: string; desde?: 'catas'; aviso?: string }
+  | { name: 'pendientes'; aviso?: string }
+  | { name: 'pendiente'; pendiente?: PendienteRecord }
+  | { name: 'scan'; pendiente?: PendienteRecord }
+  | { name: 'wine'; codigoVino: string; desde?: 'catas' | 'pendientes'; aviso?: string }
+
+/** A donde lleva "atras": lo que se abrio desde una pestaña vuelve a ella. */
+function anterior(view: View): View {
+  if (view.name === 'wine' && view.desde) return { name: view.desde }
+  if (view.name === 'pendiente' || (view.name === 'scan' && view.pendiente)) {
+    return { name: 'pendientes' }
+  }
+  return { name: 'cellar' }
+}
 
 export default function App() {
   const [view, setView] = useState<View>({ name: 'cellar' })
@@ -26,6 +39,10 @@ export default function App() {
   const [catas, setCatas] = useState<CataRecord[] | null>(null)
   const [catasLoading, setCatasLoading] = useState(false)
   const [catasError, setCatasError] = useState<string | null>(null)
+  // Igual que el historico: solo se pide al abrir la pestaña.
+  const [pendientes, setPendientes] = useState<PendienteRecord[] | null>(null)
+  const [pendientesLoading, setPendientesLoading] = useState(false)
+  const [pendientesError, setPendientesError] = useState<string | null>(null)
   // Se asume desbloqueada si ya hay clave guardada; un 401 la vuelve a pedir.
   const [unlocked, setUnlocked] = useState(() => getToken() !== '')
   // Desbloquear ya trae la lista para validar la clave: no se pide dos veces.
@@ -63,7 +80,7 @@ export default function App() {
       if (estado?.cava || estado?.capa) return
 
       enHistorial.current = false
-      setView(view.name === 'wine' && view.desde ? { name: view.desde } : { name: 'cellar' })
+      setView(anterior(view))
     }
 
     window.addEventListener('popstate', alVolver)
@@ -111,6 +128,23 @@ export default function App() {
       .finally(() => setCatasLoading(false))
   }, [])
 
+  const loadPendientes = useCallback(() => {
+    setPendientesLoading(true)
+    setPendientesError(null)
+    listPendientes()
+      .then(setPendientes)
+      .catch((cause: unknown) => {
+        if (cause instanceof ApiError && cause.status === 401) {
+          setUnlocked(false)
+          return
+        }
+        setPendientesError(
+          cause instanceof Error ? cause.message : 'No se pudieron cargar los pendientes.',
+        )
+      })
+      .finally(() => setPendientesLoading(false))
+  }, [])
+
   /** Al mutar un vino el histórico queda viejo: borrarlo deja catas huérfanas. */
   const invalidateCatas = useCallback(() => {
     setCatas(null)
@@ -142,6 +176,18 @@ export default function App() {
     }
   }, [unlocked, view, catas, catasLoading, catasError, loadCatas])
 
+  useEffect(() => {
+    if (
+      unlocked &&
+      view.name === 'pendientes' &&
+      pendientes === null &&
+      !pendientesLoading &&
+      pendientesError === null
+    ) {
+      loadPendientes()
+    }
+  }, [unlocked, view, pendientes, pendientesLoading, pendientesError, loadPendientes])
+
   /** Volver desde la UI, dejando el historial como lo encontro. */
   function volver() {
     // Con una hoja abierta su entrada esta arriba de todo: se consume primero,
@@ -151,8 +197,11 @@ export default function App() {
       window.history.back()
       return
     }
-    if (view.name === 'wine' && view.desde) {
-      setView({ name: view.desde })
+    // A otra pestaña que no es la cava: la entrada del historial queda, porque
+    // sigue siendo una pantalla de la que "atras" tiene que sacar.
+    const destino = anterior(view)
+    if (destino.name !== 'cellar') {
+      setView(destino)
       return
     }
     if (enHistorial.current) {
@@ -198,14 +247,52 @@ export default function App() {
         />
       )}
 
+      {view.name === 'pendientes' && (
+        <PendientesScreen
+          pendientes={pendientes ?? []}
+          wines={wines}
+          loading={pendientesLoading}
+          error={pendientesError}
+          aviso={view.aviso}
+          onRetry={loadPendientes}
+          onNuevo={() => setView({ name: 'pendiente' })}
+          onEditar={(pendiente) => setView({ name: 'pendiente', pendiente })}
+          onComprar={(pendiente) => setView({ name: 'scan', pendiente })}
+          onVerVino={(codigoVino) => setView({ name: 'wine', codigoVino, desde: 'pendientes' })}
+          onBorrado={loadPendientes}
+        />
+      )}
+
+      {view.name === 'pendiente' && (
+        <PendienteScreen
+          pendiente={view.pendiente}
+          onCancel={volver}
+          onSaved={(aviso) => {
+            loadPendientes()
+            setView({ name: 'pendientes', aviso })
+          }}
+        />
+      )}
+
       {view.name === 'scan' && (
         <ScanScreen
           // Para avisar si la etiqueta que se acaba de leer ya esta en la cava.
           wines={wines}
+          pendiente={view.pendiente}
           onCancel={volver}
           onSaved={(codigoVino, aviso) => {
             load()
-            setView({ name: 'wine', codigoVino, aviso })
+            if (view.pendiente) {
+              // Sale de pendientes y, si se habia probado, suma una cata.
+              loadPendientes()
+              invalidateCatas()
+            }
+            setView({
+              name: 'wine',
+              codigoVino,
+              aviso,
+              desde: view.pendiente ? 'pendientes' : undefined,
+            })
           }}
         />
       )}
@@ -230,26 +317,26 @@ export default function App() {
         />
       )}
 
-      {/* La barra estorba en el escaneo, que tiene su propia acción abajo. */}
-      {view.name !== 'scan' && (
-        <nav className="fixed inset-x-0 bottom-0 mx-auto flex max-w-[430px] items-center justify-between border-t border-borde bg-madera-900/95 px-[30px] pt-[13px] pb-seguro backdrop-blur-sm">
-          <button
-            type="button"
-            onClick={() => setView({ name: 'cellar' })}
-            // El color solo no alcanza: sin esto un lector de pantalla lee dos
-            // pestañas identicas y ninguna dice cual esta abierta.
-            aria-current={view.name === 'cellar' ? 'page' : undefined}
-            className="flex flex-col items-center gap-[5px]"
-          >
-            <CellarIcon className={view.name === 'cellar' ? 'text-oro' : 'text-tenue-600'} />
-            <span
-              className={`text-[10px] tracking-[0.1em] uppercase ${
-                view.name === 'cellar' ? 'font-bold text-oro' : 'font-semibold text-tenue-600'
-              }`}
-            >
-              Cava
-            </span>
-          </button>
+      {/* La barra estorba en los formularios, que tienen su propia acción abajo. */}
+      {view.name !== 'scan' && view.name !== 'pendiente' && (
+        // La camara queda al medio con tres pestañas: Cava y Catas siguen en
+        // las puntas, donde ya las busca el dedo, y Pendientes entra al lado
+        // de la cava.
+        <nav className="fixed inset-x-0 bottom-0 mx-auto grid max-w-[430px] grid-cols-[1fr_auto_1fr] items-center border-t border-borde bg-madera-900/95 px-[30px] pt-[13px] pb-seguro backdrop-blur-sm">
+          <div className="flex items-center justify-between pr-[26px]">
+            <Pestaña
+              activa={view.name === 'cellar'}
+              etiqueta="Cava"
+              icono={CellarIcon}
+              onClick={() => setView({ name: 'cellar' })}
+            />
+            <Pestaña
+              activa={view.name === 'pendientes'}
+              etiqueta="Pendientes"
+              icono={BookmarkIcon}
+              onClick={() => setView({ name: 'pendientes' })}
+            />
+          </div>
 
           <button
             type="button"
@@ -260,24 +347,48 @@ export default function App() {
             <CameraIcon size={21} />
           </button>
 
-          <button
-            type="button"
-            onClick={() => setView({ name: 'catas' })}
-            aria-current={view.name === 'catas' ? 'page' : undefined}
-            className="flex flex-col items-center gap-[5px]"
-            aria-label="Catas"
-          >
-            <GlassIcon className={view.name === 'catas' ? 'text-oro' : 'text-tenue-600'} />
-            <span
-              className={`text-[10px] tracking-[0.1em] uppercase ${
-                view.name === 'catas' ? 'font-bold text-oro' : 'font-semibold text-tenue-600'
-              }`}
-            >
-              Catas
-            </span>
-          </button>
+          <div className="flex items-center justify-end">
+            <Pestaña
+              activa={view.name === 'catas'}
+              etiqueta="Catas"
+              icono={GlassIcon}
+              onClick={() => setView({ name: 'catas' })}
+            />
+          </div>
         </nav>
       )}
     </div>
+  )
+}
+
+function Pestaña({
+  activa,
+  etiqueta,
+  icono: Icono,
+  onClick,
+}: {
+  activa: boolean
+  etiqueta: string
+  icono: (props: { className?: string }) => React.ReactNode
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      // El color solo no alcanza: sin esto un lector de pantalla lee pestañas
+      // identicas y ninguna dice cual esta abierta.
+      aria-current={activa ? 'page' : undefined}
+      className="flex flex-col items-center gap-[5px]"
+    >
+      <Icono className={activa ? 'text-oro' : 'text-tenue-600'} />
+      <span
+        className={`text-[10px] tracking-[0.1em] uppercase ${
+          activa ? 'font-bold text-oro' : 'font-semibold text-tenue-600'
+        }`}
+      >
+        {etiqueta}
+      </span>
+    </button>
   )
 }
