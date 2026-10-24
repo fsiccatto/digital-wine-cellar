@@ -264,7 +264,7 @@ class CataUpdateInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    puntuacion: float = Field(ge=0.5, le=5)
+    puntuacion: Optional[float] = Field(default=None, ge=0.5, le=5)
 
     _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
     notas_cata: Optional[str] = None
@@ -285,7 +285,7 @@ class CataCreateInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    puntuacion: float = Field(ge=0.5, le=5)
+    puntuacion: Optional[float] = Field(default=None, ge=0.5, le=5)
 
     _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
     notas_cata: Optional[str] = None
@@ -301,7 +301,10 @@ class CataCreateInput(BaseModel):
 class WineConsumeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    puntuacion: float = Field(ge=0.5, le=5)
+    # Opcional: el vino barato que se llevo a un asado se toma igual, sin
+    # ganas de puntuarlo. Queda en el historico como "se tomo tal dia", que
+    # es lo que el ajuste de stock no deja.
+    puntuacion: Optional[float] = Field(default=None, ge=0.5, le=5)
 
     _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
     notas_cata: Optional[str] = None
@@ -422,6 +425,96 @@ class CataRecord(BaseModel):
 
     # Las celdas con formato vuelven como texto; es el bug que ya nos hizo
     # desaparecer un vino del inventario.
+    _parse_numbers = field_validator("puntuacion", "anada", mode="before")(
+        parse_sheet_number
+    )
+
+
+class PendienteInput(BaseModel):
+    """Un vino que todavia no esta en la cava. Solo el nombre es obligatorio.
+
+    Lo recomendado de palabra no trae mas que eso. La puntuacion es lo que dice
+    que se probo: sin ella, las notas son lo que conto quien lo recomendo, y al
+    comprarlo no se vuelve una cata.
+
+    Sirve para crear y para editar: editar reemplaza todos los campos.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    nombre_vino: str
+    bodega: Optional[str] = None
+    varietal: Optional[str] = None
+    anada: Optional[int] = Field(default=None, ge=1900, le=CURRENT_YEAR)
+    region: Optional[str] = None
+    alcohol: Optional[str] = None
+    # Quien lo recomendo o donde se probo: "Juan", "cena en lo de Ana".
+    origen: Optional[str] = None
+    puntuacion: Optional[float] = Field(default=None, ge=0.5, le=5)
+    notas: Optional[str] = None
+    maridaje: Optional[str] = None
+    # Sin fecha y con puntuacion, es hoy.
+    fecha_probado: Optional[str] = None
+
+    _normalize_required = field_validator("nombre_vino", mode="before")(
+        normalize_required_text
+    )
+    _normalize_optional = field_validator(
+        "bodega", "varietal", "region", "origen", "notas", "maridaje", mode="before"
+    )(normalize_optional_text)
+    _normalize_alcohol = field_validator("alcohol", mode="before")(normalize_alcohol)
+    _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
+    _fecha = field_validator("fecha_probado")(validar_fecha_consumo)
+
+
+class PendienteCompradoInput(BaseModel):
+    """El vino de la cava en el que termino el pendiente.
+
+    Se crea antes por el camino de siempre (o se suma stock a uno que ya
+    estaba): asi el pendiente no repite la logica de alta ni el aviso de
+    duplicado.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    codigo_vino: str
+
+
+class PendienteRecord(BaseModel):
+    id: str
+    fecha_alta: str
+    nombre_vino: str
+    bodega: Optional[str] = None
+    varietal: Optional[str] = None
+    anada: Optional[int] = None
+    region: Optional[str] = None
+    alcohol: Optional[str] = None
+    origen: Optional[str] = None
+    puntuacion: Optional[float] = None
+    notas: Optional[str] = None
+    maridaje: Optional[str] = None
+    fecha_probado: Optional[str] = None
+    foto_url: Optional[str] = None
+    # Vacio mientras esta pendiente; el uuid del vino una vez comprado.
+    vino_id: Optional[str] = None
+
+    # Una fila sin nombre, vaciada a mano, no es nada que se pueda mostrar.
+    _normalize_required = field_validator("nombre_vino", mode="before")(
+        normalize_required_text
+    )
+    _normalize_text = field_validator(
+        "bodega",
+        "varietal",
+        "region",
+        "origen",
+        "notas",
+        "maridaje",
+        "fecha_probado",
+        "foto_url",
+        "vino_id",
+        mode="before",
+    )(normalize_optional_text)
+    _normalize_alcohol = field_validator("alcohol", mode="before")(normalize_alcohol)
     _parse_numbers = field_validator("puntuacion", "anada", mode="before")(
         parse_sheet_number
     )

@@ -7,6 +7,7 @@ import { Sheet } from '../components/Sheet'
 import {
   CloseIcon,
   GlassIcon,
+  PairingIcon,
   RatingGlassIcon,
   SearchIcon,
   VineSprigIcon,
@@ -29,7 +30,7 @@ interface Props {
  * linea y contador del estante, asi que se lee como hermana de la cava.
  */
 export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props) {
-  const [notes, setNotes] = useState<CataRecord | null>(null)
+  const [abierta, setAbierta] = useState<CataRecord | null>(null)
   const [search, setSearch] = useState('')
 
   const visibles = useMemo(
@@ -39,7 +40,7 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
   const months = useMemo(() => groupByMonth(visibles), [visibles])
 
   const cargandoVacio = loading && catas.length === 0
-  const { tiron, alcanzo } = usePullToRefresh(onRetry, !loading && notes === null)
+  const { tiron, alcanzo } = usePullToRefresh(onRetry, !loading && abierta === null)
 
   return (
     <div className="vetas relative flex min-h-full flex-col">
@@ -160,7 +161,7 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
             <ul className="flex flex-col gap-[5px]">
               {month.catas.map((cata) => (
                 <li key={cata.id_cata}>
-                  <CataRow cata={cata} onSelect={onSelect} onNotes={setNotes} />
+                  <CataRow cata={cata} onOpen={setAbierta} />
                 </li>
               ))}
             </ul>
@@ -168,15 +169,15 @@ export function CatasScreen({ catas, loading, error, onRetry, onSelect }: Props)
         ))}
       </div>
 
-      {notes && (
-        <NotesSheet cata={notes} onClose={() => setNotes(null)} onSelect={onSelect} />
+      {abierta && (
+        <CataSheet cata={abierta} onClose={() => setAbierta(null)} onSelect={onSelect} />
       )}
     </div>
   )
 }
 
-/** Las notas no entran en la fila; se leen acá, sin editar. */
-function NotesSheet({
+/** Lo que no entra en la fila: las cinco copas, las notas enteras. Sin editar. */
+function CataSheet({
   cata,
   onClose,
   onSelect,
@@ -191,7 +192,7 @@ function NotesSheet({
     <Sheet onClose={onClose}>
       <div className="mb-5 flex flex-col gap-1">
         <span className="text-[10.5px] font-bold tracking-[0.2em] text-tenue-500 uppercase">
-          Notas de cata
+          Cata
         </span>
         <h2 className="font-serif text-[23px] leading-tight font-semibold text-crema">
           {cata.vino_existe ? cata.nombre_vino : `Vino eliminado${cata.codigo_vino ? ` · ${cata.codigo_vino}` : ''}`}
@@ -199,7 +200,9 @@ function NotesSheet({
         {date && <span className="cifra text-[11px] text-tenue-500">{date}</span>}
       </div>
 
-      {cata.puntuacion !== null && (
+      {cata.puntuacion === null ? (
+        <p className="mb-5 text-[12.5px] text-tenue-500">Se tomó sin puntuar.</p>
+      ) : (
         <div className="mb-5 flex gap-2">
           {[1, 2, 3, 4, 5].map((copa) => {
             const relleno = rellenoDe(copa, cata.puntuacion!)
@@ -219,9 +222,18 @@ function NotesSheet({
         </div>
       )}
 
-      <p className="mb-5 text-[14px] leading-relaxed whitespace-pre-wrap text-crema-300">
-        {cata.notas_cata}
-      </p>
+      {cata.notas_cata && (
+        <p className="mb-4 text-[14px] leading-relaxed whitespace-pre-wrap text-crema-300">
+          {cata.notas_cata}
+        </p>
+      )}
+
+      {cata.maridaje && (
+        <p className="mb-5 flex items-center gap-2 text-[12.5px] text-tenue-400">
+          <PairingIcon className="shrink-0 text-vina" />
+          {cata.maridaje}
+        </p>
+      )}
 
       <div className="flex gap-[10px]">
         <button

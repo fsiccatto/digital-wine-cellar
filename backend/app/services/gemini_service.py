@@ -40,21 +40,22 @@ def extract_wine_data_from_image_bytes(image_bytes: bytes, mime_type: str = "ima
     if not GEMINI_API_KEY:
         raise RuntimeError("Falta GEMINI_API_KEY en el entorno. Configural el archivo .env.")
 
-    # Aca y no arriba: es la libreria mas pesada y alargaba cada arranque en frio.
-    import google.generativeai as genai
+    # Aca y no arriba: es la libreria mas pesada (~0,7s medido) y alargaba cada
+    # arranque en frio.
+    from google import genai
+    from google.genai import types
 
-    genai.configure(api_key=GEMINI_API_KEY)
-    model = genai.GenerativeModel(MODEL_NAME)
-
-    response = model.generate_content(
+    client = genai.Client(api_key=GEMINI_API_KEY)
+    response = client.models.generate_content(
+        model=MODEL_NAME,
         contents=[
-            {"text": PROMPT},
-            {"inline_data": {"mime_type": mime_type, "data": image_bytes}},
+            PROMPT,
+            types.Part.from_bytes(data=image_bytes, mime_type=mime_type),
         ],
-        generation_config={
-            "response_mime_type": "application/json",
-            "temperature": 0.1,
-        },
+        config=types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.1,
+        ),
     )
 
     text = (response.text or "").strip()

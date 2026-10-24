@@ -24,7 +24,7 @@ async def read_validated_image(file: UploadFile) -> bytes:
         )
     if len(image_bytes) > MAX_IMAGE_SIZE_BYTES:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="La imagen supera el tamaño máximo permitido.",
         )
 

@@ -1,0 +1,4 @@
+# Las reglas por defecto de siempre. Desde la 0.17 ruff trae muchas mas
+# prendidas, y actualizarlo no deberia cambiar que se considera un error.
+[lint]
+select = ["E4", "E7", "E9", "F"]

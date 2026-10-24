@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.auth import token_middleware, verify_token_is_configured
 from app.config import CORS_ALLOW_ORIGINS, ENABLE_DOCS
 from app.routes.health import router as health_router
+from app.routes.pendientes import router as pendientes_router
 from app.routes.scan import router as scan_router
 from app.routes.wines import router as wines_router
 from app.warmup import precalentar
@@ -47,3 +48,4 @@ app.add_middleware(
 app.include_router(health_router)
 app.include_router(scan_router)
 app.include_router(wines_router)
+app.include_router(pendientes_router)

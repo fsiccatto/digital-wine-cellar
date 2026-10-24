@@ -36,12 +36,13 @@ import {
   SpinnerIcon,
   TrashIcon,
 } from '../components/icons'
-import { alTocar, formatPuntuacion, rellenoDe } from '../lib/puntuacion'
+import { formatPuntuacion } from '../lib/puntuacion'
 import { CataRowCompacta } from '../components/CataRow'
 import { CopaCargando } from '../components/CopaCargando'
 import { PhotoViewer } from '../components/PhotoViewer'
 import { Field, Stepper } from '../components/Field'
 import { Sheet } from '../components/Sheet'
+import { SelectorCopas } from '../components/SelectorCopas'
 
 interface Props {
   codigoVino: string
@@ -572,6 +573,9 @@ function TastingSheet({
   onDeleted?: (idCata: string) => void
 }) {
   const [score, setScore] = useState(cata?.puntuacion ?? 4)
+  // No todo descorche es una cata: el vino barato del asado se toma sin
+  // puntuar. Al editar una que quedo asi, corregir la nota no le inventa un 4.
+  const [puntuar, setPuntuar] = useState(cata ? cata.puntuacion !== null : true)
   const [notes, setNotes] = useState(cata?.notas_cata ?? '')
   const [pairing, setPairing] = useState(cata?.maridaje ?? '')
   // Hoy al descorchar, el de la cata al editarla. Solo viaja si se cambio: asi
@@ -587,12 +591,13 @@ function TastingSheet({
     nota: { rotulo: 'Anotar cata', accion: 'Guardar cata', enCurso: 'Guardando…' },
     editar: { rotulo: 'Editar cata', accion: 'Guardar cambios', enCurso: 'Guardando…' },
   }[modo]
+  const accion = modo === 'descorchar' && !puntuar ? 'Descontar la botella' : textos.accion
 
   async function submit() {
     setSaving(true)
     setError(null)
     const payload = {
-      puntuacion: score,
+      puntuacion: puntuar ? score : null,
       notas_cata: notes.trim() || null,
       maridaje: pairing.trim() || null,
       // La clave entera afuera, no en null: el backend anterior la rechaza, y
@@ -645,38 +650,21 @@ function TastingSheet({
         )}
       </div>
 
-      <div className="mb-5 flex flex-col gap-[9px]">
-        <div className="flex items-baseline gap-2">
-          <span className="text-[10px] font-bold tracking-[0.13em] text-tenue-500 uppercase">
-            Puntuación
-          </span>
-          <span className="text-[10.5px] text-tenue-600">
-            tocá dos veces para media copa
-          </span>
-        </div>
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5].map((copa) => {
-            const relleno = rellenoDe(copa, score)
-            return (
-              <button
-                key={copa}
-                type="button"
-                onClick={() => setScore(alTocar(score, copa))}
-                aria-label={`${copa} de 5, tocá de nuevo para ${copa - 0.5}`}
-                className={relleno === 'vacia' ? 'text-borde-claro' : 'text-oro'}
-              >
-                <RatingGlassIcon
-                  size={30}
-                  filled={relleno === 'llena'}
-                  half={relleno === 'media'}
-                />
-              </button>
-            )
-          })}
-          <span className="cifra ml-1 self-center font-serif text-[19px] font-semibold text-oro">
-            {formatPuntuacion(score)}
-          </span>
-        </div>
+      <div className="mb-5 flex flex-col items-start gap-[10px]">
+        {puntuar ? (
+          <SelectorCopas valor={score} onChange={setScore} />
+        ) : (
+          <p className="text-[12.5px] leading-relaxed text-tenue-500">
+            Sin puntuar: queda anotado que se tomó, sin copas.
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => setPuntuar(!puntuar)}
+          className="text-[12px] font-semibold text-tenue-500 underline underline-offset-4"
+        >
+          {puntuar ? 'No quiero puntuarlo' : 'Puntuarlo'}
+        </button>
       </div>
 
       <div className="mb-4 flex flex-col gap-[6px]">
@@ -796,7 +784,7 @@ function TastingSheet({
               ) : (
                 <>
                   <CheckIcon size={17} />
-                  <span className="text-[14px]">{textos.accion}</span>
+                  <span className="text-[14px]">{accion}</span>
                 </>
               )}
             </button>
@@ -852,7 +840,7 @@ function EditSheet({
   const set = (key: keyof typeof form) => (value: string) =>
     setForm((current) => ({ ...current, [key]: value }))
 
-  const yearNow = new Date().getFullYear()
+  const [yearNow] = useState(() => new Date().getFullYear())
   const year = Number(form.anada)
   const yearInvalid = !Number.isInteger(year) || year < 1900 || year > yearNow
 

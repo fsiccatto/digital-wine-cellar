@@ -425,3 +425,19 @@ def test_una_cata_huerfana_se_nombra_con_la_copia_y_nunca_con_el_uuid():
         result = wine_service.list_catas()
 
     assert [cata.codigo_vino for cata in result] == ["BOR-MAL-2019-0001", None]
+
+
+def test_consume_wine_sin_puntuar_descuenta_y_deja_la_cata_sin_nota():
+    """El vino que se llevo a un asado: baja del stock sin pedir copas."""
+    with (
+        patch.object(wine_service, "get_inventory_values", return_value=CONSUME_VALUES),
+        patch.object(wine_service, "update_inventory_quantity") as update_quantity,
+        patch.object(wine_service, "append_cata_record") as append_cata,
+    ):
+        result = wine_service.consume_wine("VINO-ABCD1234", WineConsumeInput())
+
+    assert result["stock_restante"] == 0
+    update_quantity.assert_called_once()
+    cata = append_cata.call_args.args[0]
+    assert cata["puntuacion"] is None
+    datetime.fromisoformat(cata["fecha_consumo"])

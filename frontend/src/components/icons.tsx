@@ -135,6 +135,15 @@ export function GlassIcon({ size = 21, className }: IconProps) {
   )
 }
 
+/** Los pendientes: un marcador, lo que se guarda para despues. */
+export function BookmarkIcon({ size = 21, className }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size} strokeWidth={1.7} className={className}>
+      <path d="M6.5 3.5h11v17l-5.5-4-5.5 4z" />
+    </svg>
+  )
+}
+
 /** Copa de puntuación: rellena cuando la nota la alcanza. */
 /**
  * La copa de puntuar. Se llena entera, por la mitad o queda vacia: media copa
@@ -267,15 +276,6 @@ export function PairingIcon({ size = 12, className }: IconProps) {
     <svg {...base} width={size} height={size} strokeWidth={1.8} className={className}>
       <path d="M4 20V9a3 3 0 0 1 3-3h1V4h8v2h1a3 3 0 0 1 3 3v11z" />
       <path d="M4 14h16" />
-    </svg>
-  )
-}
-
-export function InfoIcon({ size = 14, className }: IconProps) {
-  return (
-    <svg {...base} width={size} height={size} strokeWidth={1.9} className={className}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8.5v.01M12 12v4" />
     </svg>
   )
 }

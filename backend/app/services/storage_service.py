@@ -56,32 +56,58 @@ def get_bucket():
     return client.bucket(GCS_BUCKET_NAME)
 
 
-# Los codigos que arma build_wine_code son BOD-VAR-2020-0001: solo mayusculas,
-# digitos y guiones. Nada que pueda salirse del prefijo "etiquetas/".
+# Los codigos que arma build_wine_code son BOD-VAR-2020-0001 y los ids de un
+# pendiente son uuids: solo letras, digitos y guiones. Nada que pueda salirse
+# de la carpeta.
 CODIGO_VALIDO = re.compile(r"[A-Za-z0-9_-]{1,64}$")
 
+CARPETA_ETIQUETAS = "etiquetas"
+CARPETA_PENDIENTES = "pendientes"
 
-def build_object_name(codigo_vino: str, content_type: str) -> str:
-    """Arma la ruta del objeto, rechazando cualquier codigo raro.
 
-    Hoy el unico camino hasta aca valida el codigo contra el Sheet antes de
+def _object_name(carpeta: str, clave: str, extension: str) -> str:
+    """Arma la ruta del objeto, rechazando cualquier clave rara.
+
+    Hoy todos los caminos hasta aca validan la clave contra el Sheet antes de
     llamar, asi que esto no cierra un agujero abierto: fija la garantia en el
     lugar donde se construye la ruta, para que no dependa de que todas las
     filas del Sheet esten bien formadas ni de quien llame manana.
     """
-    if not CODIGO_VALIDO.fullmatch(codigo_vino or ""):
-        raise ValueError(f"Codigo de vino invalido para un nombre de objeto: {codigo_vino!r}")
-
-    extension = EXTENSION_BY_MIME.get(content_type, ".jpg")
-    return f"etiquetas/{codigo_vino}{extension}"
+    if not CODIGO_VALIDO.fullmatch(clave or ""):
+        raise ValueError(f"Clave invalida para un nombre de objeto: {clave!r}")
+    return f"{carpeta}/{clave}{extension}"
 
 
-def upload_label_photo(codigo_vino: str, image_bytes: bytes, content_type: str) -> str:
+def build_object_name(
+    clave: str, content_type: str, carpeta: str = CARPETA_ETIQUETAS
+) -> str:
+    return _object_name(carpeta, clave, EXTENSION_BY_MIME.get(content_type, ".jpg"))
+
+
+def upload_label_photo(
+    clave: str,
+    image_bytes: bytes,
+    content_type: str,
+    carpeta: str = CARPETA_ETIQUETAS,
+) -> str:
     """Sube la foto y devuelve el nombre del objeto guardado en el Sheet."""
-    object_name = build_object_name(codigo_vino, content_type)
+    object_name = build_object_name(clave, content_type, carpeta)
     blob = get_bucket().blob(object_name)
     blob.upload_from_string(image_bytes, content_type=content_type)
     return object_name
+
+
+def copy_to_label(origen: str, codigo_vino: str) -> str:
+    """Copia la foto de un pendiente a la etiqueta del vino que se compro.
+
+    La copia la hace GCS adentro del bucket: los bytes no pasan por aca, y el
+    navegador no tiene que volver a subir una foto que ya estaba.
+    """
+    extension = os.path.splitext(origen)[1] or ".jpg"
+    destino = _object_name(CARPETA_ETIQUETAS, codigo_vino, extension)
+    bucket = get_bucket()
+    bucket.copy_blob(bucket.blob(origen), bucket, destino)
+    return destino
 
 
 def build_signed_url(object_name: str) -> str | None:
