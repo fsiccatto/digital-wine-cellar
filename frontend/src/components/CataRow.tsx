@@ -160,7 +160,11 @@ export function CataRowCompacta({
 }
 
 function Puntaje({ cata }: { cata: CataRecord }) {
-  if (cata.puntuacion === null) return null
+  // Se dice: sin nada a la derecha la fila parece un dato que falta, no una
+  // botella que se tomo sin ganas de puntuarla.
+  if (cata.puntuacion === null) {
+    return <span className="shrink-0 text-[10.5px] text-tenue-600">sin puntuar</span>
+  }
   return (
     <span
       className={`cifra flex shrink-0 items-center gap-[4px] font-serif text-[16px] leading-none font-semibold ${

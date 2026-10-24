@@ -319,42 +319,38 @@ export default function App() {
 
       {/* La barra estorba en los formularios, que tienen su propia acción abajo. */}
       {view.name !== 'scan' && view.name !== 'pendiente' && (
-        // La camara queda al medio con tres pestañas: Cava y Catas siguen en
-        // las puntas, donde ya las busca el dedo, y Pendientes entra al lado
-        // de la cava.
-        <nav className="fixed inset-x-0 bottom-0 mx-auto grid max-w-[430px] grid-cols-[1fr_auto_1fr] items-center border-t border-borde bg-madera-900/95 px-[30px] pt-[13px] pb-seguro backdrop-blur-sm">
-          <div className="flex items-center justify-between pr-[26px]">
-            <Pestaña
-              activa={view.name === 'cellar'}
-              etiqueta="Cava"
-              icono={CellarIcon}
-              onClick={() => setView({ name: 'cellar' })}
-            />
-            <Pestaña
-              activa={view.name === 'pendientes'}
-              etiqueta="Pendientes"
-              icono={BookmarkIcon}
-              onClick={() => setView({ name: 'pendientes' })}
-            />
-          </div>
+        // Cuatro columnas iguales. Con la camara al medio de tres pestañas, dos
+        // quedaban apretadas de un lado y una sola del otro, y en 320px los
+        // rotulos de Cava y Pendientes se pegaban.
+        <nav className="fixed inset-x-0 bottom-0 mx-auto grid max-w-[430px] grid-cols-4 items-center border-t border-borde bg-madera-900/95 px-4 pt-[13px] pb-seguro backdrop-blur-sm">
+          <Pestaña
+            activa={view.name === 'cellar'}
+            etiqueta="Cava"
+            icono={CellarIcon}
+            onClick={() => setView({ name: 'cellar' })}
+          />
+          <Pestaña
+            activa={view.name === 'pendientes'}
+            etiqueta="Pendientes"
+            icono={BookmarkIcon}
+            onClick={() => setView({ name: 'pendientes' })}
+          />
 
           <button
             type="button"
             onClick={() => setView({ name: 'scan' })}
             aria-label="Escanear etiqueta"
-            className="-mt-[20px] flex h-[52px] w-[52px] items-center justify-center rounded-full bg-borra-600 text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.32)] transition-transform duration-150 active:scale-95"
+            className="-mt-[20px] flex h-[52px] w-[52px] items-center justify-center justify-self-center rounded-full bg-borra-600 text-madera-700 shadow-[0_5px_16px_rgba(124,35,56,0.32)] transition-transform duration-150 active:scale-95"
           >
             <CameraIcon size={21} />
           </button>
 
-          <div className="flex items-center justify-end">
-            <Pestaña
-              activa={view.name === 'catas'}
-              etiqueta="Catas"
-              icono={GlassIcon}
-              onClick={() => setView({ name: 'catas' })}
-            />
-          </div>
+          <Pestaña
+            activa={view.name === 'catas'}
+            etiqueta="Catas"
+            icono={GlassIcon}
+            onClick={() => setView({ name: 'catas' })}
+          />
         </nav>
       )}
     </div>
