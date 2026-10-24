@@ -266,7 +266,9 @@ export default function App() {
       {view.name === 'pendiente' && (
         <PendienteScreen
           pendiente={view.pendiente}
+          wines={wines}
           onCancel={volver}
+          onVerVino={(codigoVino) => setView({ name: 'wine', codigoVino, desde: 'pendientes' })}
           onSaved={(aviso) => {
             loadPendientes()
             setView({ name: 'pendientes', aviso })

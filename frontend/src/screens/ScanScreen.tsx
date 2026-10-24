@@ -72,7 +72,11 @@ interface Props {
 }
 
 export function ScanScreen({ wines, onCancel, onSaved, pendiente }: Props) {
-  const [stage, setStage] = useState<Stage>(pendiente ? 'form' : 'capture')
+  // Al comprar un pendiente la botella esta en la mano: se arranca por la foto,
+  // que completa lo que el pendiente no sabe. Si ya trae foto, al formulario.
+  const [stage, setStage] = useState<Stage>(
+    pendiente?.foto_url?.startsWith('http') ? 'form' : 'capture',
+  )
   const [photo, setPhoto] = useState<File | null>(null)
   const [form, setForm] = useState<FormState>(() =>
     pendiente ? formDePendiente(pendiente) : EMPTY,
@@ -124,16 +128,18 @@ export function ScanScreen({ wines, onCancel, onSaved, pendiente }: Props) {
     try {
       // Al escaneo va la version grande: son los pixeles que Gemini lee.
       const result = await scanLabel(await prepareLabelPhoto(file, PRESET_OCR))
+      // Lo que la etiqueta no dice queda como lo sabia el pendiente, si hay uno.
+      const base = pendiente ? formDePendiente(pendiente) : EMPTY
       setForm((actual) => ({
         // Cantidad, estante y precio NO salen de la etiqueta: los escribio el
         // usuario y sacar otra foto se los borraba sin avisar.
         ...actual,
-        bodega: result.bodega ?? '',
-        nombre_vino: result.nombre_vino ?? '',
-        varietal: result.varietal ?? '',
-        anada: result.anada != null ? String(result.anada) : '',
-        region: result.region ?? '',
-        alcohol: result.alcohol ?? '',
+        bodega: result.bodega ?? base.bodega,
+        nombre_vino: result.nombre_vino ?? base.nombre_vino,
+        varietal: result.varietal ?? base.varietal,
+        anada: result.anada != null ? String(result.anada) : base.anada,
+        region: result.region ?? base.region,
+        alcohol: result.alcohol ?? base.alcohol,
       }))
       setRead({
         bodega: result.bodega != null,
@@ -298,7 +304,9 @@ export function ScanScreen({ wines, onCancel, onSaved, pendiente }: Props) {
               ? 'Sin etiqueta, a mano'
               : pendiente && stage === 'form'
                 ? 'De tus pendientes: completá lo que falta'
-                : stage === 'capture'
+                : pendiente && stage === 'capture'
+                  ? 'La foto completa lo que falta'
+                  : stage === 'capture'
                 ? 'Sacale una foto a la etiqueta'
                 : stage === 'reading'
                   ? 'Leyendo la etiqueta…'
@@ -408,6 +416,21 @@ export function ScanScreen({ wines, onCancel, onSaved, pendiente }: Props) {
               </div>
             </>
           )}
+        </div>
+      )}
+
+      {pendiente && stage === 'capture' && (
+        <div className="mx-[22px] mb-4 flex items-center justify-between gap-3">
+          <span className="min-w-0 truncate font-serif text-[16px] font-semibold text-crema">
+            {pendiente.nombre_vino}
+          </span>
+          <button
+            type="button"
+            onClick={() => setStage('form')}
+            className="shrink-0 text-[12px] font-semibold text-tenue-500 underline underline-offset-4"
+          >
+            Completar a mano
+          </button>
         </div>
       )}
 

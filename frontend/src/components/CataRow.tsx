@@ -1,27 +1,26 @@
 import type { CataRecord } from '../lib/types'
 import { formatDate, formatDayMonth, formatYear } from '../lib/wine'
 import { formatPuntuacion } from '../lib/puntuacion'
-import { InfoIcon, PairingIcon, RatingGlassIcon } from './icons'
+import { PairingIcon, RatingGlassIcon } from './icons'
 
 /**
- * Una cata del historico. Vive en components/ y no dentro de CatasScreen porque
- * la ficha del vino tambien la usa.
+ * Una cata del historico. Vive en components/ junto a la version compacta que
+ * usa la ficha del vino.
  *
  * El layout calca a WineRow: marca a la izquierda, datos al medio, cifra a la
  * derecha. Ahi va una sola copa con el puntaje, en el mismo lugar y peso que el
  * contador de stock; las cinco copas aparecen solo en el detalle.
+ *
+ * El toque abre el detalle y no el vino: en el historico lo que se vuelve a
+ * leer son las notas, y el detalle ya lleva al vino. Antes las notas pedian un
+ * boton aparte al costado.
  */
 export function CataRow({
   cata,
-  onSelect,
-  onNotes,
   onOpen,
 }: {
   cata: CataRecord
-  onSelect: (codigoVino: string) => void
-  onNotes?: (cata: CataRecord) => void
-  /** En la ficha del vino el tap corrige la cata en vez de navegar a el. */
-  onOpen?: (cata: CataRecord) => void
+  onOpen: (cata: CataRecord) => void
 }) {
   const day = formatDayMonth(cata.fecha_consumo)
   const year = cata.anada === null ? null : formatYear(cata.anada)
@@ -79,42 +78,9 @@ export function CataRow({
   }`
 
   return (
-    <div className="flex items-stretch gap-[5px]">
-      {onOpen ? (
-        <button type="button" onClick={() => onOpen(cata)} className={shell}>
-          {body}
-        </button>
-      ) : cata.vino_existe && cata.codigo_vino ? (
-        // Por el codigo y no por `vino_id`: desde que la cata guarda el uuid
-        // del vino, `vino_id` ya no es lo que aceptan las rutas de la API.
-        <button
-          type="button"
-          onClick={() => onSelect(cata.codigo_vino!)}
-          className={shell}
-        >
-          {body}
-        </button>
-      ) : (
-        // Un vino borrado no se puede abrir, asi que no es un boton.
-        <div className={shell}>{body}</div>
-      )}
-
-      {/* El hueco queda aunque no haya notas: si no, la columna del puntaje
-          se corre fila por fila. */}
-      {onNotes &&
-        (cata.notas_cata ? (
-          <button
-            type="button"
-            onClick={() => onNotes(cata)}
-            aria-label="Ver notas de la cata"
-            className="flex w-[34px] shrink-0 items-center justify-center rounded-[7px] border border-borde bg-madera-700 text-tenue-500"
-          >
-            <InfoIcon size={13} />
-          </button>
-        ) : (
-          <div aria-hidden className="w-[34px] shrink-0" />
-        ))}
-    </div>
+    <button type="button" onClick={() => onOpen(cata)} className={shell}>
+      {body}
+    </button>
   )
 }
 

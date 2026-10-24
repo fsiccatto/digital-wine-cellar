@@ -95,7 +95,9 @@ que contó quien lo recomendó.
 
 **Comprarlo pasa por la carga de siempre.** "Lo compré" abre la pantalla de
 nueva botella con los datos puestos, para no duplicar el alta ni el aviso de
-que ya está en la cava. Recién con el vino creado (o con stock sumado), el
+que ya está en la cava. Arranca por la foto, porque la botella ya está en la
+mano: la etiqueta completa lo que el pendiente no sabía, y lo que no lee queda
+como estaba anotado. Recién con el vino creado (o con stock sumado), el
 pendiente se cuelga de él por uuid: si se había probado, esa cata pasa al
 histórico con el día de la cena, y si tenía foto y el vino no, GCS la copia
 adentro del bucket. Marcarlo dos veces no escribe nada la segunda.

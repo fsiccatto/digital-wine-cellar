@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPendiente, scanLabel, updatePendiente, uploadPendientePhoto } from '../lib/api'
-import type { PendienteInput, PendienteRecord } from '../lib/types'
-import { diaDe } from '../lib/wine'
+import type { PendienteInput, PendienteRecord, WineRecord } from '../lib/types'
+import { yaEnLaCava } from '../lib/pendientes'
+import { diaDe, glassTint } from '../lib/wine'
 import { PRESET_GUARDAR, PRESET_OCR, prepareLabelPhoto } from '../lib/image'
 import {
+  BottleIcon,
   CameraIcon,
   CheckIcon,
   ChevronLeftIcon,
@@ -44,15 +46,18 @@ function formDe(pendiente?: PendienteRecord): FormState {
 interface Props {
   /** Sin pendiente es uno nuevo. */
   pendiente?: PendienteRecord
+  /** Para avisar si lo que se esta anotando ya esta en la cava. */
+  wines: WineRecord[]
   onCancel: () => void
   onSaved: (aviso?: string) => void
+  onVerVino: (codigoVino: string) => void
 }
 
 /**
  * Anotar un vino que no esta en la cava. Pensado para la mesa: el nombre
  * alcanza, la foto completa el resto, y la cata se agrega si se probo.
  */
-export function PendienteScreen({ pendiente, onCancel, onSaved }: Props) {
+export function PendienteScreen({ pendiente, wines, onCancel, onSaved, onVerVino }: Props) {
   const [form, setForm] = useState<FormState>(() => formDe(pendiente))
   const [probado, setProbado] = useState(pendiente?.puntuacion != null)
   const [score, setScore] = useState(pendiente?.puntuacion ?? 4)
@@ -117,6 +122,9 @@ export function PendienteScreen({ pendiente, onCancel, onSaved }: Props) {
     form.anada.trim() !== '' &&
     !(Number.isInteger(anadaNumber) && anadaNumber >= 1900 && anadaNumber <= yearNow)
   const completo = form.nombre_vino.trim() !== '' && !anadaInvalida
+
+  // Con lo que hay escrito, no con lo que se guardo: el aviso sigue al dedo.
+  const enLaCava = yaEnLaCava(wines, { nombre_vino: form.nombre_vino, bodega: form.bodega })
 
   async function handleSave() {
     setSaving(true)
@@ -254,6 +262,46 @@ export function PendienteScreen({ pendiente, onCancel, onSaved }: Props) {
       )}
 
       <div className="relative flex grow flex-col gap-[15px] px-[22px] pb-36">
+        {/* Avisa y no bloquea: puede ser otra añada, o algo que se quiere
+            volver a comprar. */}
+        {enLaCava && (
+          <div className="flex flex-col gap-[10px] rounded-[11px] border border-oro/35 bg-oro/6 p-[14px]">
+            <span className="text-[10.5px] font-bold tracking-[0.16em] text-oro uppercase">
+              Ya está en tu cava
+            </span>
+            <button
+              type="button"
+              onClick={() => onVerVino(enLaCava.codigo_vino)}
+              className="flex items-center gap-[10px] rounded-[7px] border border-borde bg-madera-700 px-[11px] py-2 text-left"
+            >
+              <BottleIcon
+                glass={glassTint(enLaCava.varietal).glass}
+                edge={glassTint(enLaCava.varietal).edge}
+                width={12}
+                height={30}
+              />
+              <span className="flex min-w-0 grow flex-col gap-px">
+                <span className="truncate text-[10px] font-bold tracking-[0.12em] text-tenue-500 uppercase">
+                  {enLaCava.bodega}
+                </span>
+                <span className="truncate font-serif text-[15px] leading-[1.15] font-semibold text-crema">
+                  {enLaCava.nombre_vino}
+                </span>
+                <span className="cifra truncate text-[10.5px] text-tenue-500">
+                  {enLaCava.varietal} · {enLaCava.anada}
+                  {enLaCava.ubicacion ? ` · ${enLaCava.ubicacion}` : ''}
+                </span>
+              </span>
+              <span className="cifra shrink-0 font-serif text-[16px] leading-none font-semibold text-oro">
+                {enLaCava.cantidad}
+              </span>
+            </button>
+            <p className="text-[11px] leading-relaxed text-tenue-500">
+              Si es otra añada, o querés volver a comprarlo, guardalo igual.
+            </p>
+          </div>
+        )}
+
         <SectionLabel>El vino</SectionLabel>
 
         <div className="flex flex-col gap-[13px]">

@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { detallePendiente, matchesPendienteSearch, separarPendientes } from './pendientes'
+import {
+  detallePendiente,
+  matchesPendienteSearch,
+  separarPendientes,
+  yaEnLaCava,
+} from './pendientes'
 import type { PendienteRecord, WineRecord } from './types'
 
 function pendiente(overrides: Partial<PendienteRecord> = {}): PendienteRecord {
@@ -63,5 +68,31 @@ describe('detallePendiente', () => {
       'Cabernet Franc · 2019',
     )
     expect(detallePendiente(pendiente())).toBe('')
+  })
+})
+
+describe('yaEnLaCava', () => {
+  const cava = [
+    { ...vino, id: 'a', bodega: 'Luca', nombre_vino: 'Beso de Dante', cantidad: 0 },
+    { ...vino, id: 'b', bodega: 'Luca', nombre_vino: 'Beso de Dante', cantidad: 2 },
+    { ...vino, id: 'c', bodega: 'Catena Zapata', nombre_vino: 'Angélica Zapata', cantidad: 1 },
+  ] as WineRecord[]
+
+  it('reconoce el nombre con la bodega adelante y prefiere el que tiene stock', () => {
+    expect(yaEnLaCava(cava, { nombre_vino: 'luca beso de dante', bodega: '' })?.id).toBe('b')
+  })
+
+  it('acepta un nombre mas largo que el de la cava, sin acentos', () => {
+    expect(yaEnLaCava(cava, { nombre_vino: 'Angelica Zapata Malbec', bodega: '' })?.id).toBe(
+      'c',
+    )
+  })
+
+  it('una sola palabra no alcanza para decir que es el mismo', () => {
+    expect(yaEnLaCava(cava, { nombre_vino: 'Zapata', bodega: '' })).toBeNull()
+  })
+
+  it('si dice la bodega, tiene que coincidir', () => {
+    expect(yaEnLaCava(cava, { nombre_vino: 'Beso de Dante', bodega: 'Otra' })).toBeNull()
   })
 })

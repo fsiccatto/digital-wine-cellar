@@ -280,15 +280,6 @@ export function PairingIcon({ size = 12, className }: IconProps) {
   )
 }
 
-export function InfoIcon({ size = 14, className }: IconProps) {
-  return (
-    <svg {...base} width={size} height={size} strokeWidth={1.9} className={className}>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 8.5v.01M12 12v4" />
-    </svg>
-  )
-}
-
 export function TrashIcon({ size = 19, className }: IconProps) {
   return (
     <svg {...base} width={size} height={size} strokeWidth={1.9} className={className}>
