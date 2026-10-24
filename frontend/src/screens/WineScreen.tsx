@@ -852,7 +852,7 @@ function EditSheet({
   const set = (key: keyof typeof form) => (value: string) =>
     setForm((current) => ({ ...current, [key]: value }))
 
-  const yearNow = new Date().getFullYear()
+  const [yearNow] = useState(() => new Date().getFullYear())
   const year = Number(form.anada)
   const yearInvalid = !Number.isInteger(year) || year < 1900 || year > yearNow
 

@@ -210,7 +210,7 @@ export function ScanScreen({ wines, onCancel, onSaved }: Props) {
     }
   }
 
-  const yearNow = new Date().getFullYear()
+  const [yearNow] = useState(() => new Date().getFullYear())
   const anadaNumber = Number.parseInt(form.anada, 10)
 
   // Se recalcula con lo que hay en el formulario, no con lo que leyo la IA: si

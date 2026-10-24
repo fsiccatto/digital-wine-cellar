@@ -56,7 +56,7 @@ Celular  ──foto──>  FastAPI  ──imagen──>  Gemini
 
 | Capa | Tecnología |
 |---|---|
-| Backend | Python 3.11, FastAPI, Pydantic |
+| Backend | Python 3.13, FastAPI, Pydantic |
 | Frontend | React 19, TypeScript, Vite, Tailwind 4 |
 | IA | Google Gemini (`gemini-3.6-flash`) |
 | Datos | Google Sheets vía `gspread` |
