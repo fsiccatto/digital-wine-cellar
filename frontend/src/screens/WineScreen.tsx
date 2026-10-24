@@ -573,6 +573,9 @@ function TastingSheet({
   onDeleted?: (idCata: string) => void
 }) {
   const [score, setScore] = useState(cata?.puntuacion ?? 4)
+  // No todo descorche es una cata: el vino barato del asado se toma sin
+  // puntuar. Al editar una que quedo asi, corregir la nota no le inventa un 4.
+  const [puntuar, setPuntuar] = useState(cata ? cata.puntuacion !== null : true)
   const [notes, setNotes] = useState(cata?.notas_cata ?? '')
   const [pairing, setPairing] = useState(cata?.maridaje ?? '')
   // Hoy al descorchar, el de la cata al editarla. Solo viaja si se cambio: asi
@@ -588,12 +591,13 @@ function TastingSheet({
     nota: { rotulo: 'Anotar cata', accion: 'Guardar cata', enCurso: 'Guardando…' },
     editar: { rotulo: 'Editar cata', accion: 'Guardar cambios', enCurso: 'Guardando…' },
   }[modo]
+  const accion = modo === 'descorchar' && !puntuar ? 'Descontar la botella' : textos.accion
 
   async function submit() {
     setSaving(true)
     setError(null)
     const payload = {
-      puntuacion: score,
+      puntuacion: puntuar ? score : null,
       notas_cata: notes.trim() || null,
       maridaje: pairing.trim() || null,
       // La clave entera afuera, no en null: el backend anterior la rechaza, y
@@ -646,8 +650,21 @@ function TastingSheet({
         )}
       </div>
 
-      <div className="mb-5">
-        <SelectorCopas valor={score} onChange={setScore} />
+      <div className="mb-5 flex flex-col items-start gap-[10px]">
+        {puntuar ? (
+          <SelectorCopas valor={score} onChange={setScore} />
+        ) : (
+          <p className="text-[12.5px] leading-relaxed text-tenue-500">
+            Sin puntuar: queda anotado que se tomó, sin copas.
+          </p>
+        )}
+        <button
+          type="button"
+          onClick={() => setPuntuar(!puntuar)}
+          className="text-[12px] font-semibold text-tenue-500 underline underline-offset-4"
+        >
+          {puntuar ? 'No quiero puntuarlo' : 'Puntuarlo'}
+        </button>
       </div>
 
       <div className="mb-4 flex flex-col gap-[6px]">
@@ -767,7 +784,7 @@ function TastingSheet({
               ) : (
                 <>
                   <CheckIcon size={17} />
-                  <span className="text-[14px]">{textos.accion}</span>
+                  <span className="text-[14px]">{accion}</span>
                 </>
               )}
             </button>

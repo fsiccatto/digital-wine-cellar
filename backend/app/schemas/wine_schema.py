@@ -264,7 +264,7 @@ class CataUpdateInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    puntuacion: float = Field(ge=0.5, le=5)
+    puntuacion: Optional[float] = Field(default=None, ge=0.5, le=5)
 
     _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
     notas_cata: Optional[str] = None
@@ -285,7 +285,7 @@ class CataCreateInput(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    puntuacion: float = Field(ge=0.5, le=5)
+    puntuacion: Optional[float] = Field(default=None, ge=0.5, le=5)
 
     _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
     notas_cata: Optional[str] = None
@@ -301,7 +301,10 @@ class CataCreateInput(BaseModel):
 class WineConsumeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    puntuacion: float = Field(ge=0.5, le=5)
+    # Opcional: el vino barato que se llevo a un asado se toma igual, sin
+    # ganas de puntuarlo. Queda en el historico como "se tomo tal dia", que
+    # es lo que el ajuste de stock no deja.
+    puntuacion: Optional[float] = Field(default=None, ge=0.5, le=5)
 
     _media_copa = field_validator("puntuacion", mode="before")(validar_media_copa)
     notas_cata: Optional[str] = None

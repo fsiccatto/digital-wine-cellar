@@ -32,7 +32,8 @@ para que abrir la app no espere un arranque en frío.
   corte aparece bajo cada una de sus uvas, y las botellas agotadas caen al final.
 - **Descorchar una botella**: descuenta el stock y registra la cata con
   puntuación, notas, maridaje y el día en que se tomó, que puede ser otro que
-  hoy.
+  hoy. La puntuación es opcional: el vino que se llevó a un asado se toma sin
+  puntuar y queda anotado igual.
 - **Anotar una cata suelta**, de algo abierto ayer o probado afuera, sin tocar
   el stock.
 - **Leer el histórico** de catas, agrupado por mes y con búsqueda por vino,

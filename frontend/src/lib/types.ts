@@ -45,7 +45,8 @@ export interface WineCreateInput {
 }
 
 export interface WineConsumeInput {
-  puntuacion: number
+  /** Sin puntuacion: se tomo, pero sin ganas de puntuarlo. */
+  puntuacion?: number | null
   notas_cata?: string | null
   maridaje?: string | null
   /** Sin fecha, la pone el servidor. */
@@ -97,7 +98,8 @@ export interface DeleteResult {
 
 /** Lo que se puede corregir de una cata: todo menos el vino. */
 export interface CataUpdateInput {
-  puntuacion: number
+  /** Sin puntuacion: se tomo, pero sin ganas de puntuarlo. */
+  puntuacion?: number | null
   notas_cata?: string | null
   maridaje?: string | null
   /** Sin fecha queda la que tenia. */
@@ -106,7 +108,8 @@ export interface CataUpdateInput {
 
 /** Una cata suelta, sin descontar stock. Sin fecha, la pone el servidor. */
 export interface CataCreateInput {
-  puntuacion: number
+  /** Sin puntuacion: se tomo, pero sin ganas de puntuarlo. */
+  puntuacion?: number | null
   notas_cata?: string | null
   maridaje?: string | null
   fecha_consumo?: string | null

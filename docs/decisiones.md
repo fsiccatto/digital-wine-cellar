@@ -32,6 +32,10 @@ Descorchar y ajustar el stock son cosas distintas a propósito: `consume` baja
 una botella **y** escribe la cata; `stock` solo corrige el inventario. Confundir
 las dos arruina el histórico.
 
+Por eso tomar una botella sin ganas de puntuarla también va por `consume`, con
+la puntuación vacía: queda en el histórico que se tomó ese día, sin copas, y el
+promedio del vino no la cuenta.
+
 
 **Las fotos nunca se sirven públicamente.** El bucket tiene
 `public-access-prevention` activo. En la columna `foto_url` del Sheet se guarda
